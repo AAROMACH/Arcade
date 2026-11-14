@@ -70,6 +70,10 @@ h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: .16em; text-transform: u
 .namerow input { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 180px; }
 .namerow button { font: inherit; font-weight: 700; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .namerow #nameSaved { color: #4cc38a; }
+.acct { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.acct button { font: inherit; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; color: #1f1f1f; background: #fff; border: 1px solid #dadce0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.acct button svg { width: 16px; height: 16px; } .acct #gOut { color: var(--fg); background: var(--panel); border-color: var(--line); }
+.acct .keep { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; } .acct #acctMsg { color: var(--fg); }
 table.rank { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .rank td { padding: 7px 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
 .rank tr:last-child td { border-bottom: 0; }
@@ -136,6 +140,7 @@ table.rank { width: 100%; border-collapse: collapse; font-variant-numeric: tabul
         <div class="by" id="byBtns" hidden><button type="button" data-by="score">Top score</button><button type="button" data-by="time">Fastest</button></div>
         <p class="lbnote" id="lbnote">Loading scores…</p>
         <form class="namerow" id="nameRow" hidden><label for="pname">Playing as</label><input id="pname" maxlength="24" autocomplete="nickname" placeholder="Your name"><button type="submit">Save</button><span id="nameSaved"></span></form>
+        <div class="acct" id="acct" hidden><span id="acctWho"></span><button type="button" id="gIn"><svg viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.5 1.4l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6z"/></svg>Sign in with Google</button><label class="keep"><input type="checkbox" id="keepIn" checked> Keep me signed in</label><button type="button" id="gOut" hidden>Sign out</button><span id="acctMsg" role="status"></span></div>
         <div id="sTable"></div>
         <button type="button" class="playbtn" id="sPlay">Play</button>
       </div>
@@ -192,7 +197,7 @@ function showTab(lb) {
 function openGame(id) {
   const x = G(id); current = id;
   $('ptitle').textContent = x.t; $('toast').textContent = '';
-  if (!$('frame').src.endsWith(`games/${id}.html`)) $('frame').src = `games/${id}.html`;
+  if (!$('frame').src.endsWith(`games/${id}.html`)) { $('frame').src = `games/${id}.html`; S.startRun(id); }
   $('player').hidden = false; setDrawer(drawerOpen);
   $('frame').addEventListener('load', () => $('frame').focus(), { once: true });
 }
@@ -213,7 +218,7 @@ $('pickers').addEventListener('click', e => { const b = e.target.closest('[data-
 function setDrawer(v) { drawerOpen = v; $('drawer').hidden = !v; $('lbtn').setAttribute('aria-expanded', v); try { localStorage.setItem('arcade:drawer', v ? '1' : '0'); } catch {} render(); }
 $('lbtn').onclick = () => setDrawer(!drawerOpen);
 // Restart reloads the game from scratch (anything a game saves on the device, like a checkpoint, stays).
-$('restart').onclick = () => { if (!current) return; $('toast').textContent = ''; $('frame').src = `games/${current}.html?r=${Date.now()}`; $('frame').addEventListener('load', () => $('frame').focus(), { once: true }); };
+$('restart').onclick = () => { if (!current) return; $('toast').textContent = ''; S.startRun(current); $('frame').src = `games/${current}.html?r=${Date.now()}`; $('frame').addEventListener('load', () => $('frame').focus(), { once: true }); };
 addEventListener('hashchange', route);
 
 // ── Scores: each player's bests live in one shared doc, scores/<their id>. ──
@@ -268,10 +273,10 @@ function post(gameId, score, time) {
   if (faster) { next.t = Math.round(time); next.tat = Date.now(); }
   mine = { ...mine, [gameId]: next };
   const body = mine;
-  writing = writing.then(() => S.save(body)).then(() => {
+  writing = writing.then(() => S.save(body, { game: gameId, score: Number.isFinite(score) ? Math.round(score) : 0, time: faster ? Math.round(time) : null })).then(() => {
     const r = standings(gameId).findIndex(r => r.pid === me);
     $('toast').textContent = better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : `New fastest: ${clockFmt(time)}!`;
-  }).catch(() => { $('toast').textContent = 'Score not posted. Check your connection.'; });
+  }).catch(err => { $('toast').textContent = err && err.code && err.code !== 'functions/internal' && err.code !== 'functions/unavailable' ? `Score not posted: ${err.message}` : 'Score not posted. Check your connection.'; });
 }
 addEventListener('message', e => {
   if (e.source !== $('frame').contentWindow) return;
@@ -287,6 +292,7 @@ S.start({
     if (me && rows.has(me)) mine = { ...rows.get(me) };
     render();
   },
+  onAccount: showAccount,
   onStatus(st) {
     $('lbnote').textContent = st === 'shared' ? 'Each player’s best run, shared with everyone who plays. Scores post automatically when a run ends.'
       : st === 'local' ? 'Scores are saved on this device only. (The shared leaderboard switches on once the arcade’s Firebase project is set up.)'
@@ -294,6 +300,19 @@ S.start({
     $('nameRow').hidden = st === 'error'; $('pname').value = S.name || '';
   },
 });
+function showAccount(a) {
+  const g = a && a.kind === 'google';
+  $('acct').hidden = !a || a.kind === 'local';
+  $('acctWho').textContent = g ? `Signed in with Google${a.email ? ` (${a.email})` : ''}.` : 'Playing as a guest on this device.';
+  $('gIn').hidden = g; $('gOut').hidden = !g; $('keepIn').checked = S.keep !== false;
+}
+$('gIn').onclick = async () => {
+  $('acctMsg').textContent = '';
+  try { const r = await S.signInGoogle($('keepIn').checked); if (r && r.switched) $('acctMsg').textContent = 'That Google account already had scores, so you switched to it.'; if (r && r.again) $('acctMsg').textContent = 'That Google account already has scores here. Tap Sign in with Google again to switch to it.'; $('pname').value = S.name || ''; }
+  catch (e) { $('acctMsg').textContent = e && e.code === 'auth/popup-closed-by-user' ? '' : 'Google sign-in didn’t finish. Try again.'; }
+};
+$('gOut').onclick = async () => { await S.signOut(); $('acctMsg').textContent = 'Signed out. You’re a guest again.'; };
+$('keepIn').onchange = () => { if (S.setKeep) S.setKeep($('keepIn').checked); };
 $('nameRow').addEventListener('submit', async e => { e.preventDefault(); await S.setName($('pname').value); $('nameSaved').textContent = 'Saved'; setTimeout(() => $('nameSaved').textContent = '', 1500); });
 </script>
 

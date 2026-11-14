@@ -109,7 +109,7 @@ self.addEventListener('fetch', e => {{
 """)
 
 # ── Firebase project files ──
-shutil.copy(SITE + 'firestore.rules', DEST + 'firestore.rules')
+# firestore.rules lives in the repo (server-only writes); it is not generated.
 open(DEST + 'firestore.indexes.json', 'w').write('{\n  "indexes": [],\n  "fieldOverrides": []\n}\n')
 open(DEST + 'firebase.json', 'w').write(json.dumps({
     "hosting": {
@@ -125,8 +125,10 @@ open(DEST + 'firebase.json', 'w').write(json.dumps({
         ],
     },
     "firestore": {"rules": "firestore.rules", "indexes": "firestore.indexes.json"},
+    "functions": [{"source": "functions", "codebase": "default", "runtime": "nodejs20", "ignore": ["node_modules", ".git", "*.log"]}],
+    "emulators": {"auth": {"port": 9099}, "firestore": {"port": 8085}, "functions": {"port": 5001}, "hosting": {"port": 5000}, "ui": {"enabled": True, "port": 4000}, "singleProjectMode": True},
 }, indent=2) + '\n')
 if not os.path.exists(DEST + '.firebaserc'):
     open(DEST + '.firebaserc', 'w').write('{\n  "projects": {\n    "default": "aaromach-arcade"\n  }\n}\n')
-open(DEST + '.gitignore', 'w').write('.build/\n.firebase/\nfirebase-debug.log\nfirestore-debug.log\nui-debug.log\n')
+open(DEST + '.gitignore', 'w').write('.build/\nfunctions/node_modules/\nfunctions/.env.local\n.firebase/\nfirebase-debug.log\nfirestore-debug.log\nui-debug.log\n')
 print('built', DEST, '| files:', len(files) + 1, '| cache', ver)

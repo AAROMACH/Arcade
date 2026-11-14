@@ -5,7 +5,8 @@ Firebase Hosting. No build step and no server code: every game is a self-contain
 It is its own Firebase project; Command Center only links to it.
 
 ```
-firebase.json            Hosting (public/) + Firestore rules
+firebase.json            Hosting (public/), Firestore rules, Cloud Functions, emulators
+functions/               server-side score checks (the only writer of the leaderboard)
 apphosting.yaml          App Hosting settings (server.js serves public/)
 server.js, package.json  dependency-free Node server for App Hosting
 .firebaserc              which Firebase project to deploy to (default: aaromach-arcade)
@@ -40,12 +41,21 @@ Use a **separate** project from Command Center so the arcade can never touch the
 
 1. In the [Firebase console](https://console.firebase.google.com), create a project. If you pick an
    ID other than `aaromach-arcade`, change it in `.firebaserc`.
-2. **Build → Authentication → Sign-in method:** enable **Anonymous**. Players are signed in
-   invisibly and choose a display name on the Leaderboard tab.
-3. **Build → Firestore Database:** create a database in production mode.
-4. **Project settings → Your apps → Add app → Web:** register it and copy `apiKey`, `authDomain`,
+2. **Upgrade to the Blaze plan** (Usage and billing). The score-checking Cloud Functions need it.
+   At arcade traffic this stays inside the free allowance; set a budget alert anyway.
+3. **Build → Authentication → Sign-in method:** enable **Anonymous** and **Google**. Players start
+   as an invisible guest; "Sign in with Google" on the Leaderboard tab links their scores to their
+   Google account so they follow them to any device.
+4. **Authentication → Settings → Authorized domains:** add every address the arcade is served
+   from (for example `arcade.aaromach.com`, and the App Hosting URL if you use it).
+5. **Build → Firestore Database:** create a database in production mode.
+6. **Project settings → Your apps → Add app → Web:** register it and copy `apiKey`, `authDomain`,
    `projectId` and `appId` into `public/config.js`. These values are public by design; the
-   security rules are what protect the data.
+   security rules and the functions are what protect the data.
+7. **App Check:** in the [reCAPTCHA admin console](https://www.google.com/recaptcha/admin) create a
+   **reCAPTCHA v3** site key for your arcade domains. In Firebase, **Build → App Check → Apps**,
+   register the web app with that key's secret, and put the **site key** in `public/config.js` as
+   `window.ARCADE_APPCHECK_KEY`. Then under **App Check → APIs**, enforce it for Cloud Functions.
 
 ## 3. Deploy
 
@@ -58,10 +68,25 @@ firebase login
 ```
 
 ```bash
-firebase deploy --only hosting,firestore
+cd functions && npm install && cd ..
+```
+
+```bash
+firebase deploy --only hosting,firestore,functions
 ```
 
 The arcade is then live at `https://<project-id>.web.app`.
+
+**Check it's working:** open the arcade, play a game to the end, and the Leaderboard tab shows
+your score. In the Firebase console, Functions shows `submitScore` calls, and App Check's metrics
+show them as verified. If scores stop posting with "Score not posted: Unauthenticated", the App
+Check site key is missing or the domain isn't on the reCAPTCHA key.
+
+**Test locally without touching the real project** (Auth, Firestore and Functions emulators):
+
+```bash
+firebase emulators:start --project demo-arcade
+```
 
 ### Or: Firebase App Hosting (deploys on every push to `main`)
 
@@ -116,10 +141,19 @@ produced this repo does that. If you edit by hand, change the `CACHE` string at 
 
 ## Leaderboard rules
 
-- Anyone can read the leaderboard.
-- Each player can write only their own row (`scores/<their uid>`): a name of up to 24 characters
-  and their game scores.
+- Anyone can read the leaderboard (`firestore.rules`).
+- **Nobody can write it from the browser**, not even their own row. Scores and names are saved only
+  by the Cloud Functions in `functions/`, which check each one first:
+  - the player is signed in, and the call comes from the real site (App Check);
+  - the game exists and the score was posted from a run of that game the player started;
+  - the score is under the game's cap and no higher than that game's points-per-minute allows for
+    the time the game has been open; finish times aren't faster than possible;
+  - at most one post every 10 seconds; a lower score never replaces a best.
+- The limits per game are in `GAMES` at the top of `functions/index.js`. They're deliberately
+  generous; raise one if a real score is ever refused.
+- Public names are cleaned (24 characters, no markup). A Google sign-in shows first name + last
+  initial by default, never the full name or email.
 - Nobody can delete rows from the site. To clear a player or reset the boards, delete documents in
   the Firebase console under Firestore → `scores`.
-- Scores are posted from the player's browser, so a determined player could fake one. Fine for a
-  team leaderboard; if prizes ever ride on it, move score checks into a Cloud Function.
+- This stops editing your own row and obviously fake scores. It can't prove a believable score was
+  earned, because the games run in the browser; that would need the server to replay each run.

@@ -49,3 +49,9 @@ node tools/bots/ttbots.js 300
   each bot meets a list of daily goals.
 - `ttbots.js`: Tone & Trace. An expert investigator, a skimmer, a story-truster and a guesser
   each play shifts; prints how often each meets the shift goal.
+
+## Leaderboard server tests
+
+`tests/functions.test.js` signs in as test players against the Firebase emulators and checks that
+the browser can't write scores, that the functions refuse fake or out-of-range scores, and that
+honest scores and names are saved. See the comment at the top of the file for how to run it.

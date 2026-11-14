@@ -3,6 +3,10 @@
 // To turn on the shared leaderboard, create a SEPARATE Firebase project for the arcade
 // (not the Command Center project), add a Web app, and paste its config here. See README.md.
 window.ARCADE_FIREBASE = null;
+// App Check: the reCAPTCHA v3 site key registered for this site (Firebase console, App Check).
+window.ARCADE_APPCHECK_KEY = null;
+// Region the Cloud Functions are deployed to (functions/index.js).
+window.ARCADE_FUNCTIONS_REGION = 'us-central1';
 /* Example:
 window.ARCADE_FIREBASE = {
   apiKey: "…",

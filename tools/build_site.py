@@ -16,6 +16,10 @@ def R(a, b):
     assert s.count(a) == 1, (a[:80], s.count(a))
     s = s.replace(a, b)
 
+R("  if (!$('frame').src.endsWith(`games/${id}.html`)) $('frame').src = `games/${id}.html`;",
+  "  if (!$('frame').src.endsWith(`games/${id}.html`)) { $('frame').src = `games/${id}.html`; S.startRun(id); }")
+R("$('restart').onclick = () => { if (!current) return; $('toast').textContent = '';",
+  "$('restart').onclick = () => { if (!current) return; $('toast').textContent = ''; S.startRun(current);")
 # Artifact-only meta out; storage swapped for scores.js.
 R('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
 R("let db = null, user = null, me = null, rows = new Map(), mine = {}, loaded = false;",
@@ -28,9 +32,9 @@ R("""<td><div class="who"><img alt="" src="${ps[r.pid]?.avatarUrl || ''}"><span>
 R(".rank .who img { width: 22px; height: 22px; border-radius: 50%; flex: none; }",
   ".rank .who img, .rank .who .av { width: 22px; height: 22px; border-radius: 50%; flex: none; }\n.rank .who .av { display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }")
 R("  if (!db || !me || !loaded || !G(gameId)) return;", "  if (!me || !loaded || !G(gameId)) return;")
-R("  writing = writing.then(() => db.doc('scores/' + me).set(body)).then(() => {", "  writing = writing.then(() => S.save(body)).then(() => {")
+R("  writing = writing.then(() => db.doc('scores/' + me).set(body)).then(() => {", "  writing = writing.then(() => S.save(body, { game: gameId, score: Number.isFinite(score) ? Math.round(score) : 0, time: faster ? Math.round(time) : null })).then(() => {")
 R("""  }).catch(err => { $('toast').textContent = err?.code === 'permission_denied' || err?.code === 'not_granted' ? 'Score not posted: needs Contributor access' : 'Score not posted'; });""",
-  """  }).catch(() => { $('toast').textContent = 'Score not posted. Check your connection.'; });""")
+  """  }).catch(err => { $('toast').textContent = err && err.code && err.code !== 'functions/internal' && err.code !== 'functions/unavailable' ? `Score not posted: ${err.message}` : 'Score not posted. Check your connection.'; });""")
 a = s.index("(async () => {\n  const timer = setTimeout(() => { if (!loaded)"); b = s.index("</script>", a)
 s = s[:a] + """// Scores: a shared leaderboard (separate Firebase project, set in config.js) or this device only.
 S.start({
@@ -40,6 +44,7 @@ S.start({
     if (me && rows.has(me)) mine = { ...rows.get(me) };
     render();
   },
+  onAccount: showAccount,
   onStatus(st) {
     $('lbnote').textContent = st === 'shared' ? 'Each player’s best run, shared with everyone who plays. Scores post automatically when a run ends.'
       : st === 'local' ? 'Scores are saved on this device only. (The shared leaderboard switches on once the arcade’s Firebase project is set up.)'
@@ -47,17 +52,35 @@ S.start({
     $('nameRow').hidden = st === 'error'; $('pname').value = S.name || '';
   },
 });
+function showAccount(a) {
+  const g = a && a.kind === 'google';
+  $('acct').hidden = !a || a.kind === 'local';
+  $('acctWho').textContent = g ? `Signed in with Google${a.email ? ` (${a.email})` : ''}.` : 'Playing as a guest on this device.';
+  $('gIn').hidden = g; $('gOut').hidden = !g; $('keepIn').checked = S.keep !== false;
+}
+$('gIn').onclick = async () => {
+  $('acctMsg').textContent = '';
+  try { const r = await S.signInGoogle($('keepIn').checked); if (r && r.switched) $('acctMsg').textContent = 'That Google account already had scores, so you switched to it.'; if (r && r.again) $('acctMsg').textContent = 'That Google account already has scores here. Tap Sign in with Google again to switch to it.'; $('pname').value = S.name || ''; }
+  catch (e) { $('acctMsg').textContent = e && e.code === 'auth/popup-closed-by-user' ? '' : 'Google sign-in didn\u2019t finish. Try again.'; }
+};
+$('gOut').onclick = async () => { await S.signOut(); $('acctMsg').textContent = 'Signed out. You\u2019re a guest again.'; };
+$('keepIn').onchange = () => { if (S.setKeep) S.setKeep($('keepIn').checked); };
 $('nameRow').addEventListener('submit', async e => { e.preventDefault(); await S.setName($('pname').value); $('nameSaved').textContent = 'Saved'; setTimeout(() => $('nameSaved').textContent = '', 1500); });
 """ + s[b:]
 R("""        <p class="lbnote" id="lbnote">Loading scores…</p>""",
   """        <p class="lbnote" id="lbnote">Loading scores…</p>
-        <form class="namerow" id="nameRow" hidden><label for="pname">Playing as</label><input id="pname" maxlength="24" autocomplete="nickname" placeholder="Your name"><button type="submit">Save</button><span id="nameSaved"></span></form>""")
+        <form class="namerow" id="nameRow" hidden><label for="pname">Playing as</label><input id="pname" maxlength="24" autocomplete="nickname" placeholder="Your name"><button type="submit">Save</button><span id="nameSaved"></span></form>
+        <div class="acct" id="acct" hidden><span id="acctWho"></span><button type="button" id="gIn"><svg viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.5 1.4l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6z"/></svg>Sign in with Google</button><label class="keep"><input type="checkbox" id="keepIn" checked> Keep me signed in</label><button type="button" id="gOut" hidden>Sign out</button><span id="acctMsg" role="status"></span></div>""")
 R(".lbnote { font-size: 13px; color: var(--muted); margin: 0; }",
   """.lbnote { font-size: 13px; color: var(--muted); margin: 0; }
 .namerow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .namerow input { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 180px; }
 .namerow button { font: inherit; font-weight: 700; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
-.namerow #nameSaved { color: #4cc38a; }""")
+.namerow #nameSaved { color: #4cc38a; }
+.acct { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.acct button { font: inherit; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; color: #1f1f1f; background: #fff; border: 1px solid #dadce0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.acct button svg { width: 16px; height: 16px; } .acct #gOut { color: var(--fg); background: var(--panel); border-color: var(--line); }
+.acct .keep { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; } .acct #acctMsg { color: var(--fg); }""")
 # Wrap as a full document for normal web hosting.
 head = """<!doctype html>
 <html lang="en"><head>
@@ -76,6 +99,10 @@ open(OUT + 'config.js', 'w').write("""// Aaromach Arcade — shared leaderboard 
 // To turn on the shared leaderboard, create a SEPARATE Firebase project for the arcade
 // (not the Command Center project), add a Web app, and paste its config here. See README.md.
 window.ARCADE_FIREBASE = null;
+// App Check: the reCAPTCHA v3 site key registered for this site (Firebase console, App Check).
+window.ARCADE_APPCHECK_KEY = null;
+// Region the Cloud Functions are deployed to (functions/index.js).
+window.ARCADE_FUNCTIONS_REGION = 'us-central1';
 /* Example:
 window.ARCADE_FIREBASE = {
   apiKey: "…",
