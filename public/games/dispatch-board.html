@@ -73,6 +73,10 @@ canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; max-wi
 /* The call card: pops up over the map and pauses the board. */
 .callbox { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 24px)); max-height: calc(100% - 16px); overflow-y: auto;
   background: #12161c; border: 1.5px solid var(--sel); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; box-shadow: 0 16px 40px rgba(0,0,0,.65); animation: cin .25s ease-out; }
+.callbox.emer { border: 2px solid #ff6a55; box-shadow: 0 0 0 4px rgba(255,106,85,.18), 0 16px 40px rgba(0,0,0,.65); }
+.callbox.emer .tag { background: rgba(255,106,85,.15); animation: epulse 1s ease-in-out infinite; }
+@keyframes epulse { 50% { background: rgba(255,106,85,.4); } }
+@media (prefers-reduced-motion: reduce) { .callbox.emer .tag { animation: none; } }
 @keyframes cin { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
 .callbox .ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .callbox .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; border: 1.5px solid currentColor; }
@@ -218,7 +222,7 @@ button:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
     <p class="note">Tap a job on the schedule to take it back off that tech.</p>
 
     <h3>Phone calls</h3>
-    <p>A few times a day someone calls: a customer, your crew, a supplier. The game pauses. Pick an answer (tap it, or press 1–3). Answers can make or cost money and move two meters:</p>
+    <p>Several times a day someone calls: a customer, your crew, a supplier. <b style="color:#ff6a55">⚠ Emergencies</b> happen to a tech in the field (an injury, a crash, a gas leak) and flag their van on the map. The game pauses. Pick an answer (tap it, or press 1–4). The safe choice usually costs time or money; a gamble can save it or make things much worse. Answers can make or cost money and move two meters:</p>
     <ul>
       <li><b style="color:#5aa9ff">Customer trust</b> and <b style="color:#4cc38a">Crew morale</b> both start at 60. At day's end, each point above 60 is +$10 to your score and each point below is −$10.</li>
       <li>People remember what you told them on later days. Tap ⓘ by a tech's name to meet them.</li>
@@ -313,7 +317,7 @@ const fmt = m => { const h = Math.floor(m / 60), mm = Math.floor(m % 60); return
 // Lore that carries from day to day (saved on this device): Ray's notes, who remembers what you did.
 let mem = { day: 0 }; try { mem = Object.assign(mem, JSON.parse(localStorage.getItem('dispatch:lore') || '{}')); } catch {}
 const saveMem = () => { try { localStorage.setItem('dispatch:lore', JSON.stringify(mem)); } catch {} };
-let trust = 60, crew = 60, callOpen = false, nextCallAt = 0, callsToday = 0, usedCalls = new Set(), curCall = null;
+let emerToday = 0, trust = 60, crew = 60, callOpen = false, nextCallAt = 0, callsToday = 0, usedCalls = new Set(), curCall = null;
 const BIO = {
   Marcus: { role: 'Senior tech', years: 21, bio: 'Pulled his first Cat3 in 2004 and has the knees to prove it. Knows every drop ceiling in Brookfield. Won\'t use cable lube he didn\'t buy himself.', line: '"Measure twice, pull once."' },
   Dana: { role: 'Fiber lead', years: 9, bio: 'The only splicer on the crew. Keeps her fusion splicer cleaner than her van. Customers ask for her by name, which she pretends to hate.', line: '"0.02 dB. You\'re welcome."' },
@@ -329,6 +333,17 @@ const BRIEF = [
 ];
 const anyTech = (f = () => true) => { const ok = techs.filter(t => !t.out && f(t)); return ok.length ? pick(ok) : null; };
 const busyTech = () => anyTech(t => t.cur);
+const onSite = () => anyTech(t => t.cur && t.cur.phase === 'work');
+const driving = () => anyTech(t => t.cur && t.cur.phase === 'drive');
+// Mark a tech's van on the map while their emergency plays out.
+const flag = tech => { if (tech) tech.alert = clock + 45; };
+// Pull the job a tech is working back onto the board; they move on to their next one.
+function bounceJob(tech) {
+  const c = tech && tech.cur; if (!c) return; const t = c.t;
+  t.tech = null; if (t.baseDur) { t.dur = t.baseDur; t.wrong = false; }
+  tech.cur = null; if (c.phase === 'work') tech.at = t.city;
+  toast('warn', `<b>#${t.id} ${t.city} is back on the board</b><br>It needs a new tech.`, t.id);
+}
 // Board effects
 function sendHome(tech, why) {
   tech.out = why;
@@ -342,7 +357,7 @@ function addTicket(city, skill, job, pay, dueIn, durMins = 60) {
   const t = { id: ++seq, city, skill, job, dur: durMins, born: clock, due: clock + dueIn, pay, tech: null, call: true };
   tickets.push(t); toast('info', `<b>New ticket #${t.id}</b> · ${city}<br>${chipOf(skill)} ${job} · <span class="amt">$${pay}</span> · due ${fmt(t.due)}`, t.id); return t;
 }
-const KIND = { customer: ['Customer call', '#5aa9ff'], crew: ['Crew', '#4cc38a'], supply: ['Supplier', '#f5b942'], site: ['Job site', '#ff8fb1'], office: ['Office', '#c48bff'] };
+const KIND = { emergency: ['⚠ Emergency', '#ff6a55'], customer: ['Customer call', '#5aa9ff'], crew: ['Crew', '#4cc38a'], supply: ['Supplier', '#f5b942'], site: ['Job site', '#ff8fb1'], office: ['Office', '#c48bff'] };
 const CALLS = [
   { id: 'sick', kind: 'crew', title: 'A tech goes home sick', when: () => techs.filter(t => !t.out).length >= 3,
     prep: c => { c.tech = anyTech(); }, who: c => `${c.tech.name}, sounding rough`,
@@ -439,6 +454,73 @@ const CALLS = [
       { txt: 'Talk to Priya one-on-one', fx: { c: 2 }, res: 'She\'s embarrassed and won\'t do it again.' },
       { txt: 'Let it slide', gamble: { p: .7, win: { t: -4, res: 'Nothing comes of it.' }, lose: { m: -2000, t: -20, c: -15, res: 'It happens again, and this time someone gets hurt.', mem: { safety: 'hurt' } } } },
     ] },
+  // ── Emergencies: things that go wrong for a tech in the field ──
+  { id: 'cut', kind: 'emergency', emer: true, title: 'Tech cut their hand', when: () => !!onSite(),
+    prep: c => { c.tech = onSite(); flag(c.tech); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `${c.tech.name}'s knife slipped stripping a cable jacket. It's a deep cut on the palm. Pressure has slowed the bleeding.`,
+    ch: c => [
+      { txt: 'Urgent care, now. Their jobs go back on the board', fx: { m: -180, c: 8, t: 2 }, res: 'Six stitches. They\'re done for today, and grateful you didn\'t hesitate.', act: () => sendHome(c.tech, 'At urgent care') },
+      { txt: 'First aid, then a 30-minute break', fx: { c: -2 }, res: 'The bandage holds. A slow, sore afternoon.', act: () => holdUp(c.tech, 30) },
+      { txt: 'Tape it up and finish the job', gamble: { p: .5, win: { c: -6, res: 'Taped up, job done. They\'re not happy about it.' }, lose: { m: -700, t: -8, c: -14, res: 'It opens back up on the customer\'s carpet. Urgent care anyway, plus a cleaning bill.', act: () => sendHome(c.tech, 'At urgent care') } } },
+    ] },
+  { id: 'crash', kind: 'emergency', emer: true, title: 'Fender-bender on the way', when: () => !!driving(),
+    prep: c => { c.tech = driving(); flag(c.tech); }, who: c => `${c.tech.name}, headed to ${c.tech.cur.t.city}`,
+    sit: c => `${c.tech.name} got rear-ended at a light. They say they're fine. The van's bumper is hanging off.`,
+    ch: c => [
+      { txt: 'Call the police and get a report', fx: { c: 4 }, res: 'An hour on the roadside, but insurance is covered.', act: () => holdUp(c.tech, 60) },
+      { txt: 'Swap insurance info and keep rolling', gamble: { p: .6, win: { res: 'The other driver\'s insurance pays. Quick and painless.', act: () => holdUp(c.tech, 15) }, lose: { m: -1200, t: -4, res: 'Later the other driver says your van hit them. No report, no proof. Your insurance pays.', act: () => holdUp(c.tech, 15) } } },
+      { txt: 'Tell them to take the rest of the day', fx: { c: 10, t: -4 }, res: 'They\'re more shaken than they let on. Their jobs go back on the board.', act: () => sendHome(c.tech, 'Shaken up after a crash') },
+    ] },
+  { id: 'gas', kind: 'emergency', emer: true, title: 'Smell of gas on site', when: () => !!onSite(),
+    prep: c => { c.tech = onSite(); flag(c.tech); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `${c.tech.name} is in the mechanical room at ${c.tech.cur.t.city} and smells gas. Nobody else seems to have noticed.`,
+    ch: c => [
+      { txt: 'Get everyone out and call the gas company', fx: { t: 10, c: 6 }, res: 'A leaking fitting on the water heater. The customer thanks you for taking it seriously. 75 minutes lost.', act: () => holdUp(c.tech, 75) },
+      { txt: 'Finish fast and get out', gamble: { p: .8, win: { c: -10, res: 'Nothing happens. Your tech is rattled that you asked.' }, lose: { m: -2500, t: -25, c: -20, res: 'The fire department evacuates the block with your tech still inside. It makes the evening news.', act: () => sendHome(c.tech, 'Evacuated') } } },
+    ] },
+  { id: 'live', kind: 'emergency', emer: true, title: 'Live 120V in a low-voltage box', when: () => !!onSite(),
+    prep: c => { c.tech = onSite(); flag(c.tech); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `${c.tech.name} opened a low-voltage box and found a live 120-volt splice stuffed in with the data cable. Somebody's handiwork.`,
+    ch: c => [
+      { txt: 'Stop, tag it, and have the customer call an electrician', fx: { m: -60, t: 8 }, res: 'The electrician moves it to its own box. 45 minutes lost, and the customer is glad you caught it.', act: () => holdUp(c.tech, 45) },
+      { txt: 'Tape it off and keep pulling', gamble: { p: .7, win: { c: -4, res: 'It holds. Nobody touches it again.' }, lose: { m: -1500, t: -8, c: -20, res: 'A nicked conductor. They take a jolt: shaken, not hurt, and done for the day.', act: () => sendHome(c.tech, 'Took a shock') } } },
+    ] },
+  { id: 'attic', kind: 'emergency', emer: true, title: 'Too hot in the attic', when: () => !!onSite() && clock >= 11 * 60,
+    prep: c => { c.tech = onSite(); flag(c.tech); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `It's 130° in the attic at ${c.tech.cur.t.city}. ${c.tech.name} says they're dizzy and has stopped sweating.`,
+    ch: c => [
+      { txt: 'Get them out: water, AC, 30 minutes', fx: { c: 6 }, res: 'They cool off and finish the run once the attic does too.', act: () => holdUp(c.tech, 30) },
+      { txt: 'Bring in a fan and keep going', gamble: { p: .55, win: { c: -8, res: 'They make it. Barely.' }, lose: { m: -400, c: -16, res: 'Heat exhaustion. Urgent care, an IV, and done for the day.', act: () => sendHome(c.tech, 'Heat exhaustion') } } },
+    ] },
+  { id: 'theft', kind: 'emergency', emer: true, title: 'Van broken into', when: () => !!busyTech(),
+    prep: c => { c.tech = busyTech(); flag(c.tech); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `Someone smashed ${c.tech.name}'s van window while they were inside. The drills and the cable certifier are gone.`,
+    ch: c => [
+      { txt: 'Buy replacements at the supply house', fx: { m: -650, c: 4 }, res: 'Back in business 45 minutes later. Expensive afternoon.', act: () => holdUp(c.tech, 45) },
+      { txt: 'Borrow gear from another tech', fx: { c: -6 }, res: 'It works, but now two techs are sharing one drill.', act: () => holdUp(c.tech, 20) },
+      { txt: 'Back to the shop to restock and file a report', fx: { m: -150, t: -4 }, res: 'Insurance will cover most of it. Their jobs wait 90 minutes.', act: () => holdUp(c.tech, 90) },
+    ] },
+  { id: 'locked', kind: 'emergency', emer: true, title: 'Nobody to let them in', when: () => !!onSite(),
+    prep: c => { c.tech = onSite(); flag(c.tech); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `${c.tech.name} is at ${c.tech.cur.t.city} and the IDF room is locked. The site contact isn't answering.`,
+    ch: c => [
+      { txt: 'Wait it out and keep calling', fx: { c: -2 }, res: 'The contact was at lunch. 30 minutes gone.', act: () => holdUp(c.tech, 30) },
+      { txt: 'Call the building\'s emergency number', gamble: { p: .6, win: { t: 2, res: 'Maintenance shows up with keys in ten minutes.', act: () => holdUp(c.tech, 10) }, lose: { t: -8, res: 'That was the owner\'s cell. He\'s at his kid\'s game. He lets them in, unhappily.', act: () => holdUp(c.tech, 30) } } },
+      { txt: 'Skip it. Put the job back on the board', fx: { t: -6 }, res: `${c.tech.name} moves on. The customer will need someone later.`, act: () => bounceJob(c.tech) },
+    ] },
+  { id: 'ceiling', kind: 'emergency', emer: true, title: 'Foot through the ceiling', when: () => !!onSite(),
+    prep: c => { c.tech = onSite(); flag(c.tech); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `${c.tech.name} missed a joist crawling over the lobby. There's a boot-sized hole in the customer's drywall ceiling.`,
+    ch: c => [
+      { txt: 'Own it and pay a drywall pro', fx: { m: -450, t: 6 }, res: 'The customer appreciates the honesty.' },
+      { txt: 'Patch it yourselves', gamble: { p: .5, win: { m: -80, t: 2, res: 'Clean patch. You can\'t tell.' }, lose: { m: -600, t: -12, res: 'The patch shows. They call a pro and send you the bill.', act: () => holdUp(c.tech, 40) } } },
+    ] },
+  { id: 'fibercut', kind: 'emergency', emer: true, title: 'Fiber cut, building down', when: () => clock < 15 * 60 && techs.some(t => !t.out && t.skills.includes('FIB')),
+    who: () => 'Facilities, Harbor Mall', sit: () => 'A landscaper\'s auger went through the backbone fiber. Every store in the mall is offline.',
+    ch: () => [
+      { txt: 'Drop everything. Priority job', fx: { t: 10 }, res: 'Emergency rate. It needs a fiber tech, fast.', act: () => addTicket('Harbor Mall', 'FIB', 'Emergency fiber repair', 1400, 120, 90) },
+      { txt: 'Refer them to another contractor', fx: { t: -8 }, res: 'They\'ll remember who came through and who didn\'t.' },
+    ] },
   { id: 'gus-back', kind: 'customer', title: 'Gus has a big one', when: () => mem.gus === 'owes' && mem.day > (mem.gusDay || 0), who: () => 'Gus, site super, Harbor Mall', priority: true,
     sit: () => '"Remember those six drops you threw in for free? I do." He\'s got a 60-drop tenant build-out and wants your crew on it.',
     ch: () => [
@@ -462,10 +544,12 @@ function pickCall() {
   const late = clock >= 16 * 60, pri = ok.filter(c => c.priority), last = ok.filter(c => c.last);
   if (pri.length) return pri[0];
   if (late && last.length) return last[0];
-  const pool = ok.filter(c => !c.last && !c.priority); return pool.length ? pick(pool) : null;
+  const em = ok.filter(c => c.emer);
+  if (em.length && emerToday < 3 && (emerToday === 0 && clock >= 10 * 60 || Math.random() < .35)) return pick(em);
+  const pool = ok.filter(c => !c.last && !c.priority && !c.emer); return pool.length ? pick(pool) : em.length && emerToday < 3 ? pick(em) : null;
 }
 function openCall(c) {
-  if (!c) return; usedCalls.add(c.id); callsToday++; c.prep && c.prep(c);
+  if (!c) return; usedCalls.add(c.id); callsToday++; if (c.emer) emerToday++; c.prep && c.prep(c);
   curCall = { c, who: c.who(c), sit: c.sit(c), ch: c.ch(c), done: null }; callOpen = true; drawCall();
 }
 function chooseCall(i) {
@@ -480,9 +564,10 @@ function chooseCall(i) {
   log = `${cur.c.title}: ${ch.txt}.`;
   cur.done = { res: o.res || ch.res, luck, d }; drawCall(); render();
 }
-function closeCall() { callOpen = false; curCall = null; $('callBox').hidden = true; nextCallAt = clock + rnd(70, 110); }
+function closeCall() { callOpen = false; curCall = null; $('callBox').hidden = true; nextCallAt = clock + rnd(50, 85); }
 function drawCall() {
   const box = $('callBox'), cur = curCall; box.hidden = false;
+  box.classList.remove('emer');
   if (cur.brief) {
     box.innerHTML = `<div class="ch"><span class="tag" style="color:var(--sel)">Morning briefing · Day ${mem.day}</span><span class="tm">7:00a</span></div>
       <h3>A note from Ray, the owner</h3><p class="sit"><i>${cur.brief}</i></p>
@@ -502,6 +587,7 @@ function drawCall() {
   }
   const [kn, kc] = KIND[cur.c.kind], d = cur.done && cur.done.d;
   const chips = d ? [['Billed', d.m, true], ['Trust', d.t], ['Crew', d.c]].filter(x => x[1]).map(([n, v, money]) => `<span class="dchip ${v > 0 ? 'up' : 'dn'}">${n} ${v > 0 ? '+' : '−'}${money ? '$' : ''}${Math.abs(v)}</span>`).join('') : '';
+  box.classList.toggle('emer', !!cur.c.emer);
   box.innerHTML = `<div class="ch"><span class="tag" style="color:${kc}">${kn}</span><span class="tm">${fmt(clock)} · board paused</span></div>
     <h3>${cur.c.title}</h3><p class="who">${cur.who}</p><p class="sit">${cur.sit}</p>
     ${cur.done ? `<div class="res ${d.m + d.t * 20 + d.c * 20 > 60 ? 'good' : d.m + d.t * 20 + d.c * 20 < -60 ? 'bad' : 'mixed'}">${cur.done.luck ? `<span class="luck">${cur.done.luck}</span>` : ''}<p>${cur.done.res}</p><div>${chips || '<span class="dchip">No change</span>'}</div></div>
@@ -524,7 +610,7 @@ function morning() {
 function reset() {
   clock = START; tickets = []; sel = null; billed = 0; late = 0; missed = 0; wrong = 0; nextAt = START + 30; seq = 100; over = false;
   techs = TECH0.map(t => ({ ...t, at: 'Shop', queue: [], cur: null, out: false }));
-  trust = 60; crew = 60; callsToday = 0; for (const k in lastVal) delete lastVal[k]; usedCalls = new Set(); callOpen = false; curCall = null; $('callBox').hidden = true; nextCallAt = START + 80;
+  trust = 60; crew = 60; callsToday = 0; emerToday = 0; for (const k in lastVal) delete lastVal[k]; usedCalls = new Set(); callOpen = false; curCall = null; $('callBox').hidden = true; nextCallAt = START + 80;
   log = 'Tickets will start coming in at 7:30.'; $('toasts').innerHTML = ''; $('pop').hidden = true; render();
 }
 function spawn() {
@@ -571,7 +657,7 @@ function etaFor(tech) {
 function step(dm) {
   clock += dm;
   techs.forEach(t => { if (t.leaveAt && clock >= t.leaveAt && !t.out) { t.leaveAt = 0; sendHome(t, 'Left early'); } });
-  if (!callOpen && clock >= nextCallAt && clock < END - 20 && callsToday < 6) { const c = pickCall(); if (c) { openCall(c); return; } nextCallAt = clock + 60; }
+  if (!callOpen && clock >= nextCallAt && clock < END - 20 && callsToday < 9) { const c = pickCall(); if (c) { openCall(c); return; } nextCallAt = clock + 60; }
   if (clock >= nextAt && clock <= LAST_TICKET) { spawn(); nextAt = clock + rnd(18, 42); }
   techs.forEach(tech => {
     if (tech.out) return;
@@ -655,7 +741,7 @@ function render() {
 }
 $('tickets').addEventListener('pointerdown', e => { const b = e.target.closest('.tk'); if (!b) return; sel = sel === +b.dataset.id ? null : +b.dataset.id; render(); });
 $('callBox').addEventListener('click', e => { const o = e.target.closest('.opt'); if (o) chooseCall(+o.dataset.i); });
-addEventListener('keydown', e => { if (!callOpen || !curCall || curCall.brief || curCall.bio) return; if (!curCall.done && /^[1-3]$/.test(e.key) && curCall.ch[+e.key - 1]) chooseCall(+e.key - 1); else if (curCall.done && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); closeCall(); } });
+addEventListener('keydown', e => { if (!callOpen || !curCall || curCall.brief || curCall.bio) return; if (!curCall.done && /^[1-4]$/.test(e.key) && curCall.ch[+e.key - 1]) chooseCall(+e.key - 1); else if (curCall.done && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); closeCall(); } });
 $('techs').addEventListener('pointerdown', e => { const ib = e.target.closest('[data-bio]'); if (ib) { e.stopPropagation(); const prev = curCall && !curCall.bio ? curCall : null; curCall = { bio: ib.dataset.bio, prev }; drawCall(); return; } const b = e.target.closest('.tech'); if (!b) return; const t = tickets.find(x => x.id === sel); if (!t) { log = 'Pick a ticket first.'; render(); return; } assign(t, techs.find(x => x.name === b.dataset.n)); render(); });
 $('speed').onclick = () => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; $('speed').textContent = `Speed ×${speed}`; };
 $('pause').onclick = () => { if (over) { reset(); morning(); $('pause').textContent = 'Pause'; return; } if (callOpen) return; paused = !paused; $('pause').textContent = paused ? 'Resume' : 'Pause'; };
@@ -946,6 +1032,13 @@ function draw() {
     const glow = g.createRadialGradient(x, y, 4, x, y, 26); glow.addColorStop(0, tech.color + '66'); glow.addColorStop(1, tech.color + '00');
     g.fillStyle = glow; g.beginPath(); g.arc(x, y, 26, 0, 7); g.fill();
     g.save(); g.translate(x, y); g.scale(1.25, 1.25); van(0, 0, v.moving ? v.ang : 0, tech.color, tech.name[0], v.moving); g.restore(); vanHits.push({ x, y, tech });
+    if (tech.alert > clock) {
+      const on = callOpen || Math.floor(now / 350) % 2;
+      g.fillStyle = on ? '#ff6a55' : '#7a2a22'; g.strokeStyle = '#fff'; g.lineWidth = 2;
+      const ty = y - 34 < 2 ? y + 14 : y - 34;   // no room above the van: flag it below
+      g.beginPath(); g.moveTo(x + 16, ty); g.lineTo(x + 30, ty + 24); g.lineTo(x + 2, ty + 24); g.closePath(); g.fill(); g.stroke();
+      g.fillStyle = '#fff'; g.font = '900 14px Archivo, sans-serif'; g.textAlign = 'center'; g.fillText('!', x + 16, ty + 21);
+    }
     if (tech.cur && tech.cur.phase === 'work') { g.strokeStyle = tech.color; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 23, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - tech.cur.left / tech.cur.total)); g.stroke(); }
   });
 }
