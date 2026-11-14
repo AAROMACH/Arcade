@@ -129,6 +129,27 @@ button:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
 .card h3 { margin: 4px 0 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; font-weight: 500; }
 .card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.card.how { gap: 9px; }
+.card ol.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.steps li { display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: start; background: #1a2029; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+.steps .n { width: 24px; height: 24px; border-radius: 50%; background: #5aa9ff; color: #0d1116; font-weight: 800; display: grid; place-items: center; font-size: 13px; }
+.steps .ex { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 13px; color: var(--muted); }
+.steps .ex .arrow { color: var(--muted); } .steps .ex .tn { font-weight: 800; } .steps .ex .ok { color: var(--go); font-weight: 800; }
+.hpin { width: 22px; height: 28px; flex: none; }
+.card table.pay { width: 100%; border-collapse: collapse; font-size: 14px; }
+.pay td { padding: 5px 8px; border-bottom: 1px solid var(--line); }
+.pay td:last-child { text-align: right; font-family: var(--mono); font-weight: 800; white-space: nowrap; }
+.pay .g { color: var(--go); } .pay .y { color: var(--due); } .pay .r { color: var(--late); } .pay .sub { color: var(--muted); font-size: 12px; }
+.key { display: grid; gap: 5px; }
+.key > div { display: flex; align-items: center; gap: 10px; font-size: 13.5px; line-height: 1.35; }
+.key .sw { flex: none; width: 34px; height: 16px; border-radius: 2px; display: block; position: relative; }
+.sw.drive { background: repeating-linear-gradient(135deg, #c48bff 0 2px, transparent 2px 7px); }
+.sw.work { background: #c48bff; }
+.sw.due { background: none; } .sw.due::after { content: ''; position: absolute; left: 16px; top: -3px; bottom: -3px; width: 2px; background: #e8ecf1; }
+.sw.due::before { content: ''; position: absolute; left: 12px; top: -5px; border: 5px solid transparent; border-top-color: #e8ecf1; }
+.sw.late { background: #c48bff; outline: 3px solid #ff6a55; outline-offset: -3px; }
+.card .note { font-size: 12.5px; color: var(--muted); }
+
 </style>
 
 <div class="app">
@@ -159,29 +180,52 @@ button:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
 </div>
 
 <div class="modal" id="howModal">
-  <div class="card">
+  <div class="card how">
     <h2>DISPATCH BOARD</h2>
-    <p>One day, 7:00 to 6:00. Tickets come in from all over Brookfield. Get the right tech to each job before it's due, and handle the calls that come in along the way.</p>
-    <h3>Calls</h3>
+    <p>You run dispatch for one workday, 7:00a to 6:00p. Jobs pop up around town. <b>Send the right tech so they get there and finish before it's due.</b> Make the most money you can.</p>
+
+    <h3>Every job, 3 taps</h3>
+    <ol class="steps">
+      <li><span class="n">1</span><div><b>Tap a job</b> — a pin on the map or a card under <i>Open tickets</i>.<div class="ex"><svg class="hpin" viewBox="0 0 34 44" aria-hidden="true" style="opacity:1"><path d="M17 42 C14 36 4 30 4 17 A13 13 0 0 1 30 17 C30 30 20 36 17 42 Z" fill="#f5f7fa" stroke="#4cc38a" stroke-width="3"/><circle cx="17" cy="17" r="9.5" fill="#c48bff"/><text x="17" y="20" text-anchor="middle" font-family="Red Hat Mono, monospace" font-weight="800" font-size="8" fill="#0d1116">CAM</text></svg> The colored circle is the skill it needs.</div></div></li>
+      <li><span class="n">2</span><div><b>Find a tech with that skill.</b> Match the chip on the job to the chips by their name.<div class="ex"><span>Job <span class="chip" style="color:#c48bff;border-color:#c48bff;background:#c48bff22">CAM</span></span><span class="arrow">→</span><span class="tn" style="color:#4cc38a">● Luis</span> <span class="chip" style="color:#ff8fb1;border-color:#ff8fb1;background:#ff8fb122">AV</span> <span class="chip" style="color:#c48bff;border-color:#c48bff;background:#c48bff22">CAM</span> <span class="ok">✓</span></div></div></li>
+      <li><span class="n">3</span><div><b>Tap that tech.</b> Their van drives over, does the job, and you get paid. Techs can line up several jobs; they do them in order. A tech booked solid past the due time can't take it.</div></li>
+    </ol>
+
+    <h3>What you get paid</h3>
+    <table class="pay">
+      <tr><td><b>Right skill, on time</b></td><td class="g">100%</td></tr>
+      <tr><td>Right skill, finished late</td><td class="y">50%</td></tr>
+      <tr><td>Wrong skill <span class="sub">(takes 1.5× as long)</span></td><td class="r">40% − $75</td></tr>
+      <tr><td>Nobody sent before it's due</td><td class="r">−$150</td></tr>
+    </table>
+
+    <h3>Reading the map</h3>
+    <div class="key">
+      <div><svg class="hpin" viewBox="0 0 34 44" aria-hidden="true" style="opacity:1"><path d="M17 42 C14 36 4 30 4 17 A13 13 0 0 1 30 17 C30 30 20 36 17 42 Z" fill="#f5f7fa" stroke="#4cc38a" stroke-width="3"/><circle cx="17" cy="17" r="9.5" fill="#7ddc6f"/><text x="17" y="20" text-anchor="middle" font-family="Red Hat Mono, monospace" font-weight="800" font-size="8" fill="#0d1116">NET</text></svg><span><b style="color:#4cc38a">Green</b> outline: plenty of time</span></div>
+      <div><svg class="hpin" viewBox="0 0 34 44" aria-hidden="true" style="opacity:1"><path d="M17 42 C14 36 4 30 4 17 A13 13 0 0 1 30 17 C30 30 20 36 17 42 Z" fill="#f5f7fa" stroke="#f5b942" stroke-width="3"/><circle cx="17" cy="17" r="9.5" fill="#7ddc6f"/><text x="17" y="20" text-anchor="middle" font-family="Red Hat Mono, monospace" font-weight="800" font-size="8" fill="#0d1116">NET</text></svg><span><b style="color:#f5b942">Yellow</b>: under 2 hours left</span></div>
+      <div><svg class="hpin" viewBox="0 0 34 44" aria-hidden="true" style="opacity:1"><path d="M17 42 C14 36 4 30 4 17 A13 13 0 0 1 30 17 C30 30 20 36 17 42 Z" fill="#f5f7fa" stroke="#ff6a55" stroke-width="3"/><circle cx="17" cy="17" r="9.5" fill="#7ddc6f"/><text x="17" y="20" text-anchor="middle" font-family="Red Hat Mono, monospace" font-weight="800" font-size="8" fill="#0d1116">NET</text></svg><span><b style="color:#ff6a55">Red</b>, pulsing: under 1 hour. Send someone now</span></div>
+      <div><svg class="hpin" viewBox="0 0 34 44" aria-hidden="true" style="opacity:0.6"><path d="M17 42 C14 36 4 30 4 17 A13 13 0 0 1 30 17 C30 30 20 36 17 42 Z" fill="#c48bff" stroke="rgba(0,0,0,.5)" stroke-width="3"/><circle cx="17" cy="17" r="9.5" fill="#7ddc6f"/><text x="17" y="20" text-anchor="middle" font-family="Red Hat Mono, monospace" font-weight="800" font-size="8" fill="#0d1116">NET</text></svg><span>Faded, in a tech's color: already assigned</span></div>
+    </div>
+    <p class="note">The tag over each pin counts down to the due time. Across town = longer drive, so pick the closest tech who has the skill.</p>
+
+    <h3>Reading the schedule</h3>
+    <div class="key sched">
+      <div><i class="sw drive"></i><span>Driving</span></div>
+      <div><i class="sw work"></i><span>Working the job</span></div>
+      <div><i class="sw due"></i><span>When it's due. The block should end before this line</span></div>
+      <div><i class="sw late"></i><span>Red outline: will finish late</span></div>
+    </div>
+    <p class="note">Tap a job on the schedule to take it back off that tech.</p>
+
+    <h3>Phone calls</h3>
+    <p>A few times a day someone calls: a customer, your crew, a supplier. The game pauses. Pick an answer (tap it, or press 1–3). Answers can make or cost money and move two meters:</p>
     <ul>
-      <li>A few times a day the phone rings: a customer, the crew, a supplier, an inspector. The board pauses while you pick an answer (tap it, or press 1–3).</li>
-      <li>Answers can bill money, add a ticket you'll need to dispatch, send a tech home, or hold a van up. Some are a gamble.</li>
-      <li><b style="color:#5aa9ff">Trust</b> (customers) and <b style="color:#4cc38a">Crew</b> (morale) start at 60. At the end of the day, every point above 60 adds $10 to your day score; every point below takes $10 off.</li>
-      <li>People remember. How you treat Gus, Bev and the others can come back on a later day. Ray, the owner, leaves you a note each morning.</li>
-      <li>Tap ⓘ next to a tech's name to learn about them.</li>
+      <li><b style="color:#5aa9ff">Customer trust</b> and <b style="color:#4cc38a">Crew morale</b> both start at 60. At day's end, each point above 60 is +$10 to your score and each point below is −$10.</li>
+      <li>People remember what you told them on later days. Tap ⓘ by a tech's name to meet them.</li>
     </ul>
-    <h3>How it works</h3>
-    <ul>
-      <li>Tap a ticket, then tap a tech (in the list or their row on the schedule). Nobody tells you who's right: check the ticket's skill against each tech's skill chips, and their schedule against the due time.</li>
-      <li>A tech who's booked solid past the due time can't take it. Anyone else can, even if it'll run late.</li>
-      <li><b>Late</b> jobs pay half. <b>Wrong skill</b> jobs take 1.5× as long, pay 40%, and cost a $75 mis-dispatch charge. Right tech, on time = full pay.</li>
-      <li>The schedule shows each tech's next 5 hours: hatched = driving, solid = on site, the white tick = when that job is due. Red outline = late, dark stripes = wrong skill. Tap a queued job to pull it back.</li>
-      <li>Each open ticket shows how long until it goes unanswered, and roughly how long you have to send someone.</li>
-      <li>A tech can take a queue of jobs. They drive to each one in order, work it, then go on to the next.</li>
-      <li>Drive time depends on distance. A job across town eats the clock.</li>
-      <li>On time pays the full ticket. Late pays half. A ticket nobody takes before it's due costs $150 in goodwill.</li>
-      <li>At 6:00 the day ends. Anything still unfinished doesn't bill.</li>
-    </ul>
+
+    <h3>End of the day</h3>
+    <p>At 6:00p the day ends. Jobs not finished don't pay. Your day score = money billed + trust and morale bonuses.</p>
     <button type="button" class="btn on" id="howClose">Start the day</button>
   </div>
 </div>
