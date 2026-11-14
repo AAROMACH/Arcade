@@ -1,0 +1,539 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Rack Cleanup</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: the rack (an SVG) on the left, the job panel on the right: devices, the selected
+   cable or port, tone results and the mapping book. Stacks on narrow screens. Dark IDF closet look. */
+:root {
+  color-scheme: dark;
+  --bg: #15181c; --panel: #1f242b; --panel2: #262c34; --line: #343c47; --fg: #e8ecf1; --muted: #9aa3ad;
+  --go: #3fc27a; --warn: #f2b33d; --bad: #ff5d4d; --sel: #5aa9ff;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif; --body: "Barlow", system-ui, sans-serif; --mono: "Space Mono", ui-monospace, monospace;
+}
+html, body { background: var(--bg); color: var(--fg); }
+body { font-family: var(--body); padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.app { max-width: 1240px; margin: 0 auto; display: grid; gap: 10px; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 32px; letter-spacing: .02em; line-height: 1; }
+.stats { display: flex; gap: 14px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.stat { display: grid; } .stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.stat b { font-family: var(--mono); font-size: 17px; } .stat b.bad { color: var(--bad); } .stat b.go { color: var(--go); }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 10px; align-items: start; }
+@media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
+.rackwrap { background: #0f1215; border: 1px solid var(--line); border-radius: 10px; padding: 6px; position: relative; }
+@media (max-width: 760px) { .rackwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; } svg#rack { min-width: 760px; } }
+svg#rack { width: 100%; height: auto; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
+.banner { position: absolute; left: 10px; right: 10px; bottom: 10px; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 15px; display: grid; gap: 2px; pointer-events: none; }
+.banner.cd { background: rgba(255,93,77,.92); color: #fff; animation: pulse .8s ease-in-out infinite; }
+.banner.out { background: rgba(120,20,15,.92); color: #fff; }
+@keyframes pulse { 50% { background: rgba(200,40,30,.92); } }
+@media (prefers-reduced-motion: reduce) { .banner.cd { animation: none; } }
+.side { display: grid; gap: 10px; }
+.box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: grid; gap: 8px; }
+.k { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; display: flex; justify-content: space-between; gap: 8px; }
+button, select { font: inherit; color: var(--fg); background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; }
+button:hover:not(:disabled) { border-color: var(--sel); } button:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--sel); color: #0d1116; font-weight: 800; border-color: var(--sel); }
+button.danger { border-color: rgba(255,93,77,.6); }
+.dev { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; align-items: center; padding: 6px 8px; border-radius: 8px; background: var(--panel2); }
+.dev b { font-size: 15px; } .dev small { grid-column: 1 / -1; color: var(--muted); font-size: 12px; }
+.dev .st { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.st.up { color: var(--go); } .st.down { color: var(--bad); } .st.bk { color: var(--warn); }
+.sel { font-size: 14px; line-height: 1.45; } .sel .row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.sel .hint { color: var(--muted); font-size: 13px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.4); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; min-height: 8px; }
+.chip { font-size: 12px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: var(--panel2); border: 1px solid var(--line); cursor: grab; touch-action: none; }
+.chip.on { border-color: var(--sel); background: rgba(90,169,255,.18); }
+.book { display: grid; gap: 3px; max-height: 360px; overflow-y: auto; font-size: 13px; }
+.book .r { display: grid; grid-template-columns: 34px 1fr; gap: 6px; align-items: center; padding: 2px 4px; border-radius: 6px; }
+.book .r.drop { background: rgba(90,169,255,.18); } .book .r b { font-family: var(--mono); color: var(--muted); }
+.book select { width: 100%; padding: 3px 6px; font-size: 13px; }
+.book .lbl { grid-column: 2; font-size: 11px; color: var(--muted); margin-top: -2px; }
+.toast { min-height: 20px; font-size: 14px; } .toast.bad { color: var(--bad); } .toast.go { color: var(--go); }
+.legend { display: flex; flex-wrap: wrap; gap: 10px; font-size: 12px; color: var(--muted); }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(8,10,13,.75); padding: 16px; box-sizing: border-box; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; max-width: 520px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-size: 30px; font-weight: 800; }
+.card h3 { margin: 4px 0 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; } .card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.receipt { width: 100%; border-collapse: collapse; font-size: 14px; } .receipt td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.receipt td:last-child { text-align: right; font-family: var(--mono); font-weight: 700; white-space: nowrap; } .receipt .g td:last-child { color: var(--go); } .receipt .r td:last-child { color: var(--bad); }
+.receipt .tot td { font-weight: 800; border-bottom: 0; }
+.ba { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .ba figure { margin: 0; display: grid; gap: 4px; } .ba figcaption { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.ba svg { width: 100%; height: auto; background: #0f1215; border-radius: 6px; border: 1px solid var(--line); }
+</style>
+
+<div class="app">
+  <div class="top">
+    <h1>RACK CLEANUP</h1>
+    <div class="stats">
+      <div class="stat"><span>Rack</span><b id="sRack">1/3</b></div>
+      <div class="stat"><span>Tidy</span><b id="sTidy">0%</b></div>
+      <div class="stat"><span>Downtime</span><b id="sDown">$0</b></div>
+      <div class="stat"><span>Clock</span><b id="sClock">0:00</b></div>
+      <div class="stat"><span>Shift</span><b id="sShift">$0</b></div>
+    </div>
+  </div>
+  <div class="main">
+    <div class="rackwrap"><svg id="rack" aria-label="Network rack: patch panel, cable manager, switch and devices"></svg><div class="banner" id="banner" hidden></div></div>
+    <div class="side">
+      <div class="box"><div class="k"><span>Critical gear</span><span>switch to backup before you unplug</span></div><div id="devs"></div></div>
+      <div class="box sel" id="selBox"></div>
+      <div class="box"><div class="k"><span>Tone results</span><span>drag into the book</span></div><div class="chips" id="chips"></div></div>
+      <div class="box"><div class="k"><span>Mapping book</span><span id="bookN"></span></div><div class="book" id="book"></div></div>
+      <div class="toast" id="toast" role="status"></div>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="finish">Finish this rack</button><button type="button" id="how">How to play</button></div>
+    </div>
+  </div>
+  <div class="legend"><span><i class="sw" style="background:#2f7de1"></i> Desk</span><span><i class="sw" style="background:#d83a2e"></i> Camera</span><span><i class="sw" style="background:#e8c21c"></i> Phone</span><span><i class="sw" style="background:#2fa856"></i> Access point</span><span><i class="sw" style="background:#e9edf1"></i> Gear uplink</span></div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>RACK CLEANUP</h2>
+    <p>You inherited a rat's nest. Clean up three racks a shift <b>without taking the office down</b>. Done means every cable is in its spot, the right color and length, and your mapping book is right.</p>
+    <h3>Every port has a spot</h3>
+    <ul>
+      <li>Patch panel port <b>N</b> goes straight down to switch port <b>N</b>. Gear goes to its uplink: firewall → U1, NVR → U2, phone system → U3.</li>
+      <li>Cord color by what's on the far end: <b style="color:#5b9cf0">blue</b> desk, <b style="color:#ff6a5c">red</b> camera, <b style="color:#e8c21c">yellow</b> phone, <b style="color:#4cc87a">green</b> access point, <b>white</b> gear uplink. Use the shortest cord that reaches; extra length is slack and clutter.</li>
+      <li>Spare panel ports (nothing on the far end) get no cord. Pull any junk cords.</li>
+    </ul>
+    <h3>How</h3>
+    <ul>
+      <li><b>Tap a plug</b> to unplug that end, then <b>tap an empty port</b> to plug it in. The link is down while you hold it. Tap where it came from to put it back.</li>
+      <li><b>Tap a cable</b> to select it: swap the cord (color, length) or pull it out. <b>Tap an empty port</b> to tone it or patch a new cord.</li>
+      <li><b>Tone</b> a panel port to find out what's on the far end. Labels can lie on later racks. Write it in your <b>mapping book</b>: drag the result into the row, or pick it from the row's list. Nothing checks it for you until the end.</li>
+    </ul>
+    <h3>Don't drop the network</h3>
+    <ul>
+      <li>Firewall, NVR and phone system are critical. Press <b>Switch to backup</b> first (it takes a few seconds), move their cable, then <b>Return to primary</b>.</li>
+      <li>Unplug critical gear without the backup and you have <b>15 seconds</b> to plug it back in (−$25), or it's an outage: −$250 and −$5 a second until it's back.</li>
+      <li>Every desk, camera or phone that's unplugged costs $1 a second. Gear left on backup when you finish costs $50.</li>
+    </ul>
+    <h3>Pay</h3>
+    <ul>
+      <li>Pay scales with how tidy the rack is, plus $10 for each right mapping book row and −$15 for each wrong one. Minus downtime, outages, cords and time over par.</li>
+    </ul>
+    <button type="button" class="primary" id="howClose">Start the shift</button>
+  </div>
+</div>
+<div class="modal" id="endModal" hidden><div class="card" id="endCard"></div></div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const NS = 'http://www.w3.org/2000/svg';
+const COLORS = { blue: '#2f7de1', red: '#d83a2e', yellow: '#e8c21c', green: '#2fa856', white: '#e9edf1', gray: '#868e98' };
+const CNAME = { blue: 'Blue', red: 'Red', yellow: 'Yellow', green: 'Green', white: 'White', gray: 'Gray' };
+const TYPE_COLOR = { DESK: 'blue', CAM: 'red', PHONE: 'yellow', AP: 'green' };
+const LENS = [0.5, 1, 3, 7], CORD_COST = { 0.5: 3, 1: 4, 3: 6, 7: 9 };
+const DEV = {
+  fw: { name: 'Firewall', u: 0, what: 'the whole office is offline' },
+  nvr: { name: 'NVR', u: 1, what: 'the cameras stop recording' },
+  pbx: { name: 'Phone system', u: 2, what: 'every phone is dead' },
+};
+const LEVELS = [
+  { n: 12, devs: ['fw'], spares: 2, junk: 0, liars: 0 },
+  { n: 24, devs: ['fw', 'nvr'], spares: 4, junk: 2, liars: 0 },
+  { n: 24, devs: ['fw', 'nvr', 'pbx'], spares: 4, junk: 3, liars: .35 },
+];
+const PLACES = {
+  DESK: ['Front desk', 'Office 101', 'Office 102', 'Office 103', 'Office 104', 'Conference room', 'Shipping desk', 'Break room', 'Manager office', 'Estimating', 'Accounting', 'Plan room'],
+  CAM: ['Lobby', 'Front door', 'Dock door 1', 'Dock door 2', 'Parking lot', 'Back hall', 'Warehouse aisle'],
+  PHONE: ['Reception', 'Conference', 'Warehouse', 'Break room'],
+  AP: ['Office wing', 'Warehouse', 'Showroom'],
+};
+const TNAME = { DESK: 'Desk', CAM: 'Cam', PHONE: 'Phone', AP: 'AP' };
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = rnd(0, i); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const money = v => `${v < 0 ? '−' : ''}$${Math.abs(Math.round(v)).toLocaleString()}`;
+const clk = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+
+// ── Geometry (SVG units) ──
+const COLS = 12, DX = 66, X0 = 70, W = X0 + COLS * DX + 40 + 3 * DX + 30;
+let rows, yPanel, yMgr, ySwitch, yDev;
+function layout() {
+  rows = cfg.n / COLS;
+  yPanel = r => 70 + r * 58;
+  yMgr = yPanel(rows - 1) + 44;
+  ySwitch = r => yMgr + 76 + r * 58;
+  yDev = i => ySwitch(rows - 1) + 92 + i * 56;
+}
+const colX = c => X0 + c * DX + DX / 2;
+const uX = u => X0 + COLS * DX + 40 + u * DX + DX / 2;
+function portXY(e) {
+  if (e.k === 'p') return [colX(e.i % COLS), yPanel(Math.floor(e.i / COLS))];
+  if (e.k === 's') return [colX(e.i % COLS), ySwitch(Math.floor(e.i / COLS))];
+  if (e.k === 'u') return [uX(e.i), ySwitch(0)];
+  return [uX(DEV[e.i].u), yDev(cfg.devs.indexOf(e.i))];
+}
+const H = () => yDev(cfg.devs.length - 1) + 50;
+function needFt(a, b) { const [x1, y1] = portXY(a), [x2, y2] = portXY(b); const ft = (Math.abs(x1 - x2) + Math.abs(y1 - y2)) / 180; return LENS.find(l => l >= ft - 1e-9) || null; }
+const same = (a, b) => a && b && a.k === b.k && a.i === b.i;
+const key = e => e.k + ':' + e.i;
+
+// ── State ──
+let lvlIdx = 0, cfg, drops, labels, cables, holding, sel, book, tones, chipsSel, devState, downCost, outageCost, cordCost, clock, started, shift, toastT, nextId, before, events, running, finished;
+let best = 0; try { best = +localStorage.getItem('rackcleanup:best') || 0; } catch {}
+
+function newRack() {
+  cfg = LEVELS[lvlIdx]; layout();
+  const N = cfg.n, ports = shuffle([...Array(N).keys()]), spare = new Set(ports.slice(0, cfg.spares));
+  // What's really on the far end of each panel port.
+  const pool = { DESK: shuffle(PLACES.DESK.slice()), CAM: shuffle(PLACES.CAM.slice()), PHONE: shuffle(PLACES.PHONE.slice()), AP: shuffle(PLACES.AP.slice()) };
+  const order = []; for (let i = 0; i < N; i++) order.push(['DESK', 'DESK', 'DESK', 'CAM', 'CAM', 'PHONE', 'AP'][rnd(0, 6)]);
+  drops = [...Array(N)].map((_, i) => {
+    if (spare.has(i)) return null;
+    let t = order[i]; if (!pool[t].length) t = Object.keys(pool).find(k => pool[k].length);
+    const place = pool[t].pop(); return { type: t, name: `${TNAME[t]} – ${place}` };
+  });
+  // Printed labels: blank on easy racks, sometimes wrong later.
+  const names = drops.filter(Boolean).map(d => d.name);
+  labels = drops.map(d => !cfg.liars ? '' : d && Math.random() < cfg.liars ? names[rnd(0, names.length - 1)] : d ? d.name : 'Spare');
+  // The mess: every live drop patched to a random switch port, random colors, sloppy lengths.
+  cables = []; nextId = 1;
+  const swFree = shuffle([...Array(N).keys()]);
+  const mk = (a, b, color, len, kind) => { const need = needFt(a, b); const L = Math.max(len || need, need); cables.push({ id: nextId++, a, b, color, len: LENS.includes(L) ? L : 7, seed: Math.random(), kind }); };
+  drops.forEach((d, i) => { if (!d) return; const s = swFree.pop(); mk({ k: 'p', i }, { k: 's', i: s }, Math.random() < .4 ? TYPE_COLOR[d.type] : ['blue', 'red', 'yellow', 'green', 'gray'][rnd(0, 4)], [1, 3, 3, 7][rnd(0, 3)], 'drop'); });
+  const uFree = shuffle([0, 1, 2]);
+  cfg.devs.forEach(dv => mk({ k: 'd', i: dv }, { k: 'u', i: uFree.pop() }, Math.random() < .5 ? 'white' : 'gray', [3, 7][rnd(0, 1)], 'dev'));
+  for (let j = 0; j < cfg.junk && swFree.length >= 2; j++) mk({ k: 's', i: swFree.pop() }, { k: 's', i: swFree.pop() }, 'gray', 7, 'junk');
+  holding = null; sel = null; book = Array(N).fill(''); tones = []; chipsSel = null;
+  devState = Object.fromEntries(cfg.devs.map(d => [d, { backup: false, switching: 0, cd: 0, out: false }]));
+  downCost = 0; outageCost = 0; cordCost = 0; clock = 0; events = { outages: 0, blips: 0 }; finished = false;
+  before = snapshot(); running = true; toast(''); render();
+}
+
+// ── Rules ──
+const plugged = e => cables.find(c => (same(c.a, e) || same(c.b, e)) && !(holding && holding.c === c && same(holding.end === 'a' ? c.a : c.b, e)));
+const live = c => !(holding && holding.c === c);
+function devUp(dv) {
+  const c = cables.find(c => (same(c.a, { k: 'd', i: dv }) || same(c.b, { k: 'd', i: dv })));
+  return !!(c && live(c) && [c.a, c.b].some(e => e.k === 'u' || e.k === 's'));   // any switch port works; U-port is just its spot
+}
+function dropUp(i) {
+  const c = cables.find(c => same(c.a, { k: 'p', i }) || same(c.b, { k: 'p', i }));
+  if (!c || !live(c)) return false; const o = same(c.a, { k: 'p', i }) ? c.b : c.a; return o.k === 's' || o.k === 'u';
+}
+function neat(c) {
+  if (holding && holding.c === c) return false;
+  const [p, q] = c.a.k <= c.b.k ? [c.a, c.b] : [c.b, c.a];
+  if (c.kind === 'junk') return false;
+  if (p.k === 'p' && q.k === 's') { const d = drops[p.i]; return !!d && p.i === q.i && c.color === TYPE_COLOR[d.type] && c.len === needFt(p, q); }
+  if (p.k === 'd' && q.k === 'u') return DEV[p.i].u === q.i && c.color === 'white' && c.len === needFt(p, q);
+  return false;
+}
+// Clean cables over whichever is bigger: the cables the rack needs, or the cables in it (junk counts against you).
+function tidy() {
+  const want = drops.filter(Boolean).length + cfg.devs.length, good = cables.filter(neat).length;
+  return Math.round(100 * good / Math.max(want, cables.length));
+}
+
+// ── Actions ──
+function toast(msg, cls = '') { $('toast').textContent = msg; $('toast').className = 'toast ' + cls; clearTimeout(toastT); if (msg) toastT = setTimeout(() => { $('toast').textContent = ''; }, 4500); }
+function pickUp(c, end) {
+  if (holding) return toast('You\'re already holding a cable end. Plug it in first.', 'bad');
+  holding = { c, end, from: { ...(end === 'a' ? c.a : c.b) } };
+  const other = end === 'a' ? c.b : c.a, here = end === 'a' ? c.a : c.b;
+  const dv = [c.a, c.b].find(e => e.k === 'd'); sel = c;
+  if (dv) critHit(dv.i);
+  render();
+}
+function critHit(dv) {
+  const st = devState[dv]; if (!st || st.backup || st.cd > 0 || st.out) return;
+  st.cd = 15; toast(`${DEV[dv].name} is down: ${DEV[dv].what}. Plug it back in!`, 'bad');
+}
+function plugInto(target) {
+  const h = holding; if (!h) return;
+  if (plugged(target)) return toast('That port is taken. Move that cable out first.', 'bad');
+  const other = h.end === 'a' ? h.c.b : h.c.a;
+  if (same(other, target)) return toast('Both ends can\'t go in the same port.', 'bad');
+  const need = needFt(other, target);
+  if (!need || need > h.c.len) return toast(`A ${h.c.len} ft cord won't reach that port. Swap in a longer cord first.`, 'bad');
+  if (h.end === 'a') h.c.a = { ...target }; else h.c.b = { ...target };
+  holding = null; settle(); render();
+}
+function settle() {
+  cfg.devs.forEach(dv => { const st = devState[dv]; if (devUp(dv)) { if (st.cd > 0) { st.cd = 0; downCost += 25; events.blips++; toast(`${DEV[dv].name} back up in time: −$25.`, ''); } if (st.out) { st.out = false; toast(`${DEV[dv].name} is back up.`, 'go'); } } });
+}
+function swapCord(c, color, len) {
+  const [p, q] = [c.a, c.b], need = needFt(p, q);
+  if (need > len) return toast(`A ${len} ft cord won't reach between those ports.`, 'bad');
+  cordCost += CORD_COST[len];
+  // Swapping the cord drops the link for a moment.
+  const dv = [c.a, c.b].find(e => e.k === 'd');
+  if (dv && !devState[dv.i].backup) { downCost += 75; events.blips++; toast(`Swapped the ${DEV[dv.i].name}'s cord live: it dropped for a moment. −$75.`, 'bad'); }
+  else { if (c.kind === 'drop') downCost += 3; toast(`New ${len} ft ${CNAME[color].toLowerCase()} cord in.`, 'go'); }
+  c.color = color; c.len = len; c.seed = Math.random(); if (c.kind === 'junk' && (p.k === 'p' || q.k === 'p')) c.kind = 'drop';
+  render();
+}
+function pullCord(c) {
+  const dv = [c.a, c.b].find(e => e.k === 'd');
+  cables = cables.filter(x => x !== c); if (holding && holding.c === c) holding = null; sel = null;
+  if (dv) critHit(dv.i);
+  toast(c.kind === 'junk' ? 'Junk cord pulled.' : 'Cord pulled.', c.kind === 'junk' ? 'go' : ''); render();
+}
+function newCord(port, color, len) {
+  if (holding) return toast('Plug in the cable you\'re holding first.', 'bad');
+  if (plugged(port)) return toast('That port already has a cord.', 'bad');
+  cordCost += CORD_COST[len];
+  const c = { id: nextId++, a: { ...port }, b: { ...port }, color, len, seed: Math.random(), kind: port.k === 'd' ? 'dev' : 'drop' };
+  cables.push(c); holding = { c, end: 'b', from: null }; sel = c;
+  toast('Now tap the port the other end goes in.'); render();
+}
+function tone(i) {
+  if (tones.some(t => t.i === i)) return toast(`Already toned panel ${i + 1}.`);
+  clock += 6;   // walking the toner around takes time
+  const d = drops[i]; tones.push({ i, name: d ? d.name : 'Spare (no drop)' });
+  toast(d ? `Tone found panel ${i + 1} at ${d.name}.` : `Panel ${i + 1}: no tone anywhere. It's a spare.`, 'go'); render();
+}
+function failover(dv) {
+  const st = devState[dv]; if (st.switching) return;
+  if (st.backup) {
+    if (!devUp(dv)) return toast(`The ${DEV[dv].name} isn't connected to the switch yet. Plug it in before returning to primary.`, 'bad');
+    st.switching = 4; st.dir = 'primary';
+  } else { st.switching = 5; st.dir = 'backup'; }
+  render();
+}
+
+// ── Clock ──
+let lastT = performance.now();
+setInterval(() => {
+  const now = performance.now(), dt = Math.min(.5, (now - lastT) / 1000); lastT = now;
+  if (!running || !$('howModal').hidden || !$('endModal').hidden) return;
+  clock += dt;
+  drops.forEach((d, i) => { if (d && !dropUp(i)) downCost += dt; });
+  cfg.devs.forEach(dv => {
+    const st = devState[dv];
+    if (st.switching > 0) { st.switching -= dt; if (st.switching <= 0) { st.switching = 0; st.backup = st.dir === 'backup'; toast(st.backup ? `${DEV[dv].name} is on backup. Safe to move its cable.` : `${DEV[dv].name} is back on primary.`, 'go'); } }
+    if (!st.backup && !devUp(dv)) {
+      if (st.out) { outageCost += 5 * dt; }
+      else if (st.cd > 0) { st.cd -= dt; if (st.cd <= 0) { st.cd = 0; st.out = true; outageCost += 250; events.outages++; toast(`OUTAGE: ${DEV[dv].name} down, ${DEV[dv].what}. −$250 and counting.`, 'bad'); } }
+      else critHit(dv);
+    }
+  });
+  stats(); banner(); devPanel();
+}, 250);
+
+// ── Drawing ──
+function snapshot() { return { svg: drawSVG(true), }; }
+function cablePath(c, mini) {
+  const pa = holding && holding.c === c && holding.end === 'a' ? null : portXY(c.a), pb = holding && holding.c === c && holding.end === 'b' ? null : portXY(c.b);
+  if (!pa || !pb) return '';
+  const [x1, y1] = pa, [x2, y2] = pb;
+  if (neat(c)) { const d = y2 > y1 ? 1 : -1; return `M${x1} ${y1 + 12 * d}L${x2} ${y2 - 12 * d}`; }
+  // Messy: an S-curve that swings sideways (more slack = bigger loop), kept inside the rack.
+  const need = needFt(c.a, c.b) || 1, slack = Math.max(0, c.len - need), sd = c.seed, dir = y2 >= y1 ? 1 : -1;
+  const sway = ((sd - .5) * 2) * (90 + slack * 34), bow = 40 + slack * 16 + sd * 40;
+  const lo = 24, hi = H() - 24, cl = v => Math.max(lo, Math.min(hi, v));
+  const sy = y1 + 12 * dir, ey = y2 - 12 * dir;
+  return `M${x1} ${sy}C${x1 + sway} ${cl(sy + bow * dir)} ${x2 - sway} ${cl(ey - bow * dir)} ${x2} ${ey}`;
+}
+function drawSVG(mini) {
+  const h = H(), out = [];
+  out.push(`<rect x="8" y="10" width="${W - 16}" height="${h - 14}" rx="6" fill="#1a1e23" stroke="#2c333c"/>`);
+  out.push(`<rect x="14" y="10" width="22" height="${h - 14}" fill="#2a3038"/><rect x="${W - 36}" y="10" width="22" height="${h - 14}" fill="#2a3038"/>`);
+  for (let y = 22; y < h; y += 20) out.push(`<rect x="22" y="${y}" width="6" height="6" fill="#111"/><rect x="${W - 28}" y="${y}" width="6" height="6" fill="#111"/>`);
+  // Patch panel
+  out.push(`<rect x="44" y="${yPanel(0) - 34}" width="${W - 88}" height="${rows * 58 + 12}" rx="3" fill="#2b3139" stroke="#3b434d"/>`);
+  out.push(`<text x="${uX(0) - 26}" y="${yPanel(0) + 4}" fill="#8b95a1" font-size="13" font-family="Space Mono" letter-spacing="1">PATCH PANEL</text>`);
+  // Cable manager (D-rings)
+  out.push(`<rect x="44" y="${yMgr - 10}" width="${W - 88}" height="40" rx="3" fill="#20262d" stroke="#323a44"/>`);
+  for (let c = 0; c < COLS; c++) out.push(`<path d="M${colX(c) - 20} ${yMgr - 10}v14a20 14 0 0 0 40 0v-14" fill="none" stroke="#3d4651" stroke-width="5"/>`);
+  for (let u = 0; u < 3; u++) out.push(`<path d="M${uX(u) - 20} ${yMgr - 10}v14a20 14 0 0 0 40 0v-14" fill="none" stroke="#3d4651" stroke-width="5"/>`);
+  // Switch
+  out.push(`<rect x="44" y="${ySwitch(0) - 34}" width="${W - 88}" height="${rows * 58 + 12}" rx="3" fill="#30363f" stroke="#454e59"/>`);
+  out.push(`<text x="52" y="${ySwitch(0) - 21}" fill="#8b95a1" font-size="11" font-family="Space Mono" letter-spacing="1">SWITCH</text><text x="${uX(0) - 26}" y="${ySwitch(0) - 22}" fill="#8b95a1" font-size="11" font-family="Space Mono">UPLINKS</text>`);
+  // Gear
+  cfg.devs.forEach((dv, i) => {
+    const y = yDev(i), st = devState[dv];
+    out.push(`<rect x="44" y="${y - 22}" width="${W - 88}" height="44" rx="3" fill="#262b32" stroke="#3a424c"/>`);
+    out.push(`<text x="60" y="${y + 6}" fill="#cfd6de" font-size="17" font-family="Barlow Condensed" font-weight="800" letter-spacing="1">${DEV[dv].name.toUpperCase()}</text>`);
+    const ok = devUp(dv) || (st && st.backup); out.push(`<circle cx="${uX(DEV[dv].u) - 50}" cy="${y}" r="5" fill="${devUp(dv) ? '#3fc27a' : st && st.backup ? '#f2b33d' : '#ff5d4d'}"/>`);
+  });
+  // Ports
+  const port = (e, label) => {
+    const [x, y] = portXY(e), taken = !!plugged(e), isSel = !mini && sel && sel.port && same(sel.port, e);
+    const live = e.k === 's' ? cables.some(c => live2(c) && (same(c.a, e) || same(c.b, e))) : false;
+    out.push(`<g class="port" data-port="${key(e)}"><rect x="${x - 19}" y="${y - 13}" width="38" height="26" rx="3" fill="#0d0f12" stroke="${isSel ? '#5aa9ff' : '#4a535e'}" stroke-width="${isSel ? 3 : 1.5}"/><rect x="${x - 9}" y="${y - 6}" width="18" height="13" fill="#000"/>`);
+    if (e.k === 's' || e.k === 'u') out.push(`<circle cx="${x + 14}" cy="${y - 18}" r="3" fill="${live ? '#3fc27a' : '#29303a'}"/>`);
+    out.push(`<text x="${x}" y="${e.k === 'p' ? y - 17 : y + 26}" fill="#8b95a1" font-size="11" text-anchor="middle" font-family="Space Mono">${label}</text>`);
+    if (!mini) out.push(`<rect x="${x - DX / 2 + 2}" y="${y - 24}" width="${DX - 4}" height="48" fill="transparent"/>`);
+    out.push(`</g>`);
+  };
+  for (let i = 0; i < cfg.n; i++) { port({ k: 'p', i }, i + 1); port({ k: 's', i }, i + 1); }
+  for (let u = 0; u < 3; u++) port({ k: 'u', i: u }, 'U' + (u + 1));
+  cfg.devs.forEach(dv => port({ k: 'd', i: dv }, ''));
+  // Cables: messy ones behind, neat ones in front
+  const sorted = cables.slice().sort((a, b) => neat(a) - neat(b));
+  sorted.forEach(c => {
+    const d = cablePath(c, mini), col = COLORS[c.color], isSel = !mini && sel && sel.id === c.id;
+    if (d) {
+      if (isSel) out.push(`<path d="${d}" fill="none" stroke="#5aa9ff" stroke-width="12" stroke-linecap="round" opacity=".55"/>`);
+      out.push(`<path d="${d}" fill="none" stroke="#000" stroke-width="7.5" stroke-linecap="round" opacity=".55"/><path d="${d}" fill="none" stroke="${col}" stroke-width="5" stroke-linecap="round"/>`);
+      if (!mini) out.push(`<path d="${d}" class="hit" data-cable="${c.id}" fill="none" stroke="transparent" stroke-width="22"/>`);
+    }
+    [['a', c.a], ['b', c.b]].forEach(([end, e]) => {
+      if (holding && holding.c === c && holding.end === end) return;
+      const [x, y] = portXY(e), down = e.k === 'p' ? 1 : -1;
+      out.push(`<g ${mini ? '' : `class="plug" data-cable="${c.id}" data-end="${end}"`}><rect x="${x - 11}" y="${y - 9}" width="22" height="18" rx="2" fill="${col}" stroke="#000" stroke-opacity=".5"/><rect x="${x - 6}" y="${y + (down > 0 ? 9 : -15)}" width="12" height="6" fill="${col}" stroke="#000" stroke-opacity=".4"/></g>`);
+    });
+  });
+  // Held end follows the pointer
+  if (!mini && holding) { const o = holding.end === 'a' ? holding.c.b : holding.c.a, [x, y] = portXY(o); out.push(`<path id="heldLine" d="M${x} ${y}L${pointer[0]} ${pointer[1]}" fill="none" stroke="${COLORS[holding.c.color]}" stroke-width="5" stroke-dasharray="8 6"/><rect id="heldPlug" x="${pointer[0] - 11}" y="${pointer[1] - 9}" width="22" height="18" rx="2" fill="${COLORS[holding.c.color]}" stroke="#fff" stroke-width="2"/>`); }
+  return `<svg xmlns="${NS}" viewBox="0 0 ${W} ${h}">${out.join('')}</svg>`;
+}
+const live2 = c => !(holding && holding.c === c);
+let pointer = [W / 2, 200];
+
+function render() {
+  const s = drawSVG(false); const svg = $('rack');
+  svg.setAttribute('viewBox', `0 0 ${W} ${H()}`); svg.innerHTML = s.replace(/^<svg[^>]*>|<\/svg>$/g, '');
+  stats(); banner(); devPanel(); selPanel(); chips(); bookPanel();
+}
+function stats() {
+  $('sRack').textContent = `${lvlIdx + 1}/${LEVELS.length}`; const t = tidy();
+  $('sTidy').textContent = t + '%'; $('sTidy').className = t === 100 ? 'go' : '';
+  const dn = downCost + outageCost; $('sDown').textContent = money(-dn).replace('−', dn ? '−' : ''); $('sDown').className = dn > 0 ? 'bad' : '';
+  $('sClock').textContent = clk(clock); $('sShift').textContent = money(shift);
+}
+function banner() {
+  const b = $('banner'), cd = cfg.devs.map(dv => [dv, devState[dv]]).filter(([, st]) => st.cd > 0 || st.out);
+  if (!cd.length) { b.hidden = true; return; }
+  const [dv, st] = cd[0]; b.hidden = false; b.className = 'banner ' + (st.out ? 'out' : 'cd');
+  b.innerHTML = st.out ? `<span>OUTAGE: ${DEV[dv].name} down, ${DEV[dv].what}.</span><span style="font-weight:500">−$5 a second until it's plugged back into the switch.</span>` : `<span>${DEV[dv].name} DOWN: ${DEV[dv].what}.</span><span style="font-weight:500">Plug it back in within ${Math.ceil(st.cd)} s or it's an outage.</span>`;
+}
+function devPanel() {
+  $('devs').innerHTML = cfg.devs.map(dv => {
+    const st = devState[dv], up = devUp(dv);
+    const s = st.switching ? `<span class="st bk">Switching… ${Math.ceil(st.switching)}s</span>` : st.backup ? `<span class="st bk">ON BACKUP</span>` : up ? `<span class="st up">UP</span>` : `<span class="st down">DOWN</span>`;
+    return `<div class="dev"><b>${DEV[dv].name}</b>${s}<small>Goes in uplink U${DEV[dv].u + 1}. ${st.backup ? 'Safe to move its cable.' : 'Unplugging it now takes it down.'}</small><span></span><button type="button" data-fo="${dv}" ${st.switching ? 'disabled' : ''}>${st.backup ? 'Return to primary' : 'Switch to backup'}</button></div>`;
+  }).join('');
+}
+function portName(e) { return e.k === 'p' ? `panel ${e.i + 1}` : e.k === 's' ? `switch ${e.i + 1}` : e.k === 'u' ? `uplink U${e.i + 1}` : DEV[e.i].name; }
+function cordPicker(defColor, defLen) {
+  return `<div class="row"><select id="cColor">${Object.keys(COLORS).filter(k => k !== 'gray').map(k => `<option value="${k}" ${k === defColor ? 'selected' : ''}>${CNAME[k]}</option>`).join('')}</select><select id="cLen">${LENS.map(l => `<option value="${l}" ${l === defLen ? 'selected' : ''}>${l} ft · $${CORD_COST[l]}</option>`).join('')}</select></div>`;
+}
+function selPanel() {
+  const box = $('selBox');
+  if (holding) {
+    const o = holding.end === 'a' ? holding.c.b : holding.c.a;
+    box.innerHTML = `<div class="k"><span>Holding a cable end</span></div><div>${CNAME[holding.c.color]} ${holding.c.len} ft cord from <b>${portName(o)}</b>. Tap an empty port to plug it in${holding.from ? `, or tap ${portName(holding.from)} to put it back` : ''}.</div>`;
+    return;
+  }
+  if (sel && sel.id) {
+    const c = sel, need = needFt(c.a, c.b), [p] = [c.a, c.b].filter(e => e.k === 'p');
+    const status = neat(c) ? '<b style="color:var(--go)">Clean ✓</b>' : c.kind === 'junk' ? '<b style="color:var(--bad)">Junk: nothing uses it</b>' : '';
+    box.innerHTML = `<div class="k"><span>Selected cable</span><span>${status}</span></div>
+      <div><span class="sw" style="background:${COLORS[c.color]}"></span> ${CNAME[c.color]} ${c.len} ft · <b>${portName(c.a)}</b> ↔ <b>${portName(c.b)}</b></div>
+      <div class="hint">This run needs ${need} ft${c.len > need ? `; this cord is ${c.len} ft, so the rest is slack` : ''}. Tap a plug to unplug that end.</div>
+      ${cordPicker(c.color !== 'gray' ? c.color : c.kind === 'dev' ? 'white' : 'blue', need)}
+      <div class="row"><button type="button" id="doSwap">Swap cord</button>${p ? `<button type="button" id="doTone">Tone panel ${p.i + 1}</button>` : ''}<button type="button" class="danger" id="doPull">Pull it out</button></div>`;
+    $('doSwap').onclick = () => swapCord(c, $('cColor').value, +$('cLen').value);
+    $('doPull').onclick = () => pullCord(c);
+    if (p) $('doTone').onclick = () => tone(p.i);
+    return;
+  }
+  if (sel && sel.port) {
+    const e = sel.port;
+    box.innerHTML = `<div class="k"><span>Empty ${portName(e)}</span></div>
+      ${e.k === 'p' ? `<div class="row"><button type="button" id="doTone">Tone panel ${e.i + 1}</button><span class="hint">${labels[e.i] ? `Label says: ${labels[e.i]}` : 'No label'}</span></div>` : ''}
+      <div class="hint">Patch a new cord from here:</div>${cordPicker(e.k === 'd' || e.k === 'u' ? 'white' : 'blue', 1)}
+      <div class="row"><button type="button" id="doNew">Patch new cord</button></div>`;
+    if (e.k === 'p') $('doTone').onclick = () => tone(e.i);
+    $('doNew').onclick = () => newCord(e, $('cColor').value, +$('cLen').value);
+    return;
+  }
+  box.innerHTML = `<div class="k"><span>Nothing selected</span></div><div class="hint">Tap a plug to unplug that end. Tap a cable to swap or pull it. Tap an empty port to tone it or patch a new cord.</div>`;
+}
+function chips() {
+  $('chips').innerHTML = tones.length ? tones.map((t, k) => `<span class="chip ${chipsSel === k ? 'on' : ''}" data-chip="${k}" draggable="true">P${t.i + 1}: ${t.name}</span>`).join('') : '<span class="hint" style="color:var(--muted);font-size:13px">Tone a panel port to find what\'s on the far end.</span>';
+}
+function bookPanel() {
+  const opts = ['', ...drops.filter(Boolean).map(d => d.name).sort(), 'Spare (no drop)'];
+  $('bookN').textContent = `${book.filter(Boolean).length}/${cfg.n} written`;
+  $('book').innerHTML = book.map((v, i) => `<div class="r" data-row="${i}"><b>P${i + 1}</b><select data-book="${i}" aria-label="Panel ${i + 1}">${opts.map(o => `<option ${o === v ? 'selected' : ''} value="${o}">${o || '—'}</option>`).join('')}</select>${labels[i] ? `<span class="lbl">label: ${labels[i]}</span>` : ''}</div>`).join('');
+}
+
+// ── Input ──
+const svgEl = $('rack');
+function svgPoint(ev) { const r = svgEl.getBoundingClientRect(), vb = svgEl.viewBox.baseVal; return [(ev.clientX - r.left) / r.width * vb.width, (ev.clientY - r.top) / r.height * vb.height]; }
+svgEl.addEventListener('pointermove', ev => {
+  pointer = svgPoint(ev); if (!holding) return;
+  const l = document.getElementById('heldLine'), p = document.getElementById('heldPlug'); const o = holding.end === 'a' ? holding.c.b : holding.c.a, [x, y] = portXY(o);
+  if (l) l.setAttribute('d', `M${x} ${y}L${pointer[0]} ${pointer[1]}`); if (p) { p.setAttribute('x', pointer[0] - 11); p.setAttribute('y', pointer[1] - 9); }
+});
+svgEl.addEventListener('click', ev => {
+  if (!running) return;
+  pointer = svgPoint(ev);
+  const plug = ev.target.closest('.plug'), hit = ev.target.closest('.hit'), pt = ev.target.closest('.port');
+  if (holding) {
+    // While holding: a port (or a plug sitting in one) is the target.
+    const target = nearestPort(pointer); if (!target) return;
+    if (holding.from && same(holding.from, target) && !plugged(target)) { const h = holding; if (h.end === 'a') h.c.a = { ...target }; else h.c.b = { ...target }; holding = null; settle(); toast('Put it back.'); render(); return; }
+    return plugInto(target);
+  }
+  if (plug) { const c = cables.find(x => x.id === +plug.dataset.cable); return pickUp(c, plug.dataset.end); }
+  if (hit) { const c = cables.find(x => x.id === +hit.dataset.cable); sel = c; render(); return; }
+  const np = nearestPort(pointer, 30); if (np && !plugged(np)) { sel = { port: np }; render(); return; }
+  if (pt) return;
+  sel = null; render();
+});
+function nearestPort(pt, maxD = 40) {
+  const all = []; for (let i = 0; i < cfg.n; i++) all.push({ k: 'p', i }, { k: 's', i }); for (let u = 0; u < 3; u++) all.push({ k: 'u', i: u }); cfg.devs.forEach(d => all.push({ k: 'd', i: d }));
+  let best = null, bd = maxD; all.forEach(e => { const [x, y] = portXY(e), d = Math.hypot(x - pt[0], y - pt[1]); if (d < bd) { bd = d; best = e; } }); return best;
+}
+const parse = s => { const [k, i] = s.split(':'); return { k, i: k === 'd' ? i : +i }; };
+$('devs').addEventListener('click', ev => { const b = ev.target.closest('[data-fo]'); if (b) failover(b.dataset.fo); });
+$('book').addEventListener('change', ev => { const s = ev.target.closest('[data-book]'); if (s) { book[+s.dataset.book] = s.value; $('bookN').textContent = `${book.filter(Boolean).length}/${cfg.n} written`; } });
+// Tone chips: drag into a book row (mouse), or tap a chip then tap a row (touch).
+$('chips').addEventListener('dragstart', ev => { const c = ev.target.closest('[data-chip]'); if (c) ev.dataTransfer.setData('text/plain', c.dataset.chip); });
+$('chips').addEventListener('click', ev => { const c = ev.target.closest('[data-chip]'); if (!c) return; chipsSel = chipsSel === +c.dataset.chip ? null : +c.dataset.chip; chips(); if (chipsSel !== null) toast('Now tap the book row to write it in.'); });
+const bookEl = $('book');
+bookEl.addEventListener('dragover', ev => { const r = ev.target.closest('.r'); if (r) { ev.preventDefault(); bookEl.querySelectorAll('.r.drop').forEach(x => x.classList.remove('drop')); r.classList.add('drop'); } });
+bookEl.addEventListener('dragleave', ev => { const r = ev.target.closest('.r'); if (r) r.classList.remove('drop'); });
+bookEl.addEventListener('drop', ev => { const r = ev.target.closest('.r'); if (!r) return; ev.preventDefault(); r.classList.remove('drop'); writeChip(+ev.dataTransfer.getData('text/plain'), +r.dataset.row); });
+bookEl.addEventListener('click', ev => { if (chipsSel === null || ev.target.closest('select')) return; const r = ev.target.closest('.r'); if (r) writeChip(chipsSel, +r.dataset.row); });
+function writeChip(k, row) { const t = tones[k]; if (!t) return; book[row] = t.name; chipsSel = null; bookPanel(); chips(); toast(`Wrote "${t.name}" in row P${row + 1}.`); }
+addEventListener('keydown', ev => { if (ev.key === 'Escape' && holding && holding.from && !plugged(holding.from)) { const h = holding; if (h.end === 'a') h.c.a = { ...h.from }; else h.c.b = { ...h.from }; holding = null; settle(); render(); } });
+
+// ── Finish ──
+let finishArmed = 0;
+$('finish').onclick = () => {
+  if (holding) return toast('Plug in the cable you\'re holding first.', 'bad');
+  const t = tidy();
+  if (t < 100 && !(finishArmed > performance.now())) { finishArmed = performance.now() + 5000; return toast(`The rack is only ${t}% tidy. Tap Finish again to finish anyway.`, 'bad'); }
+  finishArmed = 0; finishRack();
+};
+function finishRack() {
+  running = false; finished = true;
+  const want = drops.filter(Boolean).length + cfg.devs.length, base = 30 * drops.filter(Boolean).length + 60 * cfg.devs.length, t = tidy();
+  let right = 0, wrong = 0; book.forEach((v, i) => { if (!v) return; const truth = drops[i] ? drops[i].name : 'Spare (no drop)'; if (v === truth) right++; else wrong++; });
+  const onBackup = cfg.devs.filter(dv => devState[dv].backup).length, par = 22 * want, over = Math.max(0, clock - par);
+  const lines = [[`Rack ${t}% tidy (of $${base})`, Math.round(base * t / 100), 'g'], [`Mapping book: ${right} right`, right * 10, 'g'], [`Mapping book: ${wrong} wrong`, -wrong * 15, 'r'],
+    ['Downtime (desks, cameras, phones)', -Math.round(downCost), 'r'], [`Outages (${events.outages})`, -Math.round(outageCost), 'r'], ['Cords used', -cordCost, 'r'],
+    [`Gear left on backup (${onBackup})`, -50 * onBackup, 'r'], [`Over par (${clk(par)})`, -Math.round(over), 'r']];
+  const pay = lines.reduce((a, l) => a + l[1], 0); shift += pay;
+  const last = lvlIdx >= LEVELS.length - 1;
+  if (last) { try { if (parent !== window) parent.postMessage({ arcade: 'rack-cleanup', score: Math.max(0, shift) }, '*'); } catch (e) {} if (shift > best) { best = shift; try { localStorage.setItem('rackcleanup:best', best); } catch {} } }
+  $('endCard').innerHTML = `<h2>${t === 100 ? 'Rack clean' : 'Rack done'} · ${money(pay)}</h2>
+    <div class="ba"><figure><figcaption>Before</figcaption>${before.svg}</figure><figure><figcaption>After</figcaption>${drawSVG(true)}</figure></div>
+    <table class="receipt">${lines.filter(l => l[1]).map(l => `<tr class="${l[2]}"><td>${l[0]}</td><td>${money(l[1])}</td></tr>`).join('')}<tr class="tot"><td>This rack</td><td>${money(pay)}</td></tr><tr class="tot"><td>Shift so far</td><td>${money(shift)}</td></tr></table>
+    ${last ? `<p><b>Shift over: ${money(shift)}</b>${shift >= best && shift > 0 ? ' · New best!' : ` · Best ${money(best)}`}</p>` : ''}
+    <button type="button" class="primary" id="nextRack">${last ? 'Start a new shift' : `Next rack (${LEVELS[lvlIdx + 1].n} ports) →`}</button>`;
+  $('endModal').hidden = false;
+  $('nextRack').onclick = () => { $('endModal').hidden = true; if (last) { lvlIdx = 0; shift = 0; } else lvlIdx++; newRack(); };
+}
+
+$('how').onclick = () => { $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; try { localStorage.setItem('rackcleanup:seen', '1'); } catch {} lastT = performance.now(); };
+try { if (localStorage.getItem('rackcleanup:seen')) $('howModal').hidden = true; } catch {}
+shift = 0; newRack();
+})();
+</script>
+
+</body></html>

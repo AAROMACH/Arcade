@@ -35,6 +35,7 @@ const GAMES = {
   'tool-drawer':    { cap: 1e6,  perMin: 20000 },
   'find-the-tool':  { cap: 1e6,  perMin: 20000 },
   'tone-trace':     { cap: 2100, perMin: 3000 },
+  'rack-cleanup':   { cap: 5000, perMin: 3000 },
   'dispatch-board': { cap: 20000, perMin: 15000 },
 };
 const MIN_GAP_MS = 10 * 1000;            // one score post per player every 10 seconds
