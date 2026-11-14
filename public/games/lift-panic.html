@@ -139,6 +139,7 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
       <li><b>Mount cameras:</b> line the tech's hands up with each yellow <b>MOUNT</b> ring as it passes. Ceiling mounts are worth 100, column mounts 150.</li>
       <li><b>Streaks:</b> mounts in a row multiply the points, up to ×5. Missing one resets the streak but doesn't cost a life.</li>
       <li><b>Dodge</b> everything under <b>Obstacles</b> below. Only the tech counts as a hit (hard hat to boots), not the lift. Each hit costs a hard hat; three and the shift's over.</li>
+      <li><b>Power-ups</b> are rare (about one every 1,000 ft, none before 400 ft): a spare hard hat, a spotter that shows hit areas, or a hydraulic boost. Reach for one with your hands, but it usually costs you that camera.</li>
       <li>The lift is slow on purpose, so start moving early. The warehouse speeds up the longer you last.</li>
       <li>Every camera can be reached — nothing ever blocks a mount point.</li>
     </ul>
@@ -257,6 +258,18 @@ const OBS = [
     move: 'The warehouse goes dark for about 8 seconds. You only see what\'s near your work lights.',
     pass: 'Ease off and watch the edge of the light for what\'s coming.',
     lane: [] },
+  { id: 'pu-hat', name: 'Spare hard hat', when: 'Power-up, from 400 ft', tag: 'POWER-UP', power: true,
+    move: 'Floats level with a mount ring, at a different height. Rare: about one every 1,000 ft.',
+    pass: 'Reach for it with the tech\u2019s hands. Gives back a hard hat (or $250 if you have all three). Usually costs you that camera.',
+    lane: [], o: () => ({ kind: 'pu', p: 'hat' }) },
+  { id: 'pu-spot', name: 'Spotter', when: 'Power-up, from 400 ft', tag: 'POWER-UP', power: true,
+    move: 'A coworker on the floor calls out the hazards for 6 seconds.',
+    pass: 'While it lasts, every obstacle\u2019s hit area is outlined in orange, like this guide.',
+    lane: [], o: () => ({ kind: 'pu', p: 'spot' }) },
+  { id: 'pu-boost', name: 'Hydraulic boost', when: 'Power-up, from 400 ft', tag: 'POWER-UP', power: true,
+    move: 'The lift raises and lowers much faster for 8 seconds.',
+    pass: 'Use it to get over a mezzanine or up to a reach truck\u2019s mast in time.',
+    lane: [], o: () => ({ kind: 'pu', p: 'boost' }) },
   { id: 'reach', name: 'Reach truck', when: 'From 1,600 ft', tag: '1,600 FT',
     move: 'Drives at you with its mast and pallet run almost to the ceiling. The whole mast is solid.',
     pass: 'Go all the way up, near the ceiling.',
@@ -299,6 +312,7 @@ function drawObsTile(b, c, g) {
   if (b.drive) { const span = 520; o.x = 430 - ((g * b.drive) % span); }
   const keep = { cx, FLOOR, t };
   cx = c; FLOOR = GF; t = g;
+  if (o.kind === 'pu') { try { cx.save(); cx.translate(180, 195); cx.scale(2.6, 2.6); drawPickup({ kind: o.p, x: 0, y: 0 }); cx.restore(); } finally { cx = keep.cx; FLOOR = keep.FLOOR; t = keep.t; } return; }
   try {
     drawThing(o);
     // The real hit areas (the same boxes the game checks), outlined in orange. Guide only, never in the game.
@@ -382,6 +396,10 @@ let deck, deckV, speed, dist, score, lives, streak, mounted, things, spawnAt, hi
 let campT = 0;
 // Later in a run the warehouse changes up: new obstacles unlock by distance (feet = dist / 30).
 let announced = new Set(), dark = 0, nextDarkFt = 1200;
+// Power-ups: rare (none before 400 ft, about one per ~950 ft after), one at a time, always level with a
+// mount ring but at a different height, so grabbing one usually costs you that camera.
+let pickups = [], power = { spot: 0, boost: 0 }, nextPuFt = 400;
+const PU = { hat: 'SPARE HARD HAT', spot: 'SPOTTER', boost: 'HYDRAULIC BOOST' };
 const UNLOCK = { hoist: 400, mezz: 800, reach: 1600 };
 const NEWNAME = { hoist: 'NEW: OVERHEAD HOIST', mezz: 'NEW: MEZZANINE — GO OVER', reach: 'NEW: REACH TRUCK — GO HIGH' };
 
@@ -389,7 +407,7 @@ function start() {
   layoutWorld();
   deck = MIN_DECK; deckV = 0; campT = 0; speed = 230 * SPD; dist = 0; score = 0; lives = 3; streak = 0; mounted = 0;
   things = []; spawnAt = 300; hitFlash = 0; invuln = 0; shake = 0; floaters = []; t = 0; nextBracketAt = 200;
-  announced = new Set(); dark = 0; nextDarkFt = 1200;
+  announced = new Set(); dark = 0; nextDarkFt = 1200; pickups = []; power = { spot: 0, boost: 0 }; nextPuFt = 400 + Math.random() * 300;
   state = 'play'; paused = false; beep(660, .1); beep(880, .12);
 }
 
@@ -443,7 +461,13 @@ function leavesAGap(h) {
   return false;
 }
 const addBracket = b => { spaceFromPrev(b); if (!things.some(o => o.kind !== 'bracket' && blocks(o, b))) things.push(b); };
-const addHazard = h => { if (!things.some(o => o.kind === 'bracket' && !o.done && blocks(h, o)) && leavesAGap(h)) things.push(h); };
+const addHazard = h => {
+  if (!things.some(o => o.kind === 'bracket' && !o.done && blocks(h, o)) && leavesAGap(h)) {
+    things.push(h);
+    // A new obstacle never sits on a power-up: drop that power-up and try again soon.
+    const bx = boxesOf(h); pickups = pickups.filter(p => { const hitIt = bx.some(b => b.x < p.x + 30 && b.x + b.w > p.x - 30 && b.y < p.y + 24 && b.y + b.h > p.y - 24); if (hitIt) nextPuFt = dist / 30 + 150; return !hitIt; });
+  }
+};
 
 // Obstacles and brackets scroll in from the right. Each has x (world→screen) and its own shape.
 function spawn() {
@@ -457,7 +481,9 @@ function spawn() {
       if (p < 0.4) return { y: CEIL + 18, onCeil: true };
       return { y: CEIL + 60 + Math.random() * (MIN_DECK - TECH_H - 40 - CEIL - 60), onCeil: false };
     };
-    addBracket({ kind: 'bracket', x: x + Math.random() * 120, w: 26, done: false, ...spot() });
+    const bx = x + Math.random() * 120, sp = spot(), before = things.length;
+    addBracket({ kind: 'bracket', x: bx, w: 26, done: false, ...sp });
+    if (things.length > before && dist / 30 >= nextPuFt && !pickups.length) placePickup(bx, sp.y);
     // Now and then a second one close behind at a different height.
     if (Math.random() < 0.25 + level * 0.2) addBracket({ kind: 'bracket', x: x + 170 + Math.random() * 90, w: 26, done: false, ...spot() });
     nextBracketAt = dist + 280 + Math.random() * (700 - level * 200);
@@ -536,6 +562,23 @@ function boxesOf(o) {
   return [];
 }
 
+function placePickup(x, ringY) {
+  const lo = MAX_DECK - TECH_H, hi = MIN_DECK - TECH_H - 4;           // heights the tech's hands can reach
+  const tries = [0, 1, 2, 3, 4, 5].map(() => lo + Math.random() * (hi - lo)).filter(y => Math.abs(y - ringY) > 120);
+  // Never inside an obstacle that is already on its way.
+  const clear = y => !things.some(o => o.kind !== 'bracket' && boxesOf(o).some(b => b.x < x + 50 && b.x + b.w > x - 50 && b.y < y + 30 && b.y + b.h > y - 30));
+  const y = tries.find(clear); if (y === undefined) return;
+  const kind = lives < 3 && Math.random() < .45 ? 'hat' : ['hat', 'spot', 'spot', 'boost', 'boost'][Math.floor(Math.random() * 5)];
+  pickups.push({ kind, x, y });
+  nextPuFt = dist / 30 + 700 + Math.random() * 500;
+}
+function grab(p) {
+  if (p.kind === 'hat') { if (lives < 3) { lives++; floaters.push({ x: PX, y: p.y, txt: '+1 HARD HAT', life: 1.4 }); } else { score += 250; floaters.push({ x: PX, y: p.y, txt: 'SPARE HAT +$250', life: 1.4 }); } }
+  if (p.kind === 'spot') { power.spot = 6; floaters.push({ x: PX, y: p.y, txt: 'SPOTTER: HIT AREAS SHOWN', life: 1.4 }); }
+  if (p.kind === 'boost') { power.boost = 8; floaters.push({ x: PX, y: p.y, txt: 'HYDRAULIC BOOST', life: 1.4 }); }
+  beep(660, .06, 'triangle'); beep(990, .08, 'triangle');
+}
+
 function hit() {
   if (invuln > 0) return;
   lives--; streak = 0; invuln = 1.4; hitFlash = 0.35; shake = reduce ? 0 : 10;
@@ -549,7 +592,7 @@ try { if (parent !== window) parent.postMessage({ arcade: 'lift-panic', score: s
 function update(dt) {
   t += dt;
   // Scissor lifts are slow — the whole game is about committing early.
-  const rate = (300 + Math.min(120, dist / 120)) * VS;
+  const rate = (300 + Math.min(120, dist / 120)) * VS * (power.boost > 0 ? 1.7 : 1);
   const want = input.up && !input.down ? -1 : input.down && !input.up ? 1 : 0;
   deckV += (want * rate - deckV) * Math.min(1, dt * 7);
   deck = Math.max(MAX_DECK, Math.min(MIN_DECK, deck + deckV * dt));
@@ -582,6 +625,9 @@ function update(dt) {
     for (const b of boxesOf(o)) if (overlap(pb, b)) hit();
   }
   things = things.filter(o => o.x > -320);
+  for (const p of pickups) { p.x -= dx; if (!p.got && Math.abs(p.x - PX) < 34 && Math.abs(handsY() - p.y) < 26) { p.got = true; grab(p); } }
+  pickups = pickups.filter(p => !p.got && p.x > -60);
+  power.spot = Math.max(0, power.spot - dt); power.boost = Math.max(0, power.boost - dt);
   score += Math.floor(dx / 10) * 0 + 0; // score comes from mounts; distance shown separately
   floaters.forEach(f => { f.life -= dt; f.y -= 30 * dt; });
   floaters = floaters.filter(f => f.life > 0);
@@ -792,11 +838,12 @@ function drawThing(o) {
   if (o.kind === 'mezz') {
     // Steel deck with toe board and a guardrail, posts down to the floor, racking stored underneath.
     cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(o.x + 6, o.top + 16, o.w, 8);
-    for (let px = o.x + 6; px < o.x + o.w; px += 90) { cx.fillStyle = '#2f5d8a'; cx.fillRect(px, o.top + 16, 8, FLOOR - o.top - 16); }
-    cx.fillStyle = '#2f5d8a'; cx.fillRect(o.x + o.w - 14, o.top + 16, 8, FLOOR - o.top - 16);
+    for (let px = o.x + 6; px < o.x + o.w; px += 90) { cx.fillStyle = '#e0a800'; cx.fillRect(px, o.top + 16, 8, FLOOR - o.top - 16); cx.fillStyle = '#b98a00'; cx.fillRect(px + 5, o.top + 16, 3, FLOOR - o.top - 16); }
+    cx.fillStyle = '#e0a800'; cx.fillRect(o.x + o.w - 14, o.top + 16, 8, FLOOR - o.top - 16);
     for (let bx = o.x + 22; bx < o.x + o.w - 40; bx += 60) { cx.fillStyle = '#7a5530'; cx.fillRect(bx, FLOOR - 26, 48, 6); cx.fillStyle = '#c89a68'; cx.fillRect(bx + 2, FLOOR - 52, 44, 26); }
-    cx.fillStyle = '#e07b1a'; cx.fillRect(o.x, o.top, o.w, 16);
-    cx.fillStyle = '#b8611a'; for (let gx = o.x + 4; gx < o.x + o.w; gx += 10) cx.fillRect(gx, o.top + 4, 4, 8);
+    cx.fillStyle = '#ffc21a'; cx.fillRect(o.x, o.top, o.w, 16);
+    cx.fillStyle = '#c99400'; for (let gx = o.x + 4; gx < o.x + o.w; gx += 10) cx.fillRect(gx, o.top + 4, 4, 8);
+    cx.fillStyle = '#1a1d22'; for (let sx = o.x; sx < o.x + o.w; sx += 24) cx.fillRect(sx, o.top + 13, 12, 3);   // hazard edge
     cx.fillStyle = C.safety; cx.fillRect(o.x, o.top - 30, o.w, 3); cx.fillRect(o.x, o.top - 15, o.w, 2);
     for (let rx = o.x; rx <= o.x + o.w; rx += 40) cx.fillRect(Math.min(rx, o.x + o.w - 3), o.top - 30, 3, 30);
   }
@@ -825,6 +872,16 @@ function drawThing(o) {
   }
 }
 
+function drawPickup(p) {
+  const pulse = reduce ? 1 : 1 + Math.sin(t * 6) * .08, r = 17 * pulse;
+  const g = cx.createRadialGradient(p.x, p.y, 4, p.x, p.y, 34); g.addColorStop(0, 'rgba(120,230,255,.45)'); g.addColorStop(1, 'rgba(120,230,255,0)');
+  cx.fillStyle = g; cx.beginPath(); cx.arc(p.x, p.y, 34, 0, 7); cx.fill();
+  cx.fillStyle = '#123a4a'; cx.strokeStyle = '#7fe6ff'; cx.lineWidth = 3; cx.beginPath(); cx.arc(p.x, p.y, r, 0, 7); cx.fill(); cx.stroke();
+  if (p.kind === 'hat') { cx.fillStyle = C.safety; cx.beginPath(); cx.arc(p.x, p.y + 4, 9, Math.PI, 0); cx.fill(); cx.fillRect(p.x - 12, p.y + 3, 24, 3); }
+  if (p.kind === 'spot') { cx.strokeStyle = '#ff8a1f'; cx.lineWidth = 2.5; cx.setLineDash([4, 3]); cx.strokeRect(p.x - 8, p.y - 8, 16, 16); cx.setLineDash([]); }
+  if (p.kind === 'boost') { cx.strokeStyle = '#7fe6ff'; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(p.x - 7, p.y + 2); cx.lineTo(p.x, p.y - 5); cx.lineTo(p.x + 7, p.y + 2); cx.moveTo(p.x - 7, p.y + 8); cx.lineTo(p.x, p.y + 1); cx.lineTo(p.x + 7, p.y + 8); cx.stroke(); }
+}
+
 function hud() {
   cx.textAlign = 'left'; cx.fillStyle = C.fg;
   cx.font = '20px Bungee, Impact, sans-serif'; cx.fillText('$' + String(score).padStart(5, '0'), 18, 34);
@@ -833,6 +890,8 @@ function hud() {
   cx.textAlign = 'right';
   for (let i = 0; i < 3; i++) { cx.fillStyle = i < lives ? C.safety : '#3a414b'; cx.beginPath(); cx.arc(W - 22 - i * 22, 28, 8, Math.PI, 0); cx.fill(); cx.fillRect(W - 32 - i * 22, 28, 20, 3); }
   if (streak > 1) { cx.fillStyle = C.safety; cx.font = '14px Bungee, Impact, sans-serif'; cx.fillText(`STREAK ×${Math.min(5, streak)}`, W - 18, 56); }
+  const act = [['spot', 'SPOTTER', '#ff8a1f'], ['boost', 'BOOST', '#7fe6ff']].filter(([k]) => power[k] > 0);
+  act.forEach(([k, n, col], i) => { cx.textAlign = 'left'; cx.fillStyle = col; cx.font = '13px Bungee, Impact, sans-serif'; cx.fillText(`${n} ${Math.ceil(power[k])}s`, 18, 72 + i * 18); });
   floaters.forEach(f => { cx.globalAlpha = Math.max(0, f.life); cx.fillStyle = f.bad ? C.alarm : C.safety; cx.textAlign = 'center'; cx.font = '16px Bungee, Impact, sans-serif'; cx.fillText(f.txt, f.x, f.y); cx.globalAlpha = 1; });
 }
 
@@ -851,7 +910,9 @@ function render() {
   if (shake > 0.5) cx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
   drawWarehouse();
   if (state !== 'title') {
-    things.forEach(drawThing); drawLift();
+    things.forEach(drawThing);
+    if (power.spot > 0) things.forEach(o => (boxesOf(o) || []).forEach(b => { cx.fillStyle = 'rgba(255,138,31,.14)'; cx.fillRect(b.x, b.y, b.w, b.h); cx.strokeStyle = '#ff8a1f'; cx.lineWidth = 2.5; cx.setLineDash([7, 5]); cx.strokeRect(b.x, b.y, b.w, b.h); cx.setLineDash([]); }));
+    pickups.forEach(drawPickup); drawLift();
     if (dark > 0) {
       // Darkness with a pool of work light around the tech; fades in and out at the ends.
       const k = Math.min(1, dark, (8 - dark) * 2), lx = PX, ly = deck - TECH_H / 2;
