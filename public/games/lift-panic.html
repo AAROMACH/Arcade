@@ -74,6 +74,8 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
 .obs span { font-size: 11px; font-weight: 700; line-height: 1.15; color: var(--fg, #e9ecef); }
 .obs i { position: absolute; top: 6px; right: 6px; font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: .04em; color: #111; background: var(--safety); border-radius: 3px; padding: 0 3px; }
 .obsInfo { border: 1px solid #2a3038; border-left: 4px solid var(--safety); border-radius: 6px; padding: 8px 10px; background: #14181d; min-height: 96px; }
+.obsInfo canvas { float: right; width: min(46%, 200px); aspect-ratio: 36 / 29; margin: 0 0 6px 10px; border-radius: 4px; border: 1px solid #2a3038; }
+.obsInfo::after { content: ""; display: block; clear: both; }
 .obsInfo b { display: block; font-size: 15px; margin-bottom: 2px; color: var(--safety); }
 .obsInfo p { font-size: 13px; line-height: 1.45; }
 .obsInfo em { font-style: normal; font-weight: 700; color: var(--muted); }
@@ -141,7 +143,7 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
       <li>Every camera can be reached — nothing ever blocks a mount point.</li>
     </ul>
     <h3>Obstacles</h3>
-    <p class="note">Hover or tap one to see how it moves. The green arrow is the way past it. Tagged ones show up later in a run.</p>
+    <p class="note">Hover or tap one to see how it moves. <b style="color:#ff8a1f">Orange outlines</b> are exactly what hits you (only your tech counts, not the lift). The green arrow is the way past. Tagged ones show up later in a run.</p>
     <div class="obs" id="obs"></div>
     <div class="obsInfo" id="obsInfo" aria-live="polite"></div>
     <h3>Controls</h3>
@@ -266,7 +268,7 @@ obsWrap.innerHTML = OBS.map(b => `<button type="button" data-id="${b.id}" aria-l
 function obsShow(id) {
   obsSel = id; const b = OBS.find(x => x.id === id);
   obsWrap.querySelectorAll('button').forEach(el => el.classList.toggle('on', el.dataset.id === id));
-  obsInfo.innerHTML = `<b>${b.name}</b><p><em>Shows up:</em> ${b.when}</p><p><em>How it moves:</em> ${b.move}</p><p><em>Get past:</em> ${b.pass}</p>`;
+  obsInfo.innerHTML = `<canvas id="obsBig" aria-hidden="true"></canvas><b>${b.name}</b><p><em>Shows up:</em> ${b.when}</p><p><em>How it moves:</em> ${b.move}</p><p><em>Get past:</em> ${b.pass}</p>`;
 }
 obsWrap.addEventListener('pointerover', e => { const el = e.target.closest('button'); if (el) obsShow(el.dataset.id); });
 obsWrap.addEventListener('focusin', e => { const el = e.target.closest('button'); if (el) obsShow(el.dataset.id); });
@@ -297,7 +299,11 @@ function drawObsTile(b, c, g) {
   if (b.drive) { const span = 520; o.x = 430 - ((g * b.drive) % span); }
   const keep = { cx, FLOOR, t };
   cx = c; FLOOR = GF; t = g;
-  try { drawThing(o); } finally { cx = keep.cx; FLOOR = keep.FLOOR; t = keep.t; }
+  try {
+    drawThing(o);
+    // The real hit areas (the same boxes the game checks), outlined in orange. Guide only, never in the game.
+    (boxesOf(o) || []).forEach(r => { c.fillStyle = 'rgba(255,138,31,.16)'; c.fillRect(r.x, r.y, r.w, r.h); c.strokeStyle = '#ff8a1f'; c.lineWidth = 3; c.setLineDash([8, 5]); c.strokeRect(r.x, r.y, r.w, r.h); c.setLineDash([]); });
+  } finally { cx = keep.cx; FLOOR = keep.FLOOR; t = keep.t; }
 }
 function obsLoop(now) {
   obsRaf = 0; if (howModal.hidden) return;
@@ -309,6 +315,14 @@ function obsLoop(now) {
     c.clearRect(0, 50, 360, 290); c.save(); c.beginPath(); c.rect(0, 50, 360, 290); c.clip();
     drawObsTile(OBS[i], c, reduce ? 1.2 : g); c.restore();
   });
+  const big = document.getElementById('obsBig');
+  if (big) {
+    const w = Math.max(1, Math.round(big.clientWidth * dpr)), h = Math.round(w * 29 / 36);
+    if (big.width !== w || big.height !== h) { big.width = w; big.height = h; }
+    const c = big.getContext('2d'); c.setTransform(w / 360, 0, 0, h / 290, 0, -50 * h / 290);
+    c.clearRect(0, 50, 360, 290); c.save(); c.beginPath(); c.rect(0, 50, 360, 290); c.clip();
+    drawObsTile(OBS.find(x => x.id === obsSel), c, reduce ? 1.2 : g); c.restore();
+  }
   if (!reduce) obsRaf = requestAnimationFrame(obsLoop);
 }
 const obsStart = () => { obsShow(obsSel); if (!obsRaf) obsRaf = requestAnimationFrame(obsLoop); };

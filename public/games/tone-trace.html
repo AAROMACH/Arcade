@@ -79,6 +79,10 @@ button:focus-visible { outline: 3px solid #2f6fd1; outline-offset: 2px; }
 .card h3 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; }
 .card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.story { margin-top: 4px; font-style: italic; color: #6b5a3a; }
+.tier { margin-top: 4px; font-size: 12px; color: #6b5a3a; }
+.shiftend { padding: 6px 8px; border-radius: 6px; background: rgba(200,40,40,.08); } .shiftend.ok { background: rgba(40,160,90,.1); }
+.result .note { font-size: 13px; color: var(--muted); font-style: italic; }
 </style>
 
 <div class="clip"><div class="sheet">
@@ -94,7 +98,7 @@ button:focus-visible { outline: 3px solid #2f6fd1; outline-offset: 2px; }
   <div class="clock">
     <div class="lbl"><span>Time on this ticket</span><span id="mins">0 min</span></div>
     <div class="bar"><i id="mbar"></i></div>
-    <div class="lbl"><span>Full pay under 30 min</span><span>Escalated at 60 min</span></div>
+    <div class="lbl"><span>Full pay under 15 min</span><span>Escalated at 45 min</span></div>
   </div>
   <div class="k">Tool belt</div>
   <div class="tools" id="tools"></div>
@@ -109,19 +113,21 @@ button:focus-visible { outline: 3px solid #2f6fd1; outline-offset: 2px; }
 <div class="modal" id="howModal">
   <div class="card">
     <h2>Tone &amp; Trace</h2>
-    <p>A drop is dead. Find out why with the fewest minutes on the clock, then pick the fix.</p>
+    <p>A drop is dead. Work out why from the evidence, then pick the fix. Six tickets a shift; make <b>$1,500</b> to meet the shift goal.</p>
     <h3>How it works</h3>
     <ul>
-      <li>Each tool costs time. Its result goes in your field notes.</li>
-      <li>When you know the cause, pick the fix. A wrong fix costs 8 minutes and a callback.</li>
-      <li>Finish under 30 minutes for full pay. Every minute after that costs you. At 60 minutes the ticket is escalated and pays nothing.</li>
-      <li>6 tickets a shift.</li>
+      <li>Each test costs minutes. Its result goes in your field notes.</li>
+      <li>Under 15 minutes pays the full $250, plus $100 if your first fix works. After 15 minutes, every minute costs $10.</li>
+      <li><b>A wrong fix</b> costs 12 minutes and $40. <b>Two wrong fixes</b>, or 45 minutes, and the ticket is escalated: −$100.</li>
+      <li>Tickets get harder as the shift goes on, with more possible causes.</li>
     </ul>
-    <h3>Reading the clues</h3>
+    <h3>Think like a tech</h3>
     <ul>
-      <li>The certifier reports how far down the cable a fault is. Near the wall end means the jack. Partway down the run means damaged cable.</li>
-      <li>Tone tells you which panel port the cable really lands on.</li>
-      <li>A link light can be up and the drop still broken. Check the config.</li>
+      <li>The customer's story is a lead, not a fact. It's often wrong.</li>
+      <li>Many faults look the same on one test. A dark switch light could be the cable, the port, the patch cord, or the device itself. Find a second test that splits them.</li>
+      <li>The certifier gives the distance to a fault, measured from the jack. Compare it to the run's length.</li>
+      <li>If a laptop works at the jack, the cabling and the port are fine. Look at what's plugged in, or what's powering it.</li>
+      <li>A link light can be up and the drop still broken.</li>
     </ul>
     <button type="button" class="primary" id="howClose">Clock in</button>
   </div>
@@ -132,16 +138,40 @@ button:focus-visible { outline: 3px solid #2f6fd1; outline-offset: 2px; }
 const $ = id => document.getElementById(id);
 const SITES = ['Troy dental office', 'Warren tool & die', 'Dearborn credit union', 'Livonia warehouse', 'Royal Oak brewery', 'Southfield law firm', 'Novi medical suite', 'Sterling Hts. plant office'];
 const KINDS = ['DESK', 'DESK', 'CAM', 'AP', 'DESK', 'CAM'];
+// Every cause, and the fix you'd pick for it. Several causes look the same on the cheap tools:
+// it takes the right second (or third) test to tell them apart.
 const CAUSE = {
-  jack:   'Re-terminate the wall jack',
-  staple: 'Replace the damaged cable run',
-  label:  'Re-patch to the real panel port & fix the label',
-  patch:  'Replace the bad patch cord',
-  vlan:   'Put the port on the right VLAN',
-  shut:   'Enable the shut-down switch port',
-  poe:    'Free up PoE budget for the port',
+  jack:   () => 'Re-terminate the wall jack',
+  panel:  () => 'Re-punch the patch panel port',
+  staple: () => 'Replace the damaged cable run',
+  label:  () => 'Re-patch to the real panel port & fix the label',
+  patch:  () => 'Replace the bad patch cord',
+  vlan:   () => 'Put the port on the right VLAN',
+  shut:   () => 'Enable the shut-down switch port',
+  psec:   () => 'Clear the err-disable & pull the rogue switch',
+  dhcp:   () => 'Clear stale leases in the DHCP scope',
+  device: k => k === 'CAM' ? 'Replace the camera' : k === 'AP' ? 'Replace the access point' : 'It’s the PC: hand it to their IT',
+  poe:    () => 'Free up PoE budget for the port',
 };
+// Tougher tickets as the shift goes on: more possible causes.
+const TIER = [
+  ['jack', 'staple', 'label', 'patch', 'vlan', 'shut'],
+  ['jack', 'staple', 'label', 'patch', 'vlan', 'shut', 'panel', 'dhcp', 'device'],
+  ['jack', 'staple', 'label', 'patch', 'vlan', 'shut', 'panel', 'dhcp', 'device', 'psec', 'poe'],
+];
+const tierOf = n => n <= 2 ? 0 : n <= 4 ? 1 : 2;
+// What the customer says happened. It points at the real cause less than half the time.
+const STORY = {
+  jack: 'The cleaning crew moved the desks last night.', panel: 'Another contractor was in the network closet Monday.',
+  staple: 'Electricians ran new conduit above the ceiling this week.', label: 'IT relabeled the patch panel last month.',
+  patch: 'Somebody tidied up the cords in the network closet.', vlan: 'Our IT guy was "cleaning up" the switch config yesterday.',
+  shut: 'The switch was replaced over the weekend.', psec: 'An employee brought in a little switch for more ports.',
+  dhcp: 'We hired fifteen people this month.', device: 'There was a power surge during the storm Tuesday.',
+  poe: 'We just added three more cameras.',
+};
+const GOAL = 1500;
 const ICON = {
+  dhcpck: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="3" width="22" height="26" rx="2" fill="#2b3340"/><rect x="8" y="7" width="16" height="4" rx="1" fill="#1f2430"/><rect x="8" y="14" width="16" height="4" rx="1" fill="#1f2430"/><rect x="8" y="21" width="16" height="4" rx="1" fill="#1f2430"/><circle cx="21" cy="9" r="1.2" fill="#3ee08f"/><circle cx="21" cy="16" r="1.2" fill="#3ee08f"/><circle cx="21" cy="23" r="1.2" fill="#f0b03a"/></svg>',
   link: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="10" width="28" height="12" rx="2" fill="#2b3340"/><g fill="#0f1319">' + [5, 10, 15, 20].map(x => `<rect x="${x}" y="13" width="4" height="4"/>`).join('') + '</g><circle cx="7" cy="20" r="1.2" fill="#3ee08f"/><circle cx="12" cy="20" r="1.2" fill="#f0b03a"/><circle cx="26" cy="15" r="1.5" fill="#3ee08f"/></svg>',
   laptop: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="7" width="20" height="14" rx="1.5" fill="#2b3340"/><rect x="8" y="9" width="16" height="10" fill="#7fb6e8"/><path d="M3 23h26l-2 3H5z" fill="#5b6670"/></svg>',
   tone: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 3h6l2 6v18a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2V9z" fill="#d8322a"/><rect x="9" y="12" width="6" height="5" rx="1" fill="#1f2430"/><path d="M12 3V0" stroke="#5b6670" stroke-width="2"/><path d="M20 8c3 2 3 6 0 8M23 5c5 4 5 10 0 14" fill="none" stroke="#1f2430" stroke-width="1.6" stroke-linecap="round"/></svg>',
@@ -154,8 +184,9 @@ const TOOLS = [
   { id: 'laptop', name: 'Plug laptop in at the drop', min: 3 },
   { id: 'tone', name: 'Tone from the jack', min: 6 },
   { id: 'cert', name: 'Certify jack → panel', min: 8 },
-  { id: 'config', name: 'Read port config', min: 4 },
+  { id: 'config', name: 'Read port config', min: 5 },
   { id: 'swap', name: 'Swap the patch cord', min: 3 },
+  { id: 'dhcpck', name: 'Check the DHCP server', min: 5 },
 ];
 const SHIFT = 6;
 let best = 0; try { best = +localStorage.getItem('tonetrace:best') || 0; } catch {}
@@ -166,9 +197,10 @@ function newTicket() {
   n++;
   const kind = KINDS[rnd(0, KINDS.length - 1)], num = rnd(1, 12);
   const P = rnd(1, 24); let A = P; while (A === P) A = rnd(1, 24);
-  const pool = ['jack', 'staple', 'label', 'patch', 'vlan', 'shut'].concat(kind !== 'DESK' ? ['poe', 'poe'] : []);
-  const L = rnd(70, 290);
-  tk = { site: SITES[rnd(0, SITES.length - 1)], drop: `${kind} ${num}`, kind, P, A, L, X: rnd(25, L - 25), fault: pool[rnd(0, pool.length - 1)], no: rnd(10400, 19999) };
+  const opts = TIER[tierOf(n)].filter(c => c !== 'poe' || kind !== 'DESK'), pool = opts.concat(opts.includes('poe') ? ['poe'] : []);
+  const L = rnd(70, 290), fault = pool[rnd(0, pool.length - 1)];
+  const story = Math.random() < .4 ? fault : opts.filter(c => c !== fault)[rnd(0, opts.length - 2)];
+  tk = { site: SITES[rnd(0, SITES.length - 1)], drop: `${kind} ${num}`, kind, P, A, L, X: rnd(25, L - 25), fault, opts, story, no: rnd(10400, 19999) };
   mins = 0; used = new Set(); wrong = new Set(); closed = false;
   $('notes').innerHTML = '<div><span class="t">--</span><span>Nothing yet. Pick a tool.</span></div>';
   $('result').hidden = true; $('diag').hidden = false; $('dk').hidden = false;
@@ -177,30 +209,40 @@ function newTicket() {
 const complaint = () => tk.kind === 'CAM' ? `${tk.drop} shows NO SIGNAL on the NVR.` : tk.kind === 'AP' ? `Wi-Fi is dead near ${tk.drop}. AP shows no lights.` : `${tk.drop} has no network.`;
 function render() {
   $('tno').textContent = `Ticket #${tk.no} · ${tk.site}`;
-  $('ticket').innerHTML = `<div class="complaint">"${complaint()}"</div><div>Drop ${tk.drop} · labeled panel port ${tk.P} · switch port Gi1/0/${tk.P} · run about ${Math.round(tk.L / 10) * 10} ft</div>`;
+  $('ticket').innerHTML = `<div class="complaint">"${complaint()}"</div><div>Drop ${tk.drop} · labeled panel port ${tk.P} · switch port Gi1/0/${tk.P} · run about ${Math.round(tk.L / 10) * 10} ft</div><div class="story">Customer: "${STORY[tk.story]}"</div><div class="tier">${['Routine', 'Tricky', 'Nasty'][tierOf(n)]} ticket · ${tk.opts.length} possible causes · ${wrong.size ? `<b>${2 - wrong.size} wrong fix left before it's escalated</b>` : '2 wrong fixes and it’s escalated'}</div>`;
   $('tools').innerHTML = TOOLS.map(t => `<button type="button" data-t="${t.id}" class="${used.has(t.id) ? 'used' : ''}" ${closed ? 'disabled' : ''}>${ICON[t.id] || ''}<span>${t.name}</span><small>+${t.min} min${used.has(t.id) ? ' · done' : ''}</small></button>`).join('');
-  $('diag').innerHTML = Object.entries(CAUSE).filter(([k]) => k !== 'poe' || tk.kind !== 'DESK').map(([k, v]) => `<button type="button" data-c="${k}" ${wrong.has(k) || closed ? 'disabled' : ''}>${v}${wrong.has(k) ? '<small>Didn’t fix it</small>' : ''}</button>`).join('');
-  $('mins').textContent = `${mins} min`; const f = Math.min(1, mins / 60);
-  $('mbar').style.width = f * 100 + '%'; $('mbar').style.background = mins > 45 ? 'var(--stamp)' : mins > 30 ? '#c98a00' : 'var(--ok)';
-  $('score').textContent = '$' + score.toLocaleString(); $('count').textContent = `${Math.min(n, SHIFT)}/${SHIFT}`; $('best').textContent = '$' + Math.max(best, score).toLocaleString();
+  $('diag').innerHTML = tk.opts.map(k => `<button type="button" data-c="${k}" ${wrong.has(k) || closed ? 'disabled' : ''}>${CAUSE[k](tk.kind)}${wrong.has(k) ? '<small>Didn’t fix it</small>' : ''}</button>`).join('');
+  $('mins').textContent = `${mins} min`; const f = Math.min(1, mins / 45);
+  $('mbar').style.width = f * 100 + '%'; $('mbar').style.background = mins > 35 ? 'var(--stamp)' : mins > 15 ? '#c98a00' : 'var(--ok)';
+  $('score').textContent = (score < 0 ? '−$' : '$') + Math.abs(score).toLocaleString() + ` / $${GOAL.toLocaleString()} goal`; $('count').textContent = `${Math.min(n, SHIFT)}/${SHIFT}`; $('best').textContent = '$' + Math.max(best, score).toLocaleString();
 }
 function result(id) {
-  const f = tk.fault, P = tk.P, A = tk.A;
-  const linkDown = ['jack', 'staple', 'patch', 'shut', 'poe'].includes(f);
+  const f = tk.fault, P = tk.P, A = tk.A, k = tk.kind, pd = k !== 'DESK';
+  const lightOn = ['label', 'vlan', 'dhcp'].includes(f);
+  const atJackWorks = ['device', 'poe'].includes(f);   // a laptop at the jack works fine: the cabling and port are good
   switch (id) {
-    case 'link': return f === 'label' ? `Gi1/0/${P} light is GREEN. Something is plugged in there, but the drop's still dead.`
-      : f === 'vlan' ? `Gi1/0/${P} light is GREEN and blinking.` : `Gi1/0/${P} light is OFF.`;
-    case 'laptop': return f === 'vlan' ? 'Link up. Laptop got 192.168.99.27. That’s the guest VLAN, not the office network.'
-      : f === 'label' ? 'No link light on the laptop.' : linkDown ? 'No link light on the laptop.' : '';
+    case 'link': return lightOn ? `Gi1/0/${P} light is GREEN${f === 'label' ? '' : ' and blinking'}.` : `Gi1/0/${P} light is OFF.`;
+    case 'laptop': return f === 'vlan' ? 'Link up. Laptop got 192.168.99.27. That’s the guest network, not the office.'
+      : f === 'dhcp' ? 'Link up, but the laptop only gave itself 169.254.18.40. It never got an address.'
+      : atJackWorks ? 'Link up. Laptop got 10.10.10.83 and reaches the internet. The jack works.'
+      : 'No link light on the laptop.';
     case 'tone': return f === 'label' ? `Tone shows up on panel port ${A}, not ${P}. The label is wrong.` : `Tone shows up on panel port ${P}. Label matches.`;
-    case 'cert': return f === 'jack' ? `FAIL: split pair 3-6, about 1 ft from the wall end. ${tk.L} ft total.`
-      : f === 'staple' ? `FAIL: open on pair 1-2 at ${tk.X} ft. Run is ${tk.L} ft.`
+    case 'cert': return f === 'jack' ? `FAIL: split pair 3-6, ${rnd(1, 2)} ft from the jack end. Length ${tk.L} ft.`
+      : f === 'panel' ? `FAIL: open on pair 7-8 at ${tk.L - rnd(1, 2)} ft from the jack end. Length ${tk.L} ft.`
+      : f === 'staple' ? `FAIL: short on pair 1-2 at ${tk.X} ft from the jack end. Length ${tk.L} ft.`
       : f === 'label' ? `No continuity to panel port ${P}. This cable doesn't land there.` : `PASS: Cat6, ${tk.L} ft, all pairs good.`;
-    case 'config': return f === 'vlan' ? `Gi1/0/${P}: enabled · access VLAN 99 (guest). Office is VLAN 10.`
-      : f === 'shut' ? `Gi1/0/${P}: administratively down (shutdown).`
-      : f === 'poe' ? `Gi1/0/${P}: enabled · VLAN 10 · PoE DENIED, switch power budget exceeded.`
-      : f === 'label' ? `Gi1/0/${P}: enabled · VLAN 10 · up, connected to another device's MAC.` : `Gi1/0/${P}: enabled · VLAN 10 · PoE ok · link down.`;
+    case 'config': {
+      const base = `Gi1/0/${P}: `;
+      if (f === 'vlan') return base + 'enabled · access VLAN 99 (guest). The office is VLAN 10.';
+      if (f === 'shut') return base + 'administratively down (shutdown).';
+      if (f === 'psec') return base + 'err-disabled (psecure-violation): 3 MACs seen, limit 1.';
+      if (f === 'poe') return base + 'enabled · VLAN 10 · PoE DENIED: switch power budget exceeded.';
+      if (f === 'label') return base + 'enabled · VLAN 10 · up · 1 MAC learned.';
+      if (f === 'dhcp') return base + 'enabled · VLAN 10 · up · 1 MAC learned.';
+      return base + `enabled · VLAN 10 · link down${pd ? ' · PoE searching: no powered device detected' : ''}.`;
+    }
     case 'swap': return f === 'patch' ? 'Swapped the cord. Link came UP. The old cord tests bad.' : 'Swapped the cord. No change.';
+    case 'dhcpck': return f === 'dhcp' ? 'Office scope 10.10.10.0/24: 254 of 254 leases in use. Most belong to devices that left weeks ago.' : `Office scope 10.10.10.0/24: ${rnd(110, 170)} of 254 leases in use. Healthy.`;
   }
 }
 $('tools').addEventListener('click', e => {
@@ -209,29 +251,31 @@ $('tools').addEventListener('click', e => {
   mins += used.has(t.id) ? Math.ceil(t.min / 2) : t.min; used.add(t.id);
   const row = `<div class="new"><span class="t">${String(mins).padStart(2, '0')} min</span><span><b>${t.name}:</b> ${result(t.id)}</span></div>`;
   $('notes').innerHTML = (used.size === 1 && $('notes').textContent.startsWith('--') ? '' : $('notes').innerHTML.replace(/ class="new"/g, '')) + row;
-  if (mins >= 60) return close(false, 'Over an hour on it. The ticket was escalated.');
+  if (mins >= 45) return close(false, 'Over 45 minutes on it. The ticket was escalated.');
   render();
 });
 $('diag').addEventListener('click', e => {
   const b = e.target.closest('button[data-c]'); if (!b || closed) return;
   if (b.dataset.c === tk.fault) return close(true);
-  wrong.add(b.dataset.c); mins += 8;
-  $('notes').innerHTML = $('notes').innerHTML.replace(/ class="new"/g, '') + `<div class="new"><span class="t">${String(mins).padStart(2, '0')} min</span><span><b>Tried:</b> ${CAUSE[b.dataset.c]}. Didn't fix it. Customer called back.</span></div>`;
-  if (mins >= 60) return close(false, 'Over an hour on it. The ticket was escalated.');
+  wrong.add(b.dataset.c); mins += 12;
+  $('notes').innerHTML = $('notes').innerHTML.replace(/ class="new"/g, '') + `<div class="new"><span class="t">${String(mins).padStart(2, '0')} min</span><span><b>Tried:</b> ${CAUSE[b.dataset.c](tk.kind)}. Didn't fix it. The customer is not happy.</span></div>`;
+  if (wrong.size >= 2) return close(false, 'Two wrong fixes. The customer called the office and it was escalated.');
+  if (mins >= 45) return close(false, 'Over 45 minutes on it. The ticket was escalated.');
   render();
 });
 function close(ok, why) {
   closed = true;
-  const pay = ok ? Math.max(0, 250 - Math.max(0, mins - 30) * 8) + (wrong.size ? 0 : 100) : 0;
+  const pay = ok ? Math.max(0, 250 - Math.max(0, mins - 15) * 10) + (wrong.size ? 0 : 100) - wrong.size * 40 : -100;
   score += pay;
   const last = n >= SHIFT;
   try { if (parent !== window) parent.postMessage({ arcade: 'tone-trace', score: score }, '*'); } catch (e) {} 
   if (last && score > best) { best = score; try { localStorage.setItem('tonetrace:best', best); } catch {} }
   $('diag').hidden = true; $('dk').hidden = true; $('result').hidden = false;
   $('result').innerHTML = `<span class="stamp" style="color:${ok ? 'var(--ok)' : 'var(--stamp)'}">${ok ? 'Resolved' : 'Escalated'}</span>
-    <div>${ok ? `Cause: ${CAUSE[tk.fault].toLowerCase()}. ${mins} min on site.` : why + ` The cause was: ${CAUSE[tk.fault].toLowerCase()}.`}</div>
-    <div><b>+$${pay}</b>${ok && !wrong.size ? ' (includes $100 first-time-fix bonus)' : ''}</div>
-    ${last ? `<div><b>Shift total: $${score.toLocaleString()}</b>${score >= best && score > 0 ? ' · New best!' : ` · Best $${best.toLocaleString()}`}</div>` : ''}
+    <div>${ok ? `Cause: ${CAUSE[tk.fault](tk.kind).toLowerCase()}. ${mins} min on site.` : why + ` The cause was: ${CAUSE[tk.fault](tk.kind).toLowerCase()}.`}</div>
+    <div><b>${pay < 0 ? '−' : '+'}$${Math.abs(pay)}</b>${ok && !wrong.size ? ' (includes $100 first-time-fix bonus)' : ok ? ` ($40 per wrong fix)` : ' (callback charge)'}</div>
+    ${tk.story !== tk.fault ? `<div class="note">The customer’s story was a red herring.</div>` : ''}
+    ${last ? `<div class="shiftend ${score >= GOAL ? 'ok' : ''}"><b>Shift total: ${score < 0 ? '−' : ''}$${Math.abs(score).toLocaleString()}</b> · ${score >= GOAL ? 'Shift goal met' : `Missed the $${GOAL.toLocaleString()} shift goal`}${score >= best && score > 0 ? ' · New best!' : ` · Best $${best.toLocaleString()}`}</div>` : ''}
     <button type="button" class="primary" id="nextBtn">${last ? 'Start a new shift' : 'Next ticket →'}</button>`;
   $('nextBtn').onclick = () => { if (last) { score = 0; n = 0; } newTicket(); };
   render();
