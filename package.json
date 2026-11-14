@@ -1,0 +1,14 @@
+{
+  "name": "aaromach-arcade",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Aaromach Arcade: field-work games as an installable web app.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node -e \"require('fs').accessSync('public/index.html')\"",
+    "start": "node server.js"
+  }
+}

@@ -6,6 +6,8 @@ It is its own Firebase project; Command Center only links to it.
 
 ```
 firebase.json            Hosting (public/) + Firestore rules
+apphosting.yaml          App Hosting settings (server.js serves public/)
+server.js, package.json  dependency-free Node server for App Hosting
 .firebaserc              which Firebase project to deploy to (default: aaromach-arcade)
 firestore.rules          leaderboard security rules
 public/
@@ -60,6 +62,23 @@ firebase deploy --only hosting,firestore
 ```
 
 The arcade is then live at `https://<project-id>.web.app`.
+
+### Or: Firebase App Hosting (deploys on every push to `main`)
+
+App Hosting runs a Node server instead of serving files directly, so this repo includes
+`package.json`, `server.js` (a dependency-free static server for `public/`) and
+`apphosting.yaml`. Create a backend under **Build → App Hosting**, connect this repo, use the
+root directory `/` and the live branch `main`. Each push rolls out automatically.
+
+Firestore rules still deploy from the CLI: `firebase deploy --only firestore`.
+
+Local check of the App Hosting server:
+
+```bash
+npm start
+```
+
+then visit http://localhost:8080.
 
 **Custom domain (for example `arcade.aaromach.com`):** Hosting → Add custom domain, follow the DNS
 steps, then add the same domain under Authentication → Settings → Authorized domains so the
