@@ -52,6 +52,21 @@ S.start({
     $('nameRow').hidden = st === 'error'; $('pname').value = S.name || '';
   },
 });
+// Say why Google sign-in failed, so the fix is obvious (and the code can be passed on).
+function googleError(e) {
+  const c = (e && e.code) || '', host = location.hostname;
+  const why = {
+    'auth/popup-closed-by-user': '', 'auth/cancelled-popup-request': '',
+    'auth/unauthorized-domain': `This address (${host}) isn’t on the arcade’s list of allowed sign-in domains yet. The arcade’s owner adds it in Firebase: Authentication → Settings → Authorized domains.`,
+    'auth/operation-not-allowed': 'Google sign-in isn’t switched on for the arcade yet (Firebase: Authentication → Sign-in method → Google).',
+    'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again.',
+    'auth/network-request-failed': 'Couldn’t reach Google. Check your connection and try again.',
+    'auth/web-storage-unsupported': 'This browser is blocking the storage sign-in needs (private mode or strict privacy settings). Try a normal window, or another browser.',
+    'auth/operation-not-supported-in-this-environment': 'This browser can’t open the Google sign-in. If you opened the arcade from inside another app (Messenger, Gmail…), open it in Safari or Chrome instead.',
+    'auth/internal-error': 'Google sign-in hit a browser problem. If you’re in a private window or have strict privacy settings, try a normal window or another browser.',
+  }[c];
+  return why !== undefined ? why : `Google sign-in didn’t finish${c ? ` (${c})` : ''}. Try again.`;
+}
 function showAccount(a) {
   const g = a && a.kind === 'google';
   $('acct').hidden = !a || a.kind === 'local';
@@ -61,7 +76,7 @@ function showAccount(a) {
 $('gIn').onclick = async () => {
   $('acctMsg').textContent = '';
   try { const r = await S.signInGoogle($('keepIn').checked); if (r && r.switched) $('acctMsg').textContent = 'That Google account already had scores, so you switched to it.'; if (r && r.again) $('acctMsg').textContent = 'That Google account already has scores here. Tap Sign in with Google again to switch to it.'; $('pname').value = S.name || ''; }
-  catch (e) { $('acctMsg').textContent = e && e.code === 'auth/popup-closed-by-user' ? '' : 'Google sign-in didn\u2019t finish. Try again.'; }
+  catch (e) { $('acctMsg').textContent = googleError(e); }
 };
 $('gOut').onclick = async () => { await S.signOut(); $('acctMsg').textContent = 'Signed out. You\u2019re a guest again.'; };
 $('keepIn').onchange = () => { if (S.setKeep) S.setKeep($('keepIn').checked); };
