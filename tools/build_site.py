@@ -1,0 +1,113 @@
+"""Build the standalone Aaromach Arcade site from the artifact version.
+Inputs: public/games/ (the games; identical in both versions) and tools/artifact-hub.html (the claude.ai hub).
+Output: .build/site/  (index.html, games/, scores.js, config.js, firebase.json, firestore.rules, README.md)
+"""
+import os, shutil
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/'
+GAMES, HUB, OUT = REPO + 'public/games/', REPO + 'tools/artifact-hub.html', REPO + '.build/site/'
+os.makedirs(OUT + 'games', exist_ok=True)
+for f in os.listdir(GAMES):
+    if not f.startswith('_'):
+        shutil.copy(GAMES + f, OUT + 'games/' + f)
+
+s = open(HUB).read()
+def R(a, b):
+    global s
+    assert s.count(a) == 1, (a[:80], s.count(a))
+    s = s.replace(a, b)
+
+# Artifact-only meta out; storage swapped for scores.js.
+R('<meta name="claude:viewport-fit-sides" content="cover">\n', '')
+R("let db = null, user = null, me = null, rows = new Map(), mine = {}, loaded = false;",
+  "let me = null, rows = new Map(), names = new Map(), mine = {}, loaded = false;\nconst S = window.ArcadeScores;")
+R("  const ps = user && ids.length ? await user.profiles(ids) : {};",
+  "  const ps = Object.fromEntries(ids.map(id => [id, { name: names.get(id) || 'Someone' }]));")
+# Initials avatar instead of a profile photo.
+R("""<td><div class="who"><img alt="" src="${ps[r.pid]?.avatarUrl || ''}"><span></span></div></td>""",
+  """<td><div class="who"><b class="av" style="background:hsl(${[...r.pid].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 55% 42%)">${(ps[r.pid]?.name || '?').split(/\\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase().replace(/[<>&"]/g, '')}</b><span></span></div></td>""")
+R(".rank .who img { width: 22px; height: 22px; border-radius: 50%; flex: none; }",
+  ".rank .who img, .rank .who .av { width: 22px; height: 22px; border-radius: 50%; flex: none; }\n.rank .who .av { display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }")
+R("  if (!db || !me || !loaded || !G(gameId)) return;", "  if (!me || !loaded || !G(gameId)) return;")
+R("  writing = writing.then(() => db.doc('scores/' + me).set(body)).then(() => {", "  writing = writing.then(() => S.save(body)).then(() => {")
+R("""  }).catch(err => { $('toast').textContent = err?.code === 'permission_denied' || err?.code === 'not_granted' ? 'Score not posted: needs Contributor access' : 'Score not posted'; });""",
+  """  }).catch(() => { $('toast').textContent = 'Score not posted. Check your connection.'; });""")
+a = s.index("(async () => {\n  const timer = setTimeout(() => { if (!loaded)"); b = s.index("</script>", a)
+s = s[:a] + """// Scores: a shared leaderboard (separate Firebase project, set in config.js) or this device only.
+S.start({
+  onRows(next) {
+    loaded = true; me = S.me;
+    rows = new Map([...next].map(([id, v]) => [id, v.games || {}])); names = new Map([...next].map(([id, v]) => [id, v.name]));
+    if (me && rows.has(me)) mine = { ...rows.get(me) };
+    render();
+  },
+  onStatus(st) {
+    $('lbnote').textContent = st === 'shared' ? 'Each player’s best run, shared with everyone who plays. Scores post automatically when a run ends.'
+      : st === 'local' ? 'Scores are saved on this device only. (The shared leaderboard switches on once the arcade’s Firebase project is set up.)'
+      : 'Scores stopped updating. Reopen the page to reconnect.';
+    $('nameRow').hidden = st === 'error'; $('pname').value = S.name || '';
+  },
+});
+$('nameRow').addEventListener('submit', async e => { e.preventDefault(); await S.setName($('pname').value); $('nameSaved').textContent = 'Saved'; setTimeout(() => $('nameSaved').textContent = '', 1500); });
+""" + s[b:]
+R("""        <p class="lbnote" id="lbnote">Loading scores…</p>""",
+  """        <p class="lbnote" id="lbnote">Loading scores…</p>
+        <form class="namerow" id="nameRow" hidden><label for="pname">Playing as</label><input id="pname" maxlength="24" autocomplete="nickname" placeholder="Your name"><button type="submit">Save</button><span id="nameSaved"></span></form>""")
+R(".lbnote { font-size: 13px; color: var(--muted); margin: 0; }",
+  """.lbnote { font-size: 13px; color: var(--muted); margin: 0; }
+.namerow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.namerow input { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 180px; }
+.namerow button { font: inherit; font-weight: 700; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.namerow #nameSaved { color: #4cc38a; }""")
+# Wrap as a full document for normal web hosting.
+head = """<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121417">
+<script src="config.js"></script>
+<script src="scores.js"></script>
+"""
+title_end = s.index("</style>") + len("</style>")
+s = head + s[:title_end] + "\n</head><body>\n" + s[title_end:] + "\n</body></html>\n"
+open(OUT + 'index.html', 'w').write(s)
+
+open(OUT + 'config.js', 'w').write("""// Aaromach Arcade — shared leaderboard settings.
+// Leave this as null and scores are kept on each device only.
+// To turn on the shared leaderboard, create a SEPARATE Firebase project for the arcade
+// (not the Command Center project), add a Web app, and paste its config here. See README.md.
+window.ARCADE_FIREBASE = null;
+/* Example:
+window.ARCADE_FIREBASE = {
+  apiKey: "…",
+  authDomain: "aaromach-arcade.firebaseapp.com",
+  projectId: "aaromach-arcade",
+  appId: "…",
+};
+*/
+""")
+open(OUT + 'firestore.rules', 'w').write("""rules_version = '2';
+// Aaromach Arcade: anyone can read the leaderboard; each player (anonymous sign-in) can only
+// write their own row, with a short name and a map of game scores.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /scores/{uid} {
+      allow read: if true;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'games', 'updated'])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 24
+        && (!('games' in request.resource.data) || request.resource.data.games is map);
+      allow delete: if false;
+    }
+  }
+}
+""")
+open(OUT + 'firebase.json', 'w').write("""{
+  "hosting": {
+    "public": ".",
+    "ignore": ["firebase.json", "firestore.rules", "README.md", "**/.*"],
+    "headers": [{ "source": "**/*.@(js|html)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+  },
+  "firestore": { "rules": "firestore.rules" }
+}
+""")
+print('built', sorted(os.listdir(OUT)), len(os.listdir(OUT + 'games')), 'game files')
