@@ -1,0 +1,575 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Tool Drawer</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Stencil+One&family=Barlow+Semi+Condensed:wght@500;700&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: a red rolling tool chest. The open drawer (black foam) on top, loose tools on the bench mat below. Single look. */
+:root {
+  color-scheme: dark;
+  --bg: #1a1c1f; --chest: #b3261e; --chest-dk: #7d1913; --fg: #f1efe9; --muted: #b9b2a6; --chrome: #d8dde3;
+  --display: "Saira Stencil One", Impact, "Arial Black", sans-serif;
+  --body: "Barlow Semi Condensed", "Arial Narrow", sans-serif;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); padding-block: 10px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; align-items: safe center; box-sizing: border-box; overflow: hidden; }
+.chest { width: 100%; max-width: 760px; height: 100%; max-height: 100%; box-sizing: border-box; background: linear-gradient(var(--chest), var(--chest-dk)); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; box-shadow: inset 0 2px 0 rgba(255,255,255,.18); min-height: 0; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; line-height: 1; color: var(--chrome); text-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.stats { display: flex; gap: 12px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.stat { display: grid; } .stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #f3c9c4; font-weight: 700; }
+.stat b { font-size: 19px; font-weight: 700; }
+canvas { display: block; width: 100%; height: 0; max-width: 100%; min-height: 0; flex: 1 1 0; object-fit: contain; border-radius: 6px; touch-action: none; background: #26292e; }
+.bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.bar .msg { flex: 1 1 100%; font-size: 15px; font-weight: 500; min-height: 1.3em; }
+button { font-family: var(--body); font-weight: 700; font-size: 15px; letter-spacing: .04em; text-transform: uppercase; color: #1a1c1f; background: var(--chrome); border: 0; border-radius: 6px; padding: 8px 12px; cursor: pointer; box-shadow: 0 3px 0 #8d949c; touch-action: manipulation; }
+button:active { transform: translateY(2px); box-shadow: 0 1px 0 #8d949c; }
+button:disabled { opacity: .4; cursor: default; }
+button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(10,10,12,.78);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: #22252a; border: 3px solid var(--chest); border-radius: 12px; padding: 18px; max-width: 460px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 30px; color: var(--chrome); }
+.card h3 { margin: 4px 0 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 15px; line-height: 1.45; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+@media (max-width: 520px) { h1 { font-size: 24px; } .stat b { font-size: 16px; } button { padding: 8px 9px; font-size: 14px; } }
+</style>
+
+<div class="chest">
+  <div class="top">
+    <h1>TOOL DRAWER</h1>
+    <div class="stats">
+      <div class="stat"><span id="lLvl">Drawer</span><b id="lvl">1</b></div>
+      <div class="stat"><span id="lTime">Time</span><b id="time">0:00</b></div>
+      <div class="stat"><span id="lScore">Score</span><b id="score">0</b></div>
+      <div class="stat"><span id="lBest">Best</span><b id="best">0</b></div>
+    </div>
+  </div>
+  <canvas id="cv" width="900" height="1000" aria-label="Tool drawer. Drag tools into the drawer; tap a tool to turn it."></canvas>
+  <div class="bar">
+    <div class="msg" id="msg">Fill every slot in the drawer. Every tool has to fit.</div>
+    <button type="button" id="flip">Flip</button>
+    <button type="button" id="hint">Hint −10s</button>
+    <button type="button" id="how">How to play</button>
+    <button type="button" id="act" hidden>Dump all</button>
+    <button type="button" id="contBtn" hidden>Continue</button>
+    <button type="button" id="timedBtn">Timed shift</button>
+    <button type="button" id="relaxBtn">Big drawer, no clock</button>
+  </div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>TOOL DRAWER</h2>
+    <p>Someone dumped the drawer on the bench. Put every tool back so the drawer is completely full: no gaps, nothing left over.</p>
+    <h3>Controls</h3>
+    <ul>
+      <li><b>Drag</b> a tool into the drawer. It snaps into the foam.</li>
+      <li><b>Tap</b> a tool to turn it 90°. <b>Flip</b> mirrors the last tool you touched. Keys: R turns, F flips.</li>
+      <li>Drag a tool back to the bench to pull it out.</li>
+      <li><b>Hint</b> flashes where one tool goes, but costs 10 seconds.</li>
+    </ul>
+    <h3>Two ways to play</h3>
+    <ul>
+      <li><b>Timed shift:</b> drawers get bigger as you go, each on a clock. Scores go on the leaderboard.</li>
+      <li><b>Big drawer:</b> one giant drawer, about 40 items, no clock. Hints are free. Your progress saves on this device, so you can come back to it.</li>
+    </ul>
+    <h3>The drawers</h3>
+    <ul>
+      <li>Every tool takes up the space its real shape does: the hammer's head sticks out, the drill is an L, the wrench has an open jaw.</li>
+      <li>There's always at least one way to fill the drawer exactly.</li>
+      <li>Odd shapes leave odd gaps, so drawers also hold small parts: hex keys, fuses, pencils, bits, wire nuts.</li>
+    </ul>
+    <button type="button" id="howClose">Open the chest</button>
+  </div>
+</div>
+
+<script src="tools-lib.js"></script>
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const L = window.ToolLib;
+const cv = $('cv'), g = cv.getContext('2d');
+// Phones in portrait get a taller play area so the drawer and tools stay big enough to grab.
+const TALL = matchMedia('(max-aspect-ratio: 3/4)').matches;
+if (TALL) cv.height = 1450;
+let W = cv.width, H = cv.height, CAP = TALL ? 660 : 480;
+// Timed drawers vs. the one giant untimed drawer.
+let mode = 'timed', elapsed = 0, hints = 0;
+const BIG = [24, 17];
+function sizeCanvas() {
+  cv.height = mode === 'relax' ? (TALL ? 2000 : 1600) : (TALL ? 1450 : 1000);
+  H = cv.height; CAP = mode === 'relax' ? (TALL ? 900 : 720) : (TALL ? 660 : 480);
+}
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let best = 0; try { best = +localStorage.getItem('tooldrawer:best') || 0; } catch {}
+// [cols, rows, max small parts]. Small parts (wire nuts, bits, pens, sockets…) fill the gaps around odd shapes.
+const LEVELS = [[8, 7, 7], [9, 8, 7], [10, 9, 8], [11, 9, 8], [12, 10, 9], [13, 11, 9], [14, 12, 10], [15, 12, 10]];
+const SMALL = 6;   // parts this size or less count as small
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = a => a[rnd(0, a.length - 1)];
+const ease = t => t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// Every tool's distinct turns, each with the cell that has to land on the first empty slot.
+const ORI = L.TOOLS.map(t => ({ t, n: t.size, os: L.orientations(t).map(o => ({ ...o, ax: o.cells.slice().sort((a, b) => a[1] - b[1] || a[0] - b[0])[0] })) }));
+
+// Fill the drawer exactly with real tool shapes, so a solution always exists.
+// Randomized greedy fill: at the first empty slot, drop in the biggest unused tool that fits; when
+// nothing big fits, plug the gap with a small part (a one-slot part always fits). Repeat for half a
+// second and keep the fill that needed the fewest small parts.
+function fillOnce(cols, rows) {
+  const grid = new Uint8Array(cols * rows), placed = [], used = new Map(); let small = 0, ones = 0, idx = 0;
+  const empty = (X, Y) => X >= 0 && Y >= 0 && X < cols && Y < rows && !grid[Y * cols + X];
+  const fitsAt = (o, ox, oy) => o.cells.every(([x, y]) => empty(ox + x, oy + y));
+  // After a piece goes in, how many empty slots around it are boxed in (0 or 1 open neighbours)?
+  const deadAround = (o, ox, oy) => {
+    o.cells.forEach(([x, y]) => grid[(oy + y) * cols + ox + x] = 1);
+    let dead = 0; const seen = new Set();
+    o.cells.forEach(([x, y]) => [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+      const X = ox + x + dx, Y = oy + y + dy, k = Y * cols + X; if (!empty(X, Y) || seen.has(k)) return; seen.add(k);
+      const open = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([a, b]) => empty(X + a, Y + b)).length;
+      if (open === 0) dead += 3; else if (open === 1) dead += 1;
+    }));
+    o.cells.forEach(([x, y]) => grid[(oy + y) * cols + ox + x] = 0);
+    return dead;
+  };
+  const put = (T, o, ox, oy) => { o.cells.forEach(([x, y]) => grid[(oy + y) * cols + ox + x] = 1); placed.push({ T, o, ox, oy }); };
+  while (true) {
+    while (idx < grid.length && grid[idx]) idx++;
+    if (idx >= grid.length) break;
+    const cx = idx % cols, cy = (idx - cx) / cols;
+    // Score every big tool and turn that fits here: bigger is better, boxed-in holes are bad.
+    let bestC = null, bestS = -1e9;
+    for (const T of ORI) {
+      if (T.n <= SMALL || (used.get(T.t.id) || 0) >= (mode === 'relax' ? 2 : 1)) continue;
+      for (const o of T.os) {
+        const ox = cx - o.ax[0], oy = cy - o.ax[1];
+        if (!fitsAt(o, ox, oy)) continue;
+        const sc = T.n - deadAround(o, ox, oy) * 2.5 + Math.random() * 6;
+        if (sc > bestS) { bestS = sc; bestC = [T, o, ox, oy]; }
+      }
+    }
+    if (bestC) { put(...bestC); used.set(bestC[0].t.id, (used.get(bestC[0].t.id) || 0) + 1); continue; }
+    // Nothing big fits: plug the gap with the largest small part that does.
+    let plug = null, plugS = -1e9;
+    for (const T of ORI) {
+      if (T.n > SMALL) continue;
+      for (const o of T.os) { const ox = cx - o.ax[0], oy = cy - o.ax[1]; if (!fitsAt(o, ox, oy)) continue; const sc = T.n * 1.5 - deadAround(o, ox, oy) * 2 + Math.random() * 2; if (sc > plugS) { plugS = sc; plug = [T, o, ox, oy]; } }
+    }
+    if (!plug) return null;
+    put(...plug); small++; if (plug[0].n === 1) ones++;
+  }
+  return { placed, small, ones, big: [...used.values()].reduce((a, b) => a + b, 0) };
+}
+function tile(cols, rows) {
+  let best = null; const t0 = performance.now();
+  while (performance.now() - t0 < 600 || !best) {
+    const r = fillOnce(cols, rows);
+    // Prefer the fewest small parts relative to the number of real tools.
+    const cost = x => x.ones * 3 + x.small - x.big * 1.5;
+    if (r && (!best || cost(r) < cost(best))) best = r;
+  }
+  return best.placed;
+}
+
+let level = 1, score = 0, state = 'idle', cols, rows, pieces, cell, gx, gy, trayY, timeLeft, timeMax, msg, active = null, drag = null;
+let anim = null, hintP = null, hintT = 0;
+
+// Timed-shift checkpoint: the drawer you're on and the score you brought into it.
+const getCP = () => { try { const c = JSON.parse(localStorage.getItem('tooldrawer:cp') || 'null'); return c && c.level > 1 ? c : null; } catch { return null; } };
+const setCP = (lv, sc) => { try { localStorage.setItem('tooldrawer:cp', JSON.stringify({ level: lv, score: sc })); } catch {} };
+function build() {
+  if (mode === 'timed') setCP(level, score);
+  sizeCanvas();
+  const Lv = LEVELS[Math.min(level, LEVELS.length) - 1];
+  [cols, rows] = mode === 'relax' ? BIG : Lv;
+  const sol = tile(cols, rows);
+  pieces = sol.map(({ T, o, ox, oy }, i) => {
+    let k = rnd(0, 3), f = rnd(0, 1);
+    const p = { id: i, tool: T.t, col: pick(T.t.colors), k, f, gx: null, gy: null, tx: 0, ty: 0, sol: { k: o.k, f: o.f, gx: ox, gy: oy } };
+    setOri(p, k, f); return p;
+  });
+  pieces.sort(() => Math.random() - .5);
+  // Bigger drawers get proportionally more time.
+  timeMax = timeLeft = Math.round(60 + pieces.length * 14 + cols * rows * .3); elapsed = 0; hints = 0;
+  place();
+  msg = mode === 'relax' ? `The big drawer: ${pieces.length} items, ${cols}×${rows} slots. No clock. Take your time.` : `Drawer ${level}: ${pieces.length} tools, ${cols}×${rows} slots.`;
+  state = 'intro'; anim = { t: 0, len: reduce ? .01 : 2.0 };
+  sync();
+}
+function place() {
+  cell = Math.min(Math.floor((W - 60) / cols), Math.floor(CAP / rows));
+  gx = Math.round((W - cols * cell) / 2); gy = 34; trayY = gy + rows * cell + 46;
+  layoutTray(); active = null; hintP = null;
+}
+// Big-drawer progress is saved on this device so you can come back to it.
+function save() {
+  if (mode !== 'relax') return;
+  try { localStorage.setItem('tooldrawer:big', JSON.stringify({ cols, rows, elapsed, hints, pieces: pieces.map(p => ({ id: p.tool.id, col: p.col, k: p.k, f: p.f, gx: p.gx, gy: p.gy, sol: p.sol })) })); } catch {}
+}
+// A saved big drawer is only kept if its stored solution still tiles the drawer exactly with today's tool shapes
+// (tool art and footprints can change between versions; an old save could otherwise be impossible to finish).
+function savedBig() {
+  try {
+    const d = JSON.parse(localStorage.getItem('tooldrawer:big') || 'null');
+    if (!d || !d.pieces || !d.pieces.every(q => L.byId(q.id) && q.sol)) return null;
+    const grid = new Uint8Array(d.cols * d.rows); let ok = true;
+    d.pieces.forEach(q => L.orient(L.byId(q.id), q.sol.k, q.sol.f).cells.forEach(([x, y]) => { const X = q.sol.gx + x, Y = q.sol.gy + y; if (X < 0 || Y < 0 || X >= d.cols || Y >= d.rows || grid[Y * d.cols + X]++) ok = false; }));
+    if (!ok || grid.some(v => v !== 1)) { localStorage.removeItem('tooldrawer:big'); return null; }
+    return d;
+  } catch { return null; }
+}
+function resumeBig(d) {
+  mode = 'relax'; sizeCanvas(); cols = d.cols; rows = d.rows; elapsed = d.elapsed || 0; hints = d.hints || 0;
+  pieces = d.pieces.map((q, i) => { const p = { id: i, tool: L.byId(q.id), col: q.col, gx: q.gx, gy: q.gy, tx: 0, ty: 0, sol: q.sol }; setOri(p, q.k, q.f); return p; });
+  const gxs = pieces.map(p => p.gx); place(); pieces.forEach((p, i) => { p.gx = gxs[i]; p.gy = d.pieces[i].gy; }); layoutTray();
+  msg = `Back at the big drawer: ${pieces.filter(p => p.gx !== null).length} of ${pieces.length} put away.`;
+  state = 'intro'; anim = { t: 0, len: reduce ? .01 : 2.0 }; sync();
+}
+function setOri(p, k, f) { const o = L.orient(p.tool, k, f); p.k = k; p.f = f; p.cells = o.cells; p.W = o.W; p.H = o.H; }
+
+let trayS = 60;
+function layoutTray() {
+  const loose = pieces.filter(p => p.gx === null);
+  for (trayS = Math.max(18, Math.min(cell * .8, 44)); trayS > 6; trayS -= 1) {
+    let x = 18, y = trayY + 16, rowH = 0; const pos = [];
+    loose.forEach(p => {
+      if (x + p.W * trayS > W - 18) { x = 18; y += rowH + 14; rowH = 0; }
+      pos.push([p, x, y]); x += p.W * trayS + 16; rowH = Math.max(rowH, p.H * trayS);
+    });
+    if (y + rowH <= H - 30 || trayS <= 7) { pos.forEach(([p, x, y]) => { p.tx = x; p.ty = y; }); return; }
+  }
+}
+function occupied(except) {
+  const o = Array.from({ length: rows }, () => Array(cols).fill(null));
+  pieces.forEach(p => { if (p.gx === null || p === except) return; p.cells.forEach(([x, y]) => o[p.gy + y][p.gx + x] = p); });
+  return o;
+}
+const fits = (p, ax, ay) => { const o = occupied(p); return p.cells.every(([x, y]) => { const X = ax + x, Y = ay + y; return X >= 0 && Y >= 0 && X < cols && Y < rows && !o[Y][X]; }); };
+
+function turn(p, how) {
+  const [k, f] = how === 'flip' ? L.mirror(p.k, p.f) : L.turnCW(p.k, p.f);
+  const old = [p.k, p.f]; setOri(p, k, f);
+  if (p.gx !== null && !fits(p, p.gx, p.gy)) {
+    // Try nudging it so it still fits; otherwise back to the bench.
+    const spot = [[0, 0], [-1, 0], [0, -1], [-1, -1], [1, 0], [0, 1]].find(([dx, dy]) => fits(p, p.gx + dx, p.gy + dy));
+    if (spot) { p.gx += spot[0]; p.gy += spot[1]; } else { p.gx = p.gy = null; msg = `The ${p.tool.name.toLowerCase()} didn't fit turned that way, so it went back on the bench.`; }
+  }
+  void old; layoutTray(); check();
+}
+function check() {
+  if (state === 'play' && mode === 'relax') {
+    save();
+    if (pieces.every(p => p.gx !== null)) {
+      const t = Math.round(elapsed);
+      msg = `The big drawer is organized. ${Math.floor(t / 60)}m ${t % 60}s, ${hints} hint${hints === 1 ? '' : 's'}.`;
+      try { localStorage.removeItem('tooldrawer:big'); const b = +localStorage.getItem('tooldrawer:bigbest') || 0; if (!b || t < b) localStorage.setItem('tooldrawer:bigbest', t); } catch {}
+      state = 'outro'; anim = { t: 0, len: reduce ? .01 : 1.4 };
+    }
+    sync(); return;
+  }
+  if (state === 'play' && pieces.every(p => p.gx !== null)) {
+    const bonus = Math.round(timeLeft * 10), pts = 500 * level + bonus;
+    score += pts;
+    try { if (parent !== window) parent.postMessage({ arcade: 'tool-drawer', score }, '*'); } catch (e) {}
+    if (score > best) { best = score; try { localStorage.setItem('tooldrawer:best', best); } catch {} }
+    msg = `Drawer closed! +$${pts} ($${bonus} time bonus).`;
+    setCP(level + 1, score);
+    state = 'outro'; anim = { t: 0, len: reduce ? .01 : 1.4 };
+  }
+  sync();
+}
+function gameOver() {
+  state = 'over'; msg = `Out of time on drawer ${level}. Score $${score.toLocaleString()}. Tap Continue to retry this drawer with the score you had going in.`;
+  try { if (parent !== window) parent.postMessage({ arcade: 'tool-drawer', score }, '*'); } catch (e) {}
+  if (score > best) { best = score; try { localStorage.setItem('tooldrawer:best', best); } catch {} }
+  sync();
+}
+const clock = t => { t = Math.max(0, Math.floor(t)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+function sync() {
+  const relax = mode === 'relax';
+  $('lLvl').textContent = relax ? 'Mode' : 'Drawer'; $('lvl').textContent = relax ? 'Big' : level;
+  $('lTime').textContent = relax ? 'Elapsed' : 'Time'; $('time').textContent = relax ? clock(elapsed) : clock(Math.ceil(timeLeft || 0));
+  $('lScore').textContent = relax ? 'Put away' : 'Score'; $('score').textContent = relax && pieces ? `${pieces.filter(p => p.gx !== null).length}/${pieces.length}` : '$' + score.toLocaleString();
+  let bb = 0; try { bb = +localStorage.getItem('tooldrawer:bigbest') || 0; } catch {}
+  $('lBest').textContent = relax ? 'Fastest' : 'Best'; $('best').textContent = relax ? (bb ? clock(bb) : '—') : '$' + Math.max(best, score).toLocaleString();
+  $('time').style.color = state === 'play' && !relax && timeLeft < 15 ? '#ffd0cc' : '';
+  $('msg').textContent = msg || '';
+  $('flip').disabled = !active || state !== 'play'; $('hint').disabled = state !== 'play';
+  $('hint').textContent = relax ? 'Hint' : 'Hint −10s';
+  const menu = state === 'idle' || state === 'over' || (state === 'done' && relax);
+  $('timedBtn').hidden = $('relaxBtn').hidden = !menu;
+  const cp = getCP();
+  $('contBtn').hidden = !menu || !cp;
+  if (cp) $('contBtn').textContent = `Continue: drawer ${cp.level}`;
+  $('timedBtn').textContent = cp ? 'New shift from drawer 1' : 'Timed shift';
+  $('relaxBtn').textContent = savedBig() ? 'Big drawer (resume)' : 'Big drawer, no clock';
+  $('act').hidden = menu;
+  $('act').textContent = state === 'done' ? 'Next drawer' : 'Dump all';
+  $('act').disabled = state === 'intro' || state === 'outro';
+}
+$('timedBtn').onclick = () => { mode = 'timed'; level = 1; score = 0; build(); };
+$('contBtn').onclick = () => { const cp = getCP(); if (!cp) return; mode = 'timed'; level = cp.level; score = cp.score; build(); };
+$('relaxBtn').onclick = () => { const d = savedBig(); if (d) resumeBig(d); else { mode = 'relax'; build(); } };
+$('act').onclick = () => {
+  if (state === 'done') { level++; build(); }
+  else if (state === 'play') { pieces.forEach(p => p.gx = p.gy = null); layoutTray(); msg = 'Dumped it all back on the bench.'; save(); sync(); }
+};
+$('flip').onclick = () => { if (active && state === 'play') turn(active, 'flip'); };
+$('hint').onclick = () => {
+  if (state !== 'play') return;
+  const p = pieces.find(p => p.gx === null) || pieces.find(p => p.gx !== p.sol.gx || p.gy !== p.sol.gy || p.k !== p.sol.k || p.f !== p.sol.f);
+  if (!p) return;
+  if (mode === 'relax') hints++; else timeLeft = Math.max(1, timeLeft - 10);
+  hintP = p; hintT = 2.2;
+  msg = `The ${p.tool.name.toLowerCase()} can go where it's outlined (your layout may work a different way).`; sync();
+};
+$('how').onclick = () => { $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; try { localStorage.setItem('tooldrawer:seen', '1'); } catch {} };
+try { if (localStorage.getItem('tooldrawer:seen')) $('howModal').hidden = true; } catch {}
+addEventListener('keydown', e => { if (!active || state !== 'play') return; if (e.code === 'KeyR') turn(active, 'rot'); if (e.code === 'KeyF') turn(active, 'flip'); });
+
+// ── Pointer: drag to move, tap to turn ──
+const pt = e => {
+  const r = cv.getBoundingClientRect(), k = Math.min(r.width / W, r.height / H);
+  const ox = r.left + (r.width - W * k) / 2, oy = r.top + (r.height - H * k) / 2;
+  return [(e.clientX - ox) / k, (e.clientY - oy) / k];
+};
+function hit(x, y) {
+  for (let i = pieces.length - 1; i >= 0; i--) {
+    const p = pieces[i], s = p.gx !== null ? cell : trayS, ox = p.gx !== null ? gx + p.gx * cell : p.tx, oy = p.gx !== null ? gy + p.gy * cell : p.ty;
+    const pad = p.gx !== null ? 0 : 4;
+    if (p.cells.some(([cx, cy]) => x >= ox + cx * s - pad && x < ox + (cx + 1) * s + pad && y >= oy + cy * s - pad && y < oy + (cy + 1) * s + pad)) return p;
+  }
+  return null;
+}
+cv.addEventListener('pointerdown', e => {
+  if (state !== 'play') return;
+  const [x, y] = pt(e), p = hit(x, y); if (!p) return;
+  active = p; cv.setPointerCapture(e.pointerId);
+  const s = p.gx !== null ? cell : trayS, ox = p.gx !== null ? gx + p.gx * cell : p.tx, oy = p.gx !== null ? gy + p.gy * cell : p.ty;
+  drag = { p, sx: x, sy: y, x, y, offX: (x - ox) / s, offY: (y - oy) / s, moved: false };
+  pieces.splice(pieces.indexOf(p), 1); pieces.push(p); sync();
+});
+cv.addEventListener('pointermove', e => { if (!drag) return; const [x, y] = pt(e); drag.x = x; drag.y = y; if (Math.hypot(x - drag.sx, y - drag.sy) > 8) drag.moved = true; });
+const dropSpot = d => [Math.round((d.x - d.offX * cell - gx) / cell), Math.round((d.y - d.offY * cell - gy) / cell)];
+const end = () => {
+  if (!drag) return; const d = drag; drag = null;
+  if (!d.moved) { turn(d.p, 'rot'); return; }
+  const [ax, ay] = dropSpot(d);
+  if (d.y < trayY - 10 && fits(d.p, ax, ay)) { d.p.gx = ax; d.p.gy = ay; }
+  else { d.p.gx = d.p.gy = null; if (d.y < trayY - 10) msg = `The ${d.p.tool.name.toLowerCase()} doesn't fit there.`; }
+  layoutTray(); check();
+};
+cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
+
+// ── Drawing ──
+function shadow(p, ox, oy, s, a = .45) { g.fillStyle = `rgba(0,0,0,${a})`; g.beginPath(); p.cells.forEach(([x, y]) => g.rect(ox + x * s + 3, oy + y * s + 4, s, s)); g.fill(); }
+function piece(p, ox, oy, s, glow, inFoam) {
+  if (inFoam) {
+    // Two-tone foam: the cut shows the red bottom layer around the tool, with a dark inner wall.
+    g.fillStyle = '#6e1a15'; g.beginPath(); p.cells.forEach(([x, y]) => g.rect(ox + x * s, oy + y * s, s, s)); g.fill();
+    const has = new Set(p.cells.map(c => c.join(','))), h = (x, y) => has.has(x + ',' + y);
+    g.fillStyle = 'rgba(0,0,0,.45)';
+    p.cells.forEach(([x, y]) => { const X = ox + x * s, Y = oy + y * s; if (!h(x, y - 1)) g.fillRect(X, Y, s, 4); if (!h(x - 1, y)) g.fillRect(X, Y, 4, s); });
+    g.fillStyle = 'rgba(255,255,255,.12)';
+    p.cells.forEach(([x, y]) => { const X = ox + x * s, Y = oy + y * s; if (!h(x, y + 1)) g.fillRect(X, Y + s - 2, s, 2); if (!h(x + 1, y)) g.fillRect(X + s - 2, Y, 2, s); });
+  }
+  g.save(); g.shadowColor = 'rgba(0,0,0,' + (glow ? .6 : inFoam ? .45 : .5) + ')'; g.shadowBlur = inFoam ? 4 : glow ? 14 : 8; g.shadowOffsetX = inFoam ? 1 : 3; g.shadowOffsetY = inFoam ? 2 : glow ? 9 : 5;
+  L.drawOriented(g, p.tool, p.col, p.k, p.f, ox, oy, s);
+  g.restore();
+  if (glow) {
+    // Outline only the tool's outer edge.
+    const has = new Set(p.cells.map(c => c.join(','))), h = (x, y) => has.has(x + ',' + y);
+    g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2; g.beginPath();
+    p.cells.forEach(([x, y]) => { const X = ox + x * s, Y = oy + y * s;
+      if (!h(x, y - 1)) { g.moveTo(X, Y); g.lineTo(X + s, Y); } if (!h(x, y + 1)) { g.moveTo(X, Y + s); g.lineTo(X + s, Y + s); }
+      if (!h(x - 1, y)) { g.moveTo(X, Y); g.lineTo(X, Y + s); } if (!h(x + 1, y)) { g.moveTo(X + s, Y); g.lineTo(X + s, Y + s); } });
+    g.stroke();
+  }
+}
+// Bench: a green self-healing cutting mat with a 1" grid, heavier lines every 5", rulers on two edges.
+function benchMat() {
+  const top = trayY, h = H - top, u = 20;
+  const mg = g.createLinearGradient(0, top, 0, H); mg.addColorStop(0, '#2f6a45'); mg.addColorStop(1, '#255638');
+  g.fillStyle = mg; g.fillRect(0, top, W, h);
+  g.lineWidth = 1;
+  for (let i = 0, x = 24; x < W; x += u, i++) { g.strokeStyle = i % 5 ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.16)'; g.beginPath(); g.moveTo(x + .5, top + 22); g.lineTo(x + .5, H); g.stroke(); }
+  for (let i = 0, y = top + 22; y < H; y += u, i++) { g.strokeStyle = i % 5 ? 'rgba(255,255,255,.07)' : 'rgba(255,255,255,.16)'; g.beginPath(); g.moveTo(24, y + .5); g.lineTo(W, y + .5); g.stroke(); }
+  // Rulers along the top and left edges
+  g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(0, top, W, 22); g.fillRect(0, top, 24, h);
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.fillStyle = 'rgba(255,255,255,.6)'; g.font = '600 10px "Barlow Semi Condensed", sans-serif'; g.textAlign = 'center';
+  for (let i = 0, x = 24; x < W; x += u / 2, i++) { const big = i % 10 === 0; g.beginPath(); g.moveTo(x + .5, top + 22); g.lineTo(x + .5, top + 22 - (big ? 10 : i % 2 ? 4 : 7)); g.stroke(); if (big && i) g.fillText(String(i / 2), x, top + 9); }
+  for (let i = 0, y = top + 22; y < H; y += u / 2, i++) { const big = i % 10 === 0; g.beginPath(); g.moveTo(24, y + .5); g.lineTo(24 - (big ? 10 : i % 2 ? 4 : 7), y + .5); g.stroke(); }
+  // A few healed cut marks, and a 45° guide line
+  g.strokeStyle = 'rgba(0,0,0,.12)'; g.lineWidth = 1.5; [[.32, .3, .52, .36], [.7, .62, .86, .58], [.18, .78, .3, .9]].forEach(([a, b2, c, d]) => { g.beginPath(); g.moveTo(W * a, top + h * b2); g.lineTo(W * c, top + h * d); g.stroke(); });
+  g.strokeStyle = 'rgba(255,255,255,.08)'; g.lineWidth = 1; g.beginPath(); g.moveTo(24, top + 22); g.lineTo(24 + h, H); g.stroke();
+}
+// Foam insert texture, baked once.
+let foamTex = null;
+function foamPattern() {
+  if (foamTex) return foamTex;
+  const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d');
+  x.fillStyle = '#15171a'; x.fillRect(0, 0, 64, 64);
+  let seed = 11; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 260; i++) { x.fillStyle = `rgba(${r() < .5 ? '255,255,255' : '0,0,0'},${.03 + r() * .05})`; x.beginPath(); x.arc(r() * 64, r() * 64, .6 + r() * 1.4, 0, 7); x.fill(); }
+  return (foamTex = g.createPattern(c, 'repeat'));
+}
+// The drawer's inside as a 4-corner shape, so the intro can tilt it from a front view to straight down.
+function quadDrawer(Q, alpha = 1) {
+  const [tl, tr, br, bl] = Q, P = (u, v) => [lerp(lerp(tl[0], tr[0], u), lerp(bl[0], br[0], u), v), lerp(lerp(tl[1], tr[1], u), lerp(bl[1], br[1], u), v)];
+  const quad = pts => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); };
+  g.save(); g.globalAlpha = alpha;
+  // Drop shadow under the drawer box.
+  g.fillStyle = 'rgba(0,0,0,.45)'; quad([[tl[0] + 6, tl[1] + 10], [tr[0] + 6, tr[1] + 10], [br[0] + 6, br[1] + 12], [bl[0] + 6, bl[1] + 12]]); g.fill();
+  // Ball-bearing slides along both sides.
+  [[tl, bl, -1], [tr, br, 1]].forEach(([a, b2, sd]) => {
+    const o = 9 * sd; g.fillStyle = '#5d646c'; quad([[a[0], a[1] + 6], [a[0] + o, a[1] + 6], [b2[0] + o, b2[1] - 4], [b2[0], b2[1] - 4]]); g.fill();
+    g.fillStyle = '#b9c0c7'; quad([[a[0] + o * .35, a[1] + 8], [a[0] + o * .65, a[1] + 8], [b2[0] + o * .65, b2[1] - 6], [b2[0] + o * .35, b2[1] - 6]]); g.fill();
+    for (let v = .1; v < 1; v += .2) { const x = lerp(a[0], b2[0], v) + o / 2, y = lerp(a[1], b2[1], v); g.fillStyle = '#2b2f34'; g.beginPath(); g.arc(x, y, 2, 0, 7); g.fill(); }
+  });
+  // Steel drawer box: brushed sides.
+  const sg = g.createLinearGradient(tl[0], 0, tr[0], 0); sg.addColorStop(0, '#7e868f'); sg.addColorStop(.03, '#c3c9cf'); sg.addColorStop(.5, '#aab1b8'); sg.addColorStop(.97, '#c3c9cf'); sg.addColorStop(1, '#7e868f');
+  g.fillStyle = sg; quad([tl, tr, br, bl]); g.fill();
+  const inner = [P(.02, .03), P(.98, .03), P(.98, .97), P(.02, .97)];
+  g.fillStyle = foamPattern(); quad(inner); g.fill();
+  // Inner walls: the back and left walls catch shadow, so the foam reads as sitting down inside the box.
+  g.save(); quad(inner); g.clip();
+  const ish = g.createLinearGradient(0, inner[0][1], 0, inner[0][1] + 18); ish.addColorStop(0, 'rgba(0,0,0,.55)'); ish.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = ish; g.fillRect(inner[0][0], inner[0][1], inner[1][0] - inner[0][0], 18);
+  const lsh = g.createLinearGradient(inner[0][0], 0, inner[0][0] + 12, 0); lsh.addColorStop(0, 'rgba(0,0,0,.4)'); lsh.addColorStop(1, 'rgba(0,0,0,0)');
+  g.fillStyle = lsh; g.fillRect(inner[0][0], inner[0][1], 12, inner[3][1] - inner[0][1]);
+  g.restore();
+  // Brushed steel drawer lip: a highlight along the top edge, shadow along the bottom.
+  g.strokeStyle = 'rgba(255,255,255,.45)'; g.lineWidth = 2; g.beginPath(); g.moveTo(tl[0] + 2, tl[1] + 2); g.lineTo(tr[0] - 2, tr[1] + 2); g.stroke();
+  g.strokeStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.moveTo(bl[0] + 2, bl[1] - 2); g.lineTo(br[0] - 2, br[1] - 2); g.stroke();
+  g.strokeStyle = 'rgba(255,255,255,.06)'; g.lineWidth = 1;
+  for (let i = 1; i < cols; i++) { const u = .02 + .96 * i / cols, a = P(u, .03), b = P(u, .97); g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); }
+  for (let j = 1; j < rows; j++) { const v = .03 + .94 * j / rows, a = P(.02, v), b = P(.98, v); g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); }
+  g.restore();
+}
+// One drawer face: rounded red panel, full-width aluminum pull with black end caps, label holder.
+function drawerFace(x, y, w, h) {
+  const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, '#dc3a2f'); gr.addColorStop(.45, '#c42d24'); gr.addColorStop(1, '#951e17');
+  g.fillStyle = gr; g.beginPath(); g.roundRect(x, y, w, h, 6); g.fill();
+  g.strokeStyle = 'rgba(255,255,255,.22)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(x + 6, y + 1.5); g.lineTo(x + w - 6, y + 1.5); g.stroke();
+  g.strokeStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.moveTo(x + 6, y + h - .5); g.lineTo(x + w - 6, y + h - .5); g.stroke();
+  const hx = x + 22, hw = w - 44, hy = y + 12, hh = Math.max(9, Math.min(14, h * .13));
+  g.fillStyle = 'rgba(0,0,0,.4)'; g.beginPath(); g.roundRect(hx + 2, hy + hh - 1, hw - 4, 5, 2); g.fill();
+  const hg = g.createLinearGradient(0, hy, 0, hy + hh); hg.addColorStop(0, '#f6f8fa'); hg.addColorStop(.45, '#c7cdd3'); hg.addColorStop(1, '#7f878f');
+  g.fillStyle = hg; g.beginPath(); g.roundRect(hx, hy, hw, hh, hh / 2); g.fill();
+  g.fillStyle = '#1d2024'; g.beginPath(); g.roundRect(hx - 6, hy - 2, 12, hh + 4, 3); g.fill(); g.beginPath(); g.roundRect(hx + hw - 6, hy - 2, 12, hh + 4, 3); g.fill();
+  if (h > 60) { g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.roundRect(x + 26, y + h - 30, 78, 20, 3); g.fill(); g.fillStyle = '#ece6da'; g.fillRect(x + 30, y + h - 27, 70, 14); }
+}
+function chestFront(open, alpha) {
+  // Front of a 5-drawer rolling chest; the current drawer pulls out toward the camera.
+  const cx = W / 2, cw = 620, top = H / 2 - 360, dh = 120, d = (level - 1) % 5, L0 = cx - cw / 2 - 20, R0 = cx + cw / 2 + 20, bot = top + dh * 5;
+  g.save(); g.globalAlpha = alpha;
+  // Casters
+  [L0 + 40, R0 - 40].forEach(x => {
+    g.fillStyle = '#5d646c'; g.fillRect(x - 14, bot + 22, 28, 12);
+    g.fillStyle = '#1b1d20'; g.beginPath(); g.arc(x, bot + 50, 20, 0, 7); g.fill();
+    g.fillStyle = '#9aa1a9'; g.beginPath(); g.arc(x, bot + 50, 7, 0, 7); g.fill();
+  });
+  // Cabinet shell with rounded corners, darker at the edges.
+  const cg = g.createLinearGradient(L0, 0, R0, 0); cg.addColorStop(0, '#6e140f'); cg.addColorStop(.04, '#a5231b'); cg.addColorStop(.96, '#a5231b'); cg.addColorStop(1, '#6e140f');
+  g.fillStyle = cg; g.beginPath(); g.roundRect(L0, top - 46, R0 - L0, dh * 5 + 72, 12); g.fill();
+  // Black rubber top mat and a stainless trim strip, with a name plate.
+  g.fillStyle = '#1d2024'; g.beginPath(); g.roundRect(L0 - 4, top - 54, R0 - L0 + 8, 16, 6); g.fill();
+  const tg = g.createLinearGradient(0, top - 38, 0, top - 28); tg.addColorStop(0, '#eef1f4'); tg.addColorStop(1, '#8c949c');
+  g.fillStyle = tg; g.fillRect(L0 + 6, top - 36, R0 - L0 - 12, 8);
+  g.fillStyle = '#1d2024'; g.beginPath(); g.roundRect(cx - 80, top - 26, 160, 18, 4); g.fill();
+  g.fillStyle = '#d8dde3'; g.font = '700 13px "Barlow Semi Condensed", sans-serif'; g.textAlign = 'center'; g.fillText('AAROMACH', cx, top - 13);
+  // Stainless side trim
+  [L0 + 4, R0 - 10].forEach(x => { const sg = g.createLinearGradient(x, 0, x + 6, 0); sg.addColorStop(0, '#8c949c'); sg.addColorStop(.5, '#eef1f4'); sg.addColorStop(1, '#8c949c'); g.fillStyle = sg; g.fillRect(x, top - 4, 6, dh * 5 - 2); });
+  // The open slot (dark) behind the current drawer, then every other drawer.
+  g.fillStyle = '#1a0806'; g.fillRect(cx - cw / 2, top + d * dh, cw, dh - 10);
+  for (let i = 0; i < 5; i++) if (i !== d) drawerFace(cx - cw / 2, top + i * dh, cw, dh - 10);
+  // Base kick plate
+  g.fillStyle = '#1d2024'; g.beginPath(); g.roundRect(L0, bot + 4, R0 - L0, 20, [0, 0, 10, 10]); g.fill();
+  g.restore();
+  return { cx, cw, y: top + d * dh, dh };
+}
+function render(dt) {
+  g.fillStyle = '#26292e'; g.fillRect(0, 0, W, H);
+  if (state === 'idle' || state === 'done') {
+    if (state === 'done') {
+      chestFront(0, 1); const f = chestFront(0, 0);
+      drawerFace(f.cx - f.cw / 2, f.y, f.cw, f.dh - 10);
+      g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, H / 2 - 120, W, 150);
+      g.fillStyle = '#54d18a'; g.font = '56px "Saira Stencil One", Impact, sans-serif'; g.textAlign = 'center'; g.fillText('DRAWER CLOSED', W / 2, H / 2 - 50);
+      g.font = '700 26px "Barlow Semi Condensed", sans-serif'; g.fillStyle = '#e9e2d6'; g.fillText(mode === 'relax' ? `Organized in ${clock(elapsed)}` : `Score $${score.toLocaleString()} · tap Next drawer`, W / 2, H / 2 - 5); return;
+    }
+    chestFront(0, 1); const f = chestFront(0, 0);
+    drawerFace(f.cx - f.cw / 2, f.y, f.cw, f.dh - 10);
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, H / 2 - 120, W, 150);
+    g.fillStyle = '#d8dde3'; g.font = '64px "Saira Stencil One", Impact, sans-serif'; g.textAlign = 'center'; g.fillText('TOOL DRAWER', W / 2, H / 2 - 50);
+    g.font = '700 26px "Barlow Semi Condensed", sans-serif'; g.fillStyle = '#e9e2d6'; g.fillText(`Fill the drawer. No gaps. Best $${best.toLocaleString()}`, W / 2, H / 2 - 5); return;
+  }
+  const R1 = [[gx - 14, gy - 14], [gx + cols * cell + 14, gy - 14], [gx + cols * cell + 14, gy + rows * cell + 14], [gx - 14, gy + rows * cell + 14]];
+  if (state === 'intro' || state === 'outro') {
+    anim.t += dt; let t = Math.min(1, anim.t / anim.len); if (state === 'outro') t = 1 - t;
+    // 0–.45: drawer slides out (front view). .45–1: camera tilts down to the top view.
+    const a = ease(Math.min(1, t / .45)), b = ease(Math.max(0, (t - .45) / .55));
+    const f = chestFront(a, 1 - b);
+    const depth = 40 + 160 * a, fy = f.y + 20 * a, fw = f.cw * (1 + .06 * a);
+    const Q0 = [[f.cx - fw / 2 + 40, fy - depth], [f.cx + fw / 2 - 40, fy - depth], [f.cx + fw / 2, fy], [f.cx - fw / 2, fy]];
+    const Q = Q0.map((p, i) => [lerp(p[0], R1[i][0], b), lerp(p[1], R1[i][1], b)]);
+    if (a > 0) quadDrawer(Q);
+    if (state === 'outro') pieces.forEach(p => { g.globalAlpha = Math.max(0, b * 1.4 - .4); piece(p, gx + p.gx * cell, gy + p.gy * cell, cell, false, true); g.globalAlpha = 1; });
+    // Drawer front panel and handle
+    g.globalAlpha = 1 - b; drawerFace(f.cx - fw / 2, fy, fw, f.dh - 10); g.globalAlpha = 1;
+    // Bench slides in under it
+    g.fillStyle = '#2f5a3a'; g.fillRect(0, lerp(H, trayY, b), W, H);
+    if (state === 'intro') { g.globalAlpha = b; pieces.forEach(p => piece(p, p.tx, p.ty + (1 - b) * 200, trayS)); g.globalAlpha = 1; }
+    if (anim.t >= anim.len) { if (state === 'intro') state = 'play'; else state = 'done'; sync(); }
+    return;
+  }
+  if (state === 'play' && $('howModal').hidden && !document.hidden) {
+    if (mode === 'relax') { const before = Math.floor(elapsed); elapsed += dt; if (Math.floor(elapsed) !== before) { sync(); if (Math.floor(elapsed) % 10 === 0) save(); } }
+    else { timeLeft -= dt; if (timeLeft <= 0) { timeLeft = 0; gameOver(); } if (Math.floor(timeLeft * 4) !== Math.floor((timeLeft + dt) * 4)) sync(); }
+  }
+  quadDrawer(R1);
+  // Drop preview
+  if (drag && drag.moved && drag.y < trayY - 10) {
+    const [ax, ay] = dropSpot(drag), ok = fits(drag.p, ax, ay);
+    g.fillStyle = ok ? 'rgba(84,209,138,.28)' : 'rgba(224,72,72,.28)';
+    drag.p.cells.forEach(([x, y]) => { const X = ax + x, Y = ay + y; if (X >= 0 && Y >= 0 && X < cols && Y < rows) g.fillRect(gx + X * cell, gy + Y * cell, cell, cell); });
+  }
+  pieces.forEach(p => { if (p.gx !== null && p !== drag?.p) piece(p, gx + p.gx * cell, gy + p.gy * cell, cell, p === active, true); });
+  if (hintP && hintT > 0) {
+    hintT -= dt; const o = L.orient(hintP.tool, hintP.sol.k, hintP.sol.f);
+    g.save(); g.globalAlpha = .35 + .25 * Math.sin(hintT * 8); L.drawOriented(g, hintP.tool, hintP.col, hintP.sol.k, hintP.sol.f, gx + hintP.sol.gx * cell, gy + hintP.sol.gy * cell, cell); g.restore();
+    g.strokeStyle = '#ffd257'; g.lineWidth = 3; o.cells.forEach(([x, y]) => g.strokeRect(gx + (hintP.sol.gx + x) * cell + 2, gy + (hintP.sol.gy + y) * cell + 2, cell - 4, cell - 4));
+  }
+  { const x0 = gx - 14, x1 = gx + cols * cell + 14, y0 = gy + rows * cell + 14;
+    const fg = g.createLinearGradient(0, y0, 0, y0 + 20); fg.addColorStop(0, '#e0453a'); fg.addColorStop(1, '#8f1d16');
+    g.fillStyle = fg; g.beginPath(); g.roundRect(x0 - 6, y0, x1 - x0 + 12, 20, [0, 0, 6, 6]); g.fill();
+    const hg = g.createLinearGradient(0, y0 + 20, 0, y0 + 30); hg.addColorStop(0, '#f4f6f8'); hg.addColorStop(1, '#8c949c');
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(x0 + 30, y0 + 22, x1 - x0 - 60, 9);
+    g.fillStyle = hg; g.beginPath(); g.roundRect(x0 + 28, y0 + 18, x1 - x0 - 56, 9, 4); g.fill();
+    g.fillStyle = '#1d2024'; g.fillRect(x0 + 24, y0 + 16, 8, 13); g.fillRect(x1 - 32, y0 + 16, 8, 13); }
+  // Bench mat
+  benchMat();
+  g.fillStyle = 'rgba(255,255,255,.55)'; g.font = '700 16px "Barlow Semi Condensed", sans-serif'; g.textAlign = 'right'; g.fillText(`${pieces.filter(p => p.gx === null).length} ON THE BENCH`, W - 16, H - 12);
+  pieces.forEach(p => { if (p.gx === null && p !== drag?.p) piece(p, p.tx, p.ty, trayS, p === active); });
+  if (drag) { const s = drag.moved ? cell : (drag.p.gx !== null ? cell : trayS); piece(drag.p, drag.x - drag.offX * s, drag.y - drag.offY * s, s, true); }
+  if (state === 'play' && mode === 'timed') { const f = timeLeft / timeMax; g.fillStyle = f < .25 ? '#e04848' : '#e8b320'; g.fillRect(gx - 14, gy - 22, (cols * cell + 28) * f, 5); }
+  if (state === 'done' || state === 'over') {
+    g.fillStyle = 'rgba(0,0,0,.6)'; g.fillRect(0, gy + rows * cell / 2 - 40, W, 80);
+    g.fillStyle = state === 'done' ? '#54d18a' : '#ff8f86'; g.font = '48px "Saira Stencil One", Impact, sans-serif'; g.textAlign = 'center';
+    g.fillText(state === 'done' ? 'DRAWER CLOSED' : 'OUT OF TIME', W / 2, gy + rows * cell / 2 + 17);
+  }
+}
+let last = performance.now();
+function loop(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; render(dt); requestAnimationFrame(loop); }
+sync(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

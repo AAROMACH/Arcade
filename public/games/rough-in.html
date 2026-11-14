@@ -1,0 +1,474 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Rough-In Day</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Architects+Daughter&family=JetBrains+Mono:wght@500;700&family=Overpass+Mono:wght@400;700&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: the job site. The floor (studs, open framing) fills the screen; the blueprint flips over it while you study. Box picker and stats underneath. One light construction look. */
+:root {
+  color-scheme: light;
+  --osb: #e2c79a;        /* OSB subfloor */
+  --stud: #c79a5b;
+  --ink: #2a2118;
+  --muted: #6f604c;
+  --print: #1d4f8c;      /* blueprint */
+  --print-ink: #e6f0ff;
+  --ok: #217a3c;
+  --bad: #c0331f;
+  --display: "Big Shoulders Display", "Arial Narrow", sans-serif;
+  --body: "Work Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "Overpass Mono", ui-monospace, Consolas, monospace;
+}
+html, body { min-height: 100%; }
+body { background: #f1e7d4; color: var(--ink); font-family: var(--body); padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; box-sizing: border-box; }
+.app { width: 100%; max-width: 980px; display: grid; gap: 10px; }
+.top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+h1 { margin: 0; font-family: var(--display); font-weight: 900; font-size: 40px; letter-spacing: .02em; line-height: .9; text-transform: uppercase; }
+.stats { display: flex; gap: 14px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.stat { display: grid; } .stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.stat b { font-family: var(--mono); font-size: 18px; }
+canvas { display: block; width: auto; height: auto; max-width: 100%; max-height: calc(100vh - 190px); margin: 0 auto; border-radius: 6px; touch-action: manipulation; cursor: pointer; box-shadow: 0 4px 14px rgba(42,33,24,.2); }
+.bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.pick { display: flex; gap: 6px; flex-wrap: wrap; }
+button { font-family: var(--display); font-weight: 700; font-size: 18px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); background: #fffaf0; border: 2px solid var(--ink); border-radius: 6px; padding: 6px 12px; cursor: pointer; touch-action: manipulation; display: inline-flex; gap: 6px; align-items: center; }
+button.on { background: var(--ink); color: #fffaf0; }
+button.go { background: var(--print); color: var(--print-ink); border-color: var(--print); }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible { outline: 3px solid var(--print); outline-offset: 2px; }
+button svg { width: 18px; height: 18px; }
+.msg { font-size: 14px; min-height: 1.4em; }
+.tally { font-family: var(--mono); font-size: 13px; display: grid; gap: 2px; }
+@media (max-width: 560px) { h1 { font-size: 30px; } .stat b { font-size: 15px; } button { font-size: 16px; padding: 6px 9px; } }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(42,33,24,.6);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: #fffaf0; border: 2px solid var(--ink); border-radius: 10px; padding: 18px; max-width: 480px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-weight: 900; font-size: 34px; text-transform: uppercase; }
+.card h3 { margin: 4px 0 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+/* ── Drawing-sheet skin (matches Pull Day) ── */
+:root { --ink: #1d2a3a; --muted: #6b7684; --ok: #1f8a4c; --bad: #c0392b; --paper: #f3f1ea; --sheet: #fbfaf6;
+  --display: "Archivo Narrow", "Arial Narrow", sans-serif; --body: "Archivo Narrow", "Arial Narrow", sans-serif; --mono: "JetBrains Mono", ui-monospace, Consolas, monospace; --hand: "Architects Daughter", cursive; }
+body { background: var(--paper); align-items: safe center; }
+.app { background: var(--sheet); border: 2px solid var(--ink); padding: 12px 14px; box-shadow: 0 6px 20px rgba(29,42,58,.12); }
+h1 { font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: .02em; text-transform: uppercase; }
+.top { border-bottom: 1px solid var(--ink); padding-bottom: 8px; }
+.stat b { font-family: var(--mono); font-weight: 700; }
+canvas { border-radius: 0; box-shadow: none; border: 2px solid var(--ink); }
+button { font-family: var(--display); font-size: 14px; font-weight: 700; letter-spacing: .06em; background: transparent; border: 2px solid var(--ink); border-radius: 0; color: var(--ink); }
+button.on { background: var(--ink); color: var(--sheet); }
+button.go { background: var(--ink); color: var(--sheet); border-color: var(--ink); }
+.msg { font-family: var(--hand); font-size: 16px; }
+.card { background: var(--sheet); border-radius: 0; }
+.card h2 { font-family: var(--display); font-weight: 700; font-size: 28px; }
+.modal { background: rgba(29,42,58,.45); }
+@media (max-width: 560px) { button { font-size: 13px; } }
+</style>
+
+<div class="app">
+  <div class="top">
+    <h1>Rough-In Day</h1>
+    <div class="stats">
+      <div class="stat"><span>Floor</span><b id="lvl">1</b></div>
+      <div class="stat"><span>Score</span><b id="score">$0</b></div>
+      <div class="stat"><span>Hard hats</span><b id="lives"></b></div>
+      <div class="stat"><span>Peeks</span><b id="peeks">$75</b></div>
+      <div class="stat"><span>Best</span><b id="best">$0</b></div>
+    </div>
+  </div>
+  <canvas id="cv" aria-label="Floor plan. Study the print, then tap where each box goes."></canvas>
+  <div class="msg" id="msg"></div>
+  <div class="bar">
+    <div class="pick" id="pick"></div>
+    <div class="pick">
+      <span class="pick" id="modes"><button type="button" data-m="normal">Normal</button><button type="button" data-m="hard">Hard</button></span>
+      <button type="button" id="peek">Peek at print</button>
+      <button type="button" class="go" id="act">Start</button>
+    </div>
+  </div>
+  <div class="bar"><div class="tally" id="tally"></div><button type="button" id="how">How to play</button></div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>Rough-In Day</h2>
+    <p>The drywall goes up tomorrow. Get every low-voltage box in place today. You only get a quick look at the print, so remember it.</p>
+    <h3>How it works</h3>
+    <ul>
+      <li>The blueprint shows where each box goes: <b>data</b>, <b>camera</b>, <b>Wi-Fi AP</b>, <b>TV</b>. Study it before the timer runs out.</li>
+      <li>Then the print goes back in the truck. Pick a box type and tap the spot on the floor where it goes. Tap a box again to take it off.</li>
+      <li><b>Normal:</b> peek at the print any time for $75. Each peek shows it for 2 seconds.</li>
+      <li><b>Hard:</b> shorter study time and only 3 peeks for the whole job, 1.5 seconds each. Scores x1.5.</li>
+      <li>Floors start small (3 data drops) and add boxes and box types as you go: cameras on floor 2, APs on 4, TVs on 6.</li>
+      <li>Any missed box is a callback and costs a hard hat. Lose all 3 and you're off the job.</li>
+      <li>The grid has letters across the top and numbers down the side, so you can remember spots like "data at C4".</li>
+      <li>Call inspection when you're done. Right box, right spot: +$150. Right spot, wrong box: +$50. A box that isn't on the print: −$75. A missed box means a callback after the drywall's up: −$150.</li>
+      <li><b>Near miss:</b> the right box one square up, down, left or right of where it belonged (not diagonal) still counts as missed, but you get $75 back.</li>
+    </ul>
+    <button type="button" class="go" id="howClose">Head to site</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const cv = $('cv'), g = cv.getContext('2d');
+const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
+const COLS = PORTRAIT ? 7 : 11, ROWS = PORTRAIT ? 10 : 7, T = 64;
+const GUT = 30;   // room for the A-B-C / 1-2-3 labels
+cv.width = COLS * T + GUT; cv.height = ROWS * T + GUT;
+const colName = x => String.fromCharCode(65 + x), cellName = k => colName(k % COLS) + (Math.floor(k / COLS) + 1);
+const TYPES = { D: { n: 'Data', min: 1 }, C: { n: 'Camera', min: 2 }, A: { n: 'Wi-Fi AP', min: 4 }, V: { n: 'TV', min: 6 } };
+// Normal: peek any time for $75, 2 s look. Hard: 3 peeks for the whole run, 1.5 s look, shorter study, scores x1.5.
+const MODES = { normal: { peekT: 2, peekCost: 75, peeks: Infinity, mult: 1 }, hard: { peekT: 1.5, peekCost: 0, peeks: 3, mult: 1.5 } };
+let mode = 'normal', lives = 3;
+try { mode = localStorage.getItem('roughin:mode') === 'hard' ? 'hard' : 'normal'; } catch {}
+let best = 0; try { best = +localStorage.getItem('roughin:best') || 0; } catch {}
+let nearPairs = [], rooms = [], doors = [], corridor = null;
+let level = 1, score = 0, phase = 'idle', walls, boxes, placed, sel = 'D', studyT = 0, peekT = 0, peeks = Infinity, result = null;
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const key = (x, y) => y * COLS + x;
+const types = () => Object.keys(TYPES).filter(k => TYPES[k].min <= level);
+
+// Each box type has its own colour: bright on the blue print, a deeper shade on paper.
+const TCOL = { D: { print: '#ffd23f', paper: '#b07800' }, C: { print: '#ff8a7a', paper: '#c0392b' }, A: { print: '#6ff0b0', paper: '#1f8a4c' }, V: { print: '#d6a8ff', paper: '#7b3fd1' } };
+// Blueprint symbols (what the print shows).
+function icon(ctx, t, x, y, s, col) {
+  ctx.save(); ctx.translate(x, y); ctx.strokeStyle = col; ctx.fillStyle = col; ctx.lineWidth = Math.max(2, s / 12);
+  ctx.font = `700 ${s * .26}px "Overpass Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  if (t === 'D') { ctx.beginPath(); ctx.moveTo(0, -s * .38); ctx.lineTo(s * .38, s * .3); ctx.lineTo(-s * .38, s * .3); ctx.closePath(); ctx.stroke(); ctx.fillText('D', 0, s * .06); }
+  if (t === 'C') { ctx.beginPath(); ctx.roundRect(-s * .34, -s * .2, s * .48, s * .4, s * .06); ctx.stroke(); ctx.beginPath(); ctx.moveTo(s * .14, -s * .08); ctx.lineTo(s * .38, -s * .2); ctx.lineTo(s * .38, s * .2); ctx.lineTo(s * .14, s * .08); ctx.closePath(); ctx.stroke(); }
+  if (t === 'A') { ctx.beginPath(); ctx.arc(0, 0, s * .36, 0, 7); ctx.stroke(); ctx.font = `700 ${s * .22}px "Overpass Mono", monospace`; ctx.fillText('WAP', 0, s * .02); }
+  if (t === 'V') { ctx.strokeRect(-s * .4, -s * .25, s * .8, s * .5); ctx.fillText('TV', 0, s * .02); }
+  ctx.restore();
+}
+// Real hardware on the framing: a low-voltage mounting bracket with the device in it.
+function device(ctx, t, x, y, s) {
+  ctx.save(); ctx.translate(x, y);
+  const rr = (X, Y, W, H, r) => { ctx.beginPath(); ctx.roundRect(X, Y, W, H, r); };
+  // Shadow + orange LV bracket (mud ring) with screw holes.
+  ctx.fillStyle = 'rgba(42,33,24,.25)'; rr(-s * .4 + 2, -s * .46 + 3, s * .8, s * .92, s * .08); ctx.fill();
+  ctx.fillStyle = '#f08a1a'; rr(-s * .4, -s * .46, s * .8, s * .92, s * .08); ctx.fill();
+  ctx.strokeStyle = '#a85a0c'; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.fillStyle = '#7a3f06'; [[-s * .3, -s * .38], [s * .3, -s * .38], [-s * .3, s * .38], [s * .3, s * .38]].forEach(([a, b2]) => { ctx.beginPath(); ctx.arc(a, b2, s * .03, 0, 7); ctx.fill(); });
+  if (t === 'D') {
+    // Dual-port data plate
+    ctx.fillStyle = '#f7f5ef'; rr(-s * .24, -s * .32, s * .48, s * .64, s * .05); ctx.fill(); ctx.strokeStyle = '#b8b0a2'; ctx.lineWidth = 1; ctx.stroke();
+    [-.13, .1].forEach(o => { ctx.fillStyle = '#2b2e33'; rr(-s * .12, s * o - s * .06, s * .24, s * .14, s * .02); ctx.fill(); ctx.fillStyle = '#c9a24a'; for (let i = 0; i < 4; i++) ctx.fillRect(-s * .09 + i * s * .05, s * o - s * .05, s * .025, s * .03); });
+  }
+  if (t === 'C') {
+    // Dome camera
+    ctx.fillStyle = '#f7f5ef'; ctx.beginPath(); ctx.arc(0, 0, s * .3, 0, 7); ctx.fill(); ctx.strokeStyle = '#b8b0a2'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#2b2e33'; ctx.beginPath(); ctx.arc(0, 0, s * .17, 0, 7); ctx.fill();
+    ctx.fillStyle = '#5a8fd0'; ctx.beginPath(); ctx.arc(-s * .04, -s * .04, s * .07, 0, 7); ctx.fill();
+    ctx.fillStyle = '#e04848'; ctx.beginPath(); ctx.arc(s * .2, -s * .16, s * .025, 0, 7); ctx.fill();
+  }
+  if (t === 'A') {
+    // Ceiling access point with signal arcs
+    ctx.fillStyle = '#f7f5ef'; rr(-s * .3, -s * .3, s * .6, s * .6, s * .14); ctx.fill(); ctx.strokeStyle = '#b8b0a2'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = '#2f6fe0'; ctx.lineWidth = s * .045; ctx.lineCap = 'round';
+    [.07, .15, .23].forEach(r => { ctx.beginPath(); ctx.arc(0, s * .1, s * r, Math.PI * 1.2, Math.PI * 1.8); ctx.stroke(); });
+    ctx.fillStyle = '#2f6fe0'; ctx.beginPath(); ctx.arc(0, s * .1, s * .03, 0, 7); ctx.fill();
+  }
+  if (t === 'V') {
+    // Recessed TV box: power + HDMI pass-through
+    ctx.fillStyle = '#3b4148'; rr(-s * .28, -s * .34, s * .56, s * .68, s * .04); ctx.fill();
+    ctx.fillStyle = '#f7f5ef'; rr(-s * .2, -s * .26, s * .4, s * .22, s * .03); ctx.fill();
+    ctx.fillStyle = '#2b2e33'; ctx.fillRect(-s * .08, -s * .2, s * .04, s * .1); ctx.fillRect(s * .04, -s * .2, s * .04, s * .1);
+    ctx.fillStyle = '#f7f5ef'; rr(-s * .2, s * .04, s * .4, s * .2, s * .03); ctx.fill();
+    ctx.fillStyle = '#2b2e33'; ctx.fillRect(-s * .12, s * .1, s * .1, s * .06); ctx.fillRect(s * .03, s * .1, s * .1, s * .06);
+  }
+  ctx.restore();
+}
+function iconSVG(t) {
+  const c = document.createElement('canvas'); c.width = c.height = 44; icon(c.getContext('2d'), t, 22, 22, 40, TCOL[t].paper);
+  return `<img src="${c.toDataURL()}" width="22" height="22" alt="">`;
+}
+// A placed box on the framing: the plan symbol drawn in marker on a white tag, so it reads on the OSB.
+function tag(ctx, t, x, y, s) {
+  ctx.save(); ctx.fillStyle = TCOL[t].paper + '1f'; ctx.beginPath(); ctx.arc(x, y, s * .5, 0, 7); ctx.fill(); ctx.restore();
+  icon(ctx, t, x, y, s * .8, TCOL[t].paper);
+}
+function renderPick() {
+  $('pick').innerHTML = types().map(t => `<button type="button" data-t="${t}" class="${t === sel ? 'on' : ''}" ${phase !== 'build' ? 'disabled' : ''}>${iconSVG(t)}${TYPES[t].n}</button>`).join('');
+}
+$('pick').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (!b) return; sel = b.dataset.t; renderPick(); });
+function build() {
+  // Walls: a corridor and a few rooms, drawn on tile edges as stud lines.
+  walls = { v: new Set(), h: new Set() };
+  const long = PORTRAIT ? ROWS : COLS, short = PORTRAIT ? COLS : ROWS;
+  const addV = (x, y) => PORTRAIT ? walls.h.add(key(y, x)) : walls.v.add(key(x, y));
+  const addH = (x, y) => PORTRAIT ? walls.v.add(key(y, x)) : walls.h.add(key(x, y));
+  // uv → sheet: u runs along the building, v across it (portrait sheets turn it).
+  const toXY = (u, v) => PORTRAIT ? [v, u] : [u, v];
+  const c = rnd(2, short - 3);                                   // the corridor row
+  rooms = []; doors = [];
+  const NAMES = ['OFFICE', 'OFFICE', 'CONF RM', 'BREAK RM', 'STORAGE', 'OFFICE', 'LOBBY', 'TRAINING', 'COPY RM', 'OFFICE'];
+  let num = 101; const names = [...NAMES].sort(() => Math.random() - .5); let ni = 0;
+  // Band above the corridor (rows 0..c-1) and below it (rows c+1..short-1).
+  [[0, c - 1, c], [c + 1, short - 1, c + 1]].forEach(([v0, v1, wallV]) => {
+    let u = 0;
+    while (u < long) {
+      const w = Math.min(long - u, rnd(3, 4)), last = long - u - w < 2, u1 = last ? long - 1 : u + w - 1;
+      if (u1 < long - 1) for (let v = v0; v <= v1; v++) addV(u1 + 1, v);     // partition on the room's far side
+      const door = rnd(u, u1);
+      for (let a = u; a <= u1; a++) if (a !== door) addH(a, wallV);           // corridor wall, minus the door
+      doors.push({ u: door, v: wallV, into: wallV === c ? -1 : 1 });         // swing into the room
+      const [x0, y0] = toXY(u, v0), [x1, y1] = toXY(u1, v1);
+      rooms.push({ name: names[ni++ % names.length], num: num++, x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) });
+      u = u1 + 1;
+    }
+  });
+  corridor = (() => { const [x0, y0] = toXY(0, c), [x1, y1] = toXY(long - 1, c); return { x0: Math.min(x0, x1), y0: Math.min(y0, y1), x1: Math.max(x0, x1), y1: Math.max(y0, y1) }; })();
+  doors = doors.map(d => ({ ...d, xy: toXY(d.u, d.v), portrait: PORTRAIT }));
+  const n = Math.min(14, 2 + level), ts = types();
+  boxes = new Map();
+  while (boxes.size < n) { const x = rnd(0, COLS - 1), y = rnd(0, ROWS - 1); if (!boxes.has(key(x, y))) boxes.set(key(x, y), ts[rnd(0, ts.length - 1)]); }
+  placed = new Map(); result = null; sel = 'D'; nearPairs = [];
+  studyT = mode === 'hard' ? Math.max(2.5, 7 - level * .5) : Math.max(4, 10 - level * .6); phase = 'study';
+  $('act').textContent = 'Got it — start'; $('msg').textContent = `Study the print: ${n} boxes.`; $('tally').innerHTML = '';
+  renderPick(); sync();
+}
+function sync() {
+  $('lvl').textContent = level; $('score').textContent = (score < 0 ? '−$' : '$') + Math.abs(score).toLocaleString();
+  $('peeks').textContent = peeks === Infinity ? `$${MODES[mode].peekCost}` : peeks; $('lives').textContent = '⛑'.repeat(Math.max(0, lives)) + '·'.repeat(3 - Math.max(0, lives));
+  $('modes').hidden = !(phase === 'idle' || phase === 'over');
+  document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.m === mode));
+  $('best').textContent = '$' + Math.max(best, score).toLocaleString();
+  $('peek').disabled = phase !== 'build' || peeks <= 0;
+}
+function startBuild() { phase = 'build'; $('act').textContent = 'Call inspection'; $('msg').textContent = 'Pick a box type, then tap where it goes.'; renderPick(); sync(); }
+function inspect() {
+  phase = 'done';
+  let right = 0, wrongType = 0, extra = 0, missed = 0, near = 0;
+  boxes.forEach((t, k) => { const p = placed.get(k); if (!p) missed++; else if (p === t) right++; else wrongType++; });
+  // A missed box with the right box placed one square away (not diagonal) is a near miss: still a miss, but $75 back.
+  nearPairs = []; const used = new Set();
+  boxes.forEach((t, k) => {
+    if (placed.has(k)) return;
+    const x = k % COLS, y = (k - x) / COLS;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= COLS || Y >= ROWS) continue;
+      const kk = key(X, Y);
+      if (placed.get(kk) === t && !boxes.has(kk) && !used.has(kk)) { used.add(kk); near++; nearPairs.push([kk, k]); break; }
+    }
+  });
+  placed.forEach((t, k) => { if (!boxes.has(k) && !used.has(k)) extra++; });
+  const perfect = right === boxes.size && !extra;
+  const pts = Math.round((right * 150 + wrongType * 50 - extra * 75 - missed * 150 + near * 75 + (perfect ? 300 : 0)) * MODES[mode].mult);
+  score += pts; result = { right, wrongType, extra, missed, near };
+  // Missed boxes mean a callback after drywall: that costs a hard hat.
+  if (missed) lives--;
+  try { if (parent !== window) parent.postMessage({ arcade: 'rough-in', score: score }, '*'); } catch (e) {} 
+  if (score > best) { best = score; try { localStorage.setItem('roughin:best', best); } catch {} }
+  $('tally').innerHTML = `<div>Right: ${right} × $150 · Wrong box: ${wrongType} × $50 · Extra: ${extra} × −$75</div><div>Missed: ${missed} × −$150${near ? ` · Near misses: ${near} × +$75 back` : ''}${perfect ? ' · Perfect floor +$300' : ''}</div>`;
+  $('msg').textContent = perfect ? 'Inspector signed off. Clean rough-in.' : missed ? `${missed} missed box${missed > 1 ? 'es' : ''}. Callback after drywall: you lose a hard hat.` : 'Passed, with notes.';
+  if (lives <= 0) { phase = 'over'; $('msg').textContent = `Three callbacks. You're off the job. Final: $${score.toLocaleString()}${mode === 'hard' ? ' (hard)' : ''}.`; $('act').textContent = 'New job'; }
+  else $('act').textContent = 'Next floor →';
+  renderPick(); sync();
+}
+$('act').onclick = () => {
+  if (phase === 'idle' || phase === 'over') { level = 1; score = 0; lives = 3; peeks = MODES[mode].peeks; build(); }
+  else if (phase === 'study') startBuild();
+  else if (phase === 'build') inspect();
+  else if (phase === 'done') { level++; build(); }
+};
+$('peek').onclick = () => { if (phase !== 'build' || peeks <= 0 || peekT > 0) return; peeks--; score -= MODES[mode].peekCost; peekT = MODES[mode].peekT; sync(); };
+document.querySelectorAll('#modes button').forEach(b => b.onclick = () => { mode = b.dataset.m; try { localStorage.setItem('roughin:mode', mode); } catch {} sync(); });
+cv.addEventListener('pointerdown', e => {
+  if (phase !== 'build' || peekT > 0) return;
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor(((e.clientX - r.left) / r.width * cv.width - GUT) / T), y = Math.floor(((e.clientY - r.top) / r.height * cv.height - GUT) / T);
+  if (x < 0 || y < 0 || x >= COLS || y >= ROWS) return;
+  const k = key(x, y);
+  if (placed.get(k) === sel) placed.delete(k); else placed.set(k, sel);
+});
+$('how').onclick = () => { $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; try { localStorage.setItem('roughin:seen', '1'); } catch {} };
+try { if (localStorage.getItem('roughin:seen')) $('howModal').hidden = true; } catch {}
+
+// Each wall segment as [x1, y1, x2, y2] in pixels (plus the outside walls).
+function wallSegs() {
+  const out = [[0, 0, COLS * T, 0], [0, ROWS * T, COLS * T, ROWS * T], [0, 0, 0, ROWS * T], [COLS * T, 0, COLS * T, ROWS * T]];
+  walls.v.forEach(k => { const x = k % COLS, y = (k - x) / COLS; out.push([x * T, y * T, x * T, y * T + T]); });
+  walls.h.forEach(k => { const x = k % COLS, y = (k - x) / COLS; out.push([x * T, y * T, x * T + T, y * T]); });
+  return out;
+}
+// Blueprint walls: double lines, like a drafted plan.
+function printWalls() {
+  const segs = wallSegs();
+  g.lineCap = 'square';
+  g.strokeStyle = '#e6f0ff'; g.lineWidth = 9; segs.forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
+  g.strokeStyle = '#1d4f8c'; g.lineWidth = 5; segs.forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
+  g.strokeStyle = 'rgba(230,240,255,.35)'; g.lineWidth = 1; segs.forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
+}
+// Door swings (a leaf and a quarter arc into the room), windows on the outside walls, room tags.
+function swing(d, col, w) {
+  const [x, y] = d.xy, X = x * T, Y = y * T; g.strokeStyle = col; g.lineWidth = w; g.beginPath();
+  if (!d.portrait) { const yy = Y, s = d.into; g.moveTo(X + 4, yy); g.lineTo(X + 4, yy + s * (T - 8)); g.arc(X + 4, yy, T - 8, s > 0 ? Math.PI / 2 : -Math.PI / 2, 0, s > 0); }
+  else { const xx = X, s = d.into; g.moveTo(xx, Y + 4); g.lineTo(xx + s * (T - 8), Y + 4); g.arc(xx, Y + 4, T - 8, s > 0 ? 0 : Math.PI, Math.PI / 2, s < 0); }
+  g.stroke();
+}
+function printDetails() {
+  // Door openings: clear the wall line, then draw the swing.
+  doors.forEach(d => swing(d, 'rgba(230,240,255,.75)', 1.4));
+  // Windows: three thin lines across the outside wall, a few per long side.
+  g.strokeStyle = '#e6f0ff'; g.lineWidth = 1.2;
+  const long = PORTRAIT ? ROWS : COLS;
+  for (let u = 1; u < long - 1; u += 3) [0, 1].forEach(side => {
+    const along = PORTRAIT ? [side ? COLS * T : 0, u * T + 10, side ? COLS * T : 0, u * T + T - 10] : [u * T + 10, side ? ROWS * T : 0, u * T + T - 10, side ? ROWS * T : 0];
+    const inward = side ? -1 : 1;
+    [1.5, 4.5, 7.5].map(o => o * inward).forEach(o => { g.beginPath(); if (PORTRAIT) { g.moveTo(along[0] + o, along[1]); g.lineTo(along[2] + o, along[3]); } else { g.moveTo(along[0], along[1] + o); g.lineTo(along[2], along[3] + o); } g.stroke(); });
+  });
+  // Room name and number tags.
+  rooms.forEach(r => {
+    const cx = (r.x0 + r.x1 + 1) / 2 * T, ty = r.y0 * T + 16;
+    g.font = '700 11px "Overpass Mono", monospace'; g.textAlign = 'center'; g.fillStyle = 'rgba(230,240,255,.8)'; g.fillText(r.name, cx, ty);
+    g.font = '700 10px "Overpass Mono", monospace'; const w = 30; g.strokeStyle = 'rgba(230,240,255,.8)'; g.lineWidth = 1; g.strokeRect(cx - w / 2, ty + 4, w, 14); g.fillText(String(r.num), cx, ty + 15);
+  });
+  if (corridor) { g.font = '700 11px "Overpass Mono", monospace'; g.fillStyle = 'rgba(230,240,255,.55)'; g.textAlign = 'left'; g.fillText('CORRIDOR', corridor.x0 * T + 8, corridor.y0 * T + 14); }
+}
+// The plan on paper: drafting grid, hatched walls (seamless at joints), door swings, windows, room names.
+function paperPlan() {
+  const W = COLS * T, H = ROWS * T, INK = '#1d2a3a';
+  g.fillStyle = '#fbfaf6'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = '#e7e4dc'; g.lineWidth = 1;
+  for (let x = 0; x <= COLS; x++) { g.beginPath(); g.moveTo(x * T + .5, 0); g.lineTo(x * T + .5, H); g.stroke(); }
+  for (let y = 0; y <= ROWS; y++) { g.beginPath(); g.moveTo(0, y * T + .5); g.lineTo(W, y * T + .5); g.stroke(); }
+  g.strokeStyle = 'rgba(29,42,58,.035)'; for (let x = 0; x < W; x += T / 4) { g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, H); g.stroke(); } for (let y = 0; y < H; y += T / 4) { g.beginPath(); g.moveTo(0, y + .5); g.lineTo(W, y + .5); g.stroke(); }
+  // Walls: each segment is a band; ink pass first (wider), then the hatched core over every band.
+  const segs = wallSegs(), band = (sg, h, ext) => { const [a, b, c, d] = sg; return b === d ? [Math.min(a, c) - ext, b - h, Math.abs(c - a) + 2 * ext, 2 * h] : [a - h, Math.min(b, d) - ext, 2 * h, Math.abs(d - b) + 2 * ext]; };
+  g.fillStyle = INK; segs.forEach(sg => g.fillRect(...band(sg, 6.5, 6.5)));
+  g.save(); g.beginPath(); segs.forEach(sg => g.rect(...band(sg, 4, 4))); g.clip();
+  g.fillStyle = '#e9e6dd'; g.fillRect(0, 0, W, H);
+  g.strokeStyle = 'rgba(29,42,58,.55)'; g.lineWidth = 1; for (let i = -H; i < W; i += 6) { g.beginPath(); g.moveTo(i, H); g.lineTo(i + H, 0); g.stroke(); }
+  g.restore();
+  // Door swings and window marks in ink.
+  doors.forEach(d => swing(d, 'rgba(29,42,58,.6)', 1.3));
+  g.strokeStyle = INK; g.lineWidth = 1.2;
+  const long = PORTRAIT ? ROWS : COLS;
+  for (let u = 1; u < long - 1; u += 3) [0, 1].forEach(side => {
+    const inward = side ? -1 : 1, al = PORTRAIT ? [side ? W : 0, u * T + 10, side ? W : 0, u * T + T - 10] : [u * T + 10, side ? H : 0, u * T + T - 10, side ? H : 0];
+    g.fillStyle = '#fbfaf6'; if (PORTRAIT) g.fillRect(al[0] - (side ? 7 : 0), al[1], 7, al[3] - al[1]); else g.fillRect(al[0], al[1] - (side ? 7 : 0), al[2] - al[0], 7);
+    [1, 3.5, 6].map(o => o * inward).forEach(o => { g.beginPath(); if (PORTRAIT) { g.moveTo(al[0] + o, al[1]); g.lineTo(al[2] + o, al[3]); } else { g.moveTo(al[0], al[1] + o); g.lineTo(al[2], al[3] + o); } g.stroke(); });
+  });
+  // Room names and number tags, the corridor label.
+  rooms.forEach(r => {
+    const cx = (r.x0 + r.x1 + 1) / 2 * T, ty = r.y0 * T + 18;
+    g.font = '700 12px "Archivo Narrow", sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(29,42,58,.55)'; g.fillText(r.name, cx, ty);
+    g.font = '13px "Architects Daughter", cursive'; const w = 34; g.strokeStyle = 'rgba(29,42,58,.5)'; g.lineWidth = 1; g.beginPath(); g.roundRect(cx - w / 2, ty + 4, w, 17, 8); g.stroke(); g.fillText(String(r.num), cx, ty + 17);
+  });
+  if (corridor) { g.font = '700 12px "Archivo Narrow", sans-serif'; g.fillStyle = 'rgba(29,42,58,.45)'; g.textAlign = 'left'; g.fillText('CORRIDOR', corridor.x0 * T + 10, corridor.y0 * T + 16); }
+}
+// Framing: a bottom plate with studs every 16" (a quarter tile) standing on it.
+function framedWalls() {
+  const segs = wallSegs();
+  g.lineCap = 'butt';
+  g.strokeStyle = 'rgba(42,33,24,.25)'; g.lineWidth = 12; segs.forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a + 2, b + 3); g.lineTo(c + 2, d + 3); g.stroke(); });
+  g.strokeStyle = '#d4a868'; g.lineWidth = 10; segs.forEach(([a, b, c, d]) => { g.beginPath(); g.moveTo(a, b); g.lineTo(c, d); g.stroke(); });
+  segs.forEach(([a, b, c, d]) => {
+    const horiz = b === d, len = horiz ? Math.abs(c - a) : Math.abs(d - b);
+    for (let i = 0; i <= len; i += T / 4) {
+      const px = horiz ? Math.min(a, c) + i : a, py = horiz ? b : Math.min(b, d) + i;
+      g.fillStyle = '#b8874a'; g.fillRect(px - (horiz ? 2.5 : 6), py - (horiz ? 6 : 2.5), horiz ? 5 : 12, horiz ? 12 : 5);
+      g.fillStyle = 'rgba(255,240,210,.35)'; g.fillRect(px - (horiz ? 2.5 : 6), py - (horiz ? 6 : 2.5), horiz ? 1.5 : 12, horiz ? 12 : 1.5);
+    }
+  });
+  g.strokeStyle = 'rgba(42,33,24,.35)'; g.lineWidth = 1; segs.forEach(([a, b, c, d]) => { const h = b === d; g.beginPath(); g.moveTo(a - (h ? 0 : 5), b - (h ? 5 : 0)); g.lineTo(c - (h ? 0 : 5), d - (h ? 5 : 0)); g.moveTo(a + (h ? 0 : 5), b + (h ? 5 : 0)); g.lineTo(c + (h ? 0 : 5), d + (h ? 5 : 0)); g.stroke(); });
+}
+// OSB subfloor texture: strands baked once, sheet seams, nail lines and a mill stamp.
+let osb = null;
+function osbTexture() {
+  if (osb) return osb;
+  osb = document.createElement('canvas'); osb.width = COLS * T; osb.height = ROWS * T;
+  const o = osb.getContext('2d'); o.fillStyle = '#dcc08f'; o.fillRect(0, 0, osb.width, osb.height);
+  let seed = 7; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < osb.width * osb.height / 90; i++) {
+    const x = r() * osb.width, y = r() * osb.height, a = r() * Math.PI, l = 6 + r() * 14;
+    o.strokeStyle = `rgba(${r() < .5 ? '150,110,60' : '245,225,180'},${.18 + r() * .25})`; o.lineWidth = 1.5 + r() * 2;
+    o.beginPath(); o.moveTo(x, y); o.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l * .4); o.stroke();
+  }
+  // 4×8 sheets: seams every 2 tiles across, 4 tiles down (staggered).
+  o.strokeStyle = 'rgba(70,50,25,.45)'; o.lineWidth = 1.5;
+  for (let y = 0; y <= ROWS; y += 2) { o.beginPath(); o.moveTo(0, y * T); o.lineTo(osb.width, y * T); o.stroke(); }
+  for (let row = 0; row < ROWS; row += 2) for (let x = (row / 2) % 2 ? 2 : 0; x <= COLS; x += 4) { o.beginPath(); o.moveTo(x * T, row * T); o.lineTo(x * T, row * T + 2 * T); o.stroke(); }
+  o.fillStyle = 'rgba(70,50,25,.35)'; for (let x = 0; x < COLS * T; x += T / 4) for (let y = T / 8; y < ROWS * T; y += T / 4) { if ((Math.round(x / (T / 4))) % 4 === 0) o.fillRect(x - 1, y - 1, 2, 2); }
+  o.save(); o.translate(T * 1.2, T * 1.3); o.rotate(-.05); o.fillStyle = 'rgba(160,40,30,.28)'; o.font = '700 13px "Overpass Mono", monospace';
+  o.fillText('APA RATED SHEATHING', 0, 0); o.fillText('24/16  7/16 INCH  EXPOSURE 1', 0, 16); o.restore();
+  return osb;
+}
+function drawWalls(col, w) {
+  g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'square';
+  walls.v.forEach(k => { const x = k % COLS, y = (k - x) / COLS; g.beginPath(); g.moveTo(x * T, y * T); g.lineTo(x * T, y * T + T); g.stroke(); });
+  walls.h.forEach(k => { const x = k % COLS, y = (k - x) / COLS; g.beginPath(); g.moveTo(x * T, y * T); g.lineTo(x * T + T, y * T); g.stroke(); });
+  g.strokeRect(w / 2, w / 2, COLS * T - w, ROWS * T - w);
+}
+// Column letters across the top, row numbers down the left.
+function labels(bg, fg) {
+  g.fillStyle = bg; g.fillRect(0, 0, cv.width, GUT); g.fillRect(0, 0, GUT, cv.height);
+  g.fillStyle = fg; g.font = '700 15px "Overpass Mono", monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  for (let x = 0; x < COLS; x++) g.fillText(colName(x), GUT + x * T + T / 2, GUT / 2 + 1);
+  for (let y = 0; y < ROWS; y++) g.fillText(String(y + 1), GUT / 2, GUT + y * T + T / 2);
+  g.textBaseline = 'alphabetic';
+}
+function draw(dt) {
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  const printing = phase === 'study' || peekT > 0 || phase === 'idle';
+  labels(printing ? '#163e70' : '#efede6', printing ? '#cfe0f7' : '#1d2a3a');
+  g.setTransform(1, 0, 0, 1, GUT, GUT);
+  drawPlan(dt);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+function drawPlan(dt) {
+  const showPrint = phase === 'study' || peekT > 0 || phase === 'idle';
+  if (phase === 'study' && $('howModal').hidden && !document.hidden) { studyT -= dt; if (studyT <= 0) startBuild(); }
+  if (peekT > 0) peekT -= dt;
+  if (showPrint) {
+    const bp = g.createRadialGradient(COLS * T / 2, ROWS * T / 2, 50, COLS * T / 2, ROWS * T / 2, COLS * T * .7);
+    bp.addColorStop(0, '#2258a0'); bp.addColorStop(1, '#173f73'); g.fillStyle = bp; g.fillRect(0, 0, COLS * T, ROWS * T);
+    g.strokeStyle = 'rgba(230,240,255,.05)'; g.lineWidth = 1; for (let x = 0; x < COLS * T; x += T / 4) { g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, ROWS * T); g.stroke(); } for (let y = 0; y < ROWS * T; y += T / 4) { g.beginPath(); g.moveTo(0, y + .5); g.lineTo(COLS * T, y + .5); g.stroke(); }
+    g.strokeStyle = 'rgba(230,240,255,.12)'; g.lineWidth = 1;
+    for (let x = 0; x <= COLS; x++) { g.beginPath(); g.moveTo(x * T + .5, 0); g.lineTo(x * T + .5, ROWS * T); g.stroke(); }
+    for (let y = 0; y <= ROWS; y++) { g.beginPath(); g.moveTo(0, y * T + .5); g.lineTo(COLS * T, y * T + .5); g.stroke(); }
+    if (phase === 'idle') { g.fillStyle = '#e6f0ff'; g.textAlign = 'center'; g.font = '900 54px "Big Shoulders Display", sans-serif'; g.fillText('ROUGH-IN DAY', COLS * T / 2, ROWS * T / 2 - 6); g.font = '400 18px "Work Sans", sans-serif'; g.fillText(`Press Start · best $${best.toLocaleString()}`, COLS * T / 2, ROWS * T / 2 + 28); return; }
+    printWalls(); printDetails();
+    boxes.forEach((t, k) => { const x = k % COLS, y = (k - x) / COLS; { g.fillStyle = 'rgba(10,30,60,.45)'; g.beginPath(); g.arc(x * T + T / 2, y * T + T / 2, T * .36, 0, 7); g.fill(); icon(g, t, x * T + T / 2, y * T + T / 2, T * .6, TCOL[t].print); } });
+    // Title block, bottom right.
+    const tw = 230, th = 46, tx = COLS * T - tw - 8, ty = ROWS * T - th - 8, left = phase === 'study' ? studyT : peekT;
+    g.fillStyle = 'rgba(23,63,115,.92)'; g.fillRect(tx, ty, tw, th); g.strokeStyle = '#e6f0ff'; g.lineWidth = 1.5; g.strokeRect(tx + .5, ty + .5, tw, th);
+    g.beginPath(); g.moveTo(tx + 150, ty); g.lineTo(tx + 150, ty + th); g.moveTo(tx, ty + 22); g.lineTo(tx + 150, ty + 22); g.stroke();
+    g.fillStyle = '#e6f0ff'; g.textAlign = 'left'; g.font = '700 11px "Overpass Mono", monospace'; g.fillText('LOW VOLTAGE ROUGH-IN', tx + 6, ty + 15); g.fillText(`FLOOR ${level} · SCALE 1/8"`, tx + 6, ty + 38);
+    g.textAlign = 'center'; g.font = '700 9px "Overpass Mono", monospace'; g.fillText('SHEET', tx + 190, ty + 14); g.font = '700 15px "Overpass Mono", monospace'; g.fillText(`T-${200 + level}`, tx + 190, ty + 32);
+    g.font = '700 10px "Overpass Mono", monospace'; g.fillText(`${left.toFixed(1)} s`, tx + 190, ty + 43);
+    return;
+  }
+  paperPlan();
+  const judged = phase === 'done' || phase === 'over', nearSet = new Set(nearPairs.map(p => p[0]));
+  placed.forEach((t, k) => {
+    const x = k % COLS, y = (k - x) / COLS;
+    tag(g, t, x * T + T / 2, y * T + T / 2, T * .78);
+    if (judged) {
+      const col = boxes.get(k) === t ? '#217a3c' : nearSet.has(k) ? '#d08a00' : boxes.has(k) ? '#b07800' : '#c0331f';
+      g.strokeStyle = col; g.lineWidth = 3.5; g.beginPath(); g.roundRect(x * T + 4, y * T + 4, T - 8, T - 8, 8); g.stroke();
+    }
+  });
+  if (judged) nearPairs.forEach(([from, to]) => {
+    const fx = (from % COLS) * T + T / 2, fy = Math.floor(from / COLS) * T + T / 2, tx = (to % COLS) * T + T / 2, ty = Math.floor(to / COLS) * T + T / 2;
+    const ang = Math.atan2(ty - fy, tx - fx), sx = fx + Math.cos(ang) * T * .32, sy = fy + Math.sin(ang) * T * .32, ex = tx - Math.cos(ang) * T * .3, ey = ty - Math.sin(ang) * T * .3;
+    g.strokeStyle = '#d08a00'; g.fillStyle = '#d08a00'; g.lineWidth = 3; g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke();
+    g.beginPath(); g.moveTo(ex, ey); g.lineTo(ex - Math.cos(ang - .5) * 10, ey - Math.sin(ang - .5) * 10); g.lineTo(ex - Math.cos(ang + .5) * 10, ey - Math.sin(ang + .5) * 10); g.closePath(); g.fill();
+  });
+  if (phase === 'done' || phase === 'over') boxes.forEach((t, k) => { if (placed.has(k)) return; const x = k % COLS, y = (k - x) / COLS;
+    g.strokeStyle = '#c0331f'; g.setLineDash([5, 4]); g.lineWidth = 2; g.strokeRect(x * T + 8, y * T + 8, T - 16, T - 16); g.setLineDash([]);
+    g.globalAlpha = .55; icon(g, t, x * T + T / 2, y * T + T / 2, T * .5, '#c0331f'); g.globalAlpha = 1; });
+}
+let last = performance.now();
+function loop(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; draw(dt); requestAnimationFrame(loop); }
+renderPick(); sync(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

@@ -1,0 +1,246 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Tone &amp; Trace</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Courier+Prime:wght@400;700&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: a service ticket on a clipboard. Ticket header, then the tool belt, then the field notes as you work, then the fix you sign off on. One light carbon-copy look. */
+:root {
+  color-scheme: light;
+  --board: #8a6a46;     /* clipboard masonite */
+  --paper: #fff6c9;     /* yellow carbon copy */
+  --ink: #1f2430;
+  --muted: #6c6550;
+  --rule: #d9cc8e;
+  --stamp: #b52a1c;
+  --ok: #1d7a43;
+  --display: "Oswald", "Arial Narrow", sans-serif;
+  --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --type: "Courier Prime", "Courier New", monospace;
+}
+html, body { min-height: 100%; }
+body { background:
+    repeating-linear-gradient(92deg, rgba(0,0,0,.05) 0 2px, transparent 2px 9px),
+    repeating-linear-gradient(88deg, rgba(255,255,255,.04) 0 1px, transparent 1px 23px),
+    linear-gradient(180deg, #5e432b, #4a331f); color: var(--ink); font-family: var(--body); padding-block: 14px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; box-sizing: border-box; }
+.clip { width: 100%; max-width: 780px; position: relative; padding: 34px 14px 16px; border-radius: 14px;
+  background: radial-gradient(ellipse at 30% 20%, rgba(255,255,255,.08), transparent 60%), repeating-radial-gradient(circle at 70% 80%, rgba(0,0,0,.035) 0 2px, transparent 2px 5px), linear-gradient(160deg, #a67d52, #8a6440 60%, #7a5636);
+  box-shadow: 0 14px 30px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.18), inset 0 -2px 0 rgba(0,0,0,.25); }
+/* The steel clip: body, lever, rivets. */
+.clip::before { content: ""; position: absolute; top: 6px; left: 50%; transform: translateX(-50%); width: 200px; height: 46px; border-radius: 10px 10px 16px 16px; z-index: 3;
+  background: radial-gradient(circle at 18px 34px, #5b636c 0 4px, #e5e9ee 4px 5px, transparent 5px), radial-gradient(circle at 182px 34px, #5b636c 0 4px, #e5e9ee 4px 5px, transparent 5px), linear-gradient(180deg, #f1f4f7 0%, #b9c0c8 45%, #8e959d 55%, #c8ced5 100%);
+  box-shadow: 0 4px 6px rgba(0,0,0,.4), inset 0 1px 0 #fff; }
+.clip::after { content: ""; position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 120px; height: 18px; border-radius: 9px 9px 4px 4px; z-index: 4;
+  background: linear-gradient(180deg, #e9edf1, #9aa2ab); box-shadow: 0 2px 3px rgba(0,0,0,.35), inset 0 1px 0 #fff; }
+.sheet { position: relative; background: var(--paper); border-radius: 3px; box-shadow: 0 3px 0 #efe2a5, 0 6px 0 #e6d68f, 0 10px 16px rgba(0,0,0,.35); padding: 30px 18px 18px 54px; display: grid; gap: 14px;
+  background-image: linear-gradient(90deg, transparent 40px, rgba(214,72,60,.55) 40px 42px, transparent 42px), repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule) 27px 28px); }
+/* Printed form header: company line and form number. */
+.sheet::before { content: "AAROMACH · FIELD SERVICE TICKET · FORM FS-7"; position: absolute; top: 9px; left: 54px; right: 18px; font: 700 10px/1 var(--display); letter-spacing: .22em; color: #9a8a4f; border-bottom: 1px solid #d9cc8e; padding-bottom: 5px; text-align: right; }
+.tools button { display: grid; grid-template-columns: 30px 1fr; column-gap: 8px; align-items: center; }
+.tools button svg { grid-row: span 2; width: 30px; height: 30px; }
+.tools button small { grid-column: 2; }
+.head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 30px; letter-spacing: .03em; line-height: 1; text-transform: uppercase; }
+.tno { font-family: var(--type); font-size: 13px; color: var(--muted); }
+.stats { display: flex; gap: 14px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.stat { display: grid; } .stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.stat b { font-family: var(--type); font-size: 18px; }
+.ticket { border: 2px solid var(--ink); background: rgba(255,255,255,.55); padding: 10px 12px; display: grid; gap: 4px; font-family: var(--type); font-size: 14px; }
+.ticket .complaint { font-size: 17px; font-weight: 700; }
+.clock { display: grid; gap: 4px; }
+.bar { height: 12px; border: 1.5px solid var(--ink); background: #fff; position: relative; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ok); }
+.lbl { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.k { font-family: var(--display); font-weight: 500; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tools { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.diag { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+button { font-family: var(--body); font-weight: 600; font-size: 14px; color: var(--ink); background: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 8px; cursor: pointer; text-align: left; line-height: 1.2; touch-action: manipulation; }
+button small { display: block; font-family: var(--type); font-weight: 400; font-size: 11px; color: var(--muted); margin-top: 2px; }
+button.used { background: #efe6b5; }
+button:disabled { opacity: .4; cursor: default; }
+button.primary { background: var(--ink); color: var(--paper); text-align: center; font-family: var(--display); letter-spacing: .06em; font-size: 16px; }
+button:focus-visible { outline: 3px solid #2f6fd1; outline-offset: 2px; }
+.notes { font-family: var(--type); font-size: 14px; line-height: 28px; display: grid; min-height: 56px; }
+.notes div { display: grid; grid-template-columns: 54px 1fr; gap: 8px; }
+.notes .t { color: var(--muted); }
+.notes .new { animation: ink .5s ease-out; }
+@keyframes ink { from { opacity: 0; } }
+.stamp { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: .08em; text-transform: uppercase; border: 3px solid currentColor; padding: 4px 12px; display: inline-block; transform: rotate(-4deg); }
+.result { display: grid; gap: 8px; justify-items: start; }
+@media (max-width: 560px) { .sheet { padding-left: 34px; background-image: linear-gradient(90deg, transparent 22px, rgba(214,72,60,.55) 22px 24px, transparent 24px), repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule) 27px 28px); } .sheet::before { left: 34px; letter-spacing: .12em; } .tools { grid-template-columns: repeat(2, 1fr); } .diag { grid-template-columns: 1fr; } h1 { font-size: 24px; } }
+@media (prefers-reduced-motion: reduce) { .notes .new { animation: none; } }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(31,36,48,.6);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--paper); border: 2px solid var(--ink); border-radius: 8px; padding: 18px; max-width: 500px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-size: 28px; text-transform: uppercase; }
+.card h3 { margin: 4px 0 0; font-family: var(--display); font-weight: 500; font-size: 13px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+</style>
+
+<div class="clip"><div class="sheet">
+  <div class="head">
+    <div><h1>Tone &amp; Trace</h1><div class="tno" id="tno">Service ticket</div></div>
+    <div class="stats">
+      <div class="stat"><span>Score</span><b id="score">$0</b></div>
+      <div class="stat"><span>Ticket</span><b id="count">1/6</b></div>
+      <div class="stat"><span>Best</span><b id="best">$0</b></div>
+    </div>
+  </div>
+  <div class="ticket" id="ticket"></div>
+  <div class="clock">
+    <div class="lbl"><span>Time on this ticket</span><span id="mins">0 min</span></div>
+    <div class="bar"><i id="mbar"></i></div>
+    <div class="lbl"><span>Full pay under 30 min</span><span>Escalated at 60 min</span></div>
+  </div>
+  <div class="k">Tool belt</div>
+  <div class="tools" id="tools"></div>
+  <div class="k">Field notes</div>
+  <div class="notes" id="notes"></div>
+  <div class="k" id="dk">What's the fix?</div>
+  <div class="diag" id="diag"></div>
+  <div class="result" id="result" hidden></div>
+  <button type="button" id="how" style="justify-self:start">How to play</button>
+</div></div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>Tone &amp; Trace</h2>
+    <p>A drop is dead. Find out why with the fewest minutes on the clock, then pick the fix.</p>
+    <h3>How it works</h3>
+    <ul>
+      <li>Each tool costs time. Its result goes in your field notes.</li>
+      <li>When you know the cause, pick the fix. A wrong fix costs 8 minutes and a callback.</li>
+      <li>Finish under 30 minutes for full pay. Every minute after that costs you. At 60 minutes the ticket is escalated and pays nothing.</li>
+      <li>6 tickets a shift.</li>
+    </ul>
+    <h3>Reading the clues</h3>
+    <ul>
+      <li>The certifier reports how far down the cable a fault is. Near the wall end means the jack. Partway down the run means damaged cable.</li>
+      <li>Tone tells you which panel port the cable really lands on.</li>
+      <li>A link light can be up and the drop still broken. Check the config.</li>
+    </ul>
+    <button type="button" class="primary" id="howClose">Clock in</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const SITES = ['Troy dental office', 'Warren tool & die', 'Dearborn credit union', 'Livonia warehouse', 'Royal Oak brewery', 'Southfield law firm', 'Novi medical suite', 'Sterling Hts. plant office'];
+const KINDS = ['DESK', 'DESK', 'CAM', 'AP', 'DESK', 'CAM'];
+const CAUSE = {
+  jack:   'Re-terminate the wall jack',
+  staple: 'Replace the damaged cable run',
+  label:  'Re-patch to the real panel port & fix the label',
+  patch:  'Replace the bad patch cord',
+  vlan:   'Put the port on the right VLAN',
+  shut:   'Enable the shut-down switch port',
+  poe:    'Free up PoE budget for the port',
+};
+const ICON = {
+  link: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="10" width="28" height="12" rx="2" fill="#2b3340"/><g fill="#0f1319">' + [5, 10, 15, 20].map(x => `<rect x="${x}" y="13" width="4" height="4"/>`).join('') + '</g><circle cx="7" cy="20" r="1.2" fill="#3ee08f"/><circle cx="12" cy="20" r="1.2" fill="#f0b03a"/><circle cx="26" cy="15" r="1.5" fill="#3ee08f"/></svg>',
+  laptop: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="6" y="7" width="20" height="14" rx="1.5" fill="#2b3340"/><rect x="8" y="9" width="16" height="10" fill="#7fb6e8"/><path d="M3 23h26l-2 3H5z" fill="#5b6670"/></svg>',
+  tone: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M9 3h6l2 6v18a2 2 0 0 1-2 2h-6a2 2 0 0 1-2-2V9z" fill="#d8322a"/><rect x="9" y="12" width="6" height="5" rx="1" fill="#1f2430"/><path d="M12 3V0" stroke="#5b6670" stroke-width="2"/><path d="M20 8c3 2 3 6 0 8M23 5c5 4 5 10 0 14" fill="none" stroke="#1f2430" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  cert: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="5" y="2" width="22" height="28" rx="4" fill="#f2c230"/><rect x="8" y="5" width="16" height="9" rx="1" fill="#22351a"/><path d="M10 11l3-3 2 2 4-4" stroke="#7ee08a" stroke-width="1.6" fill="none"/><circle cx="12" cy="21" r="2.5" fill="#1f2430"/><circle cx="20" cy="21" r="2.5" fill="#1f2430"/><rect x="11" y="26" width="10" height="2" rx="1" fill="#1f2430"/></svg>',
+  config: '<svg viewBox="0 0 32 32" aria-hidden="true"><rect x="3" y="5" width="26" height="22" rx="2" fill="#1f2430"/><path d="M7 11l4 3-4 3" stroke="#3ee08f" stroke-width="2" fill="none"/><rect x="13" y="16" width="8" height="2" fill="#3ee08f"/><circle cx="6" cy="8" r="1" fill="#ff6464"/><circle cx="9" cy="8" r="1" fill="#f2c230"/></svg>',
+  swap: '<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M6 8c0 10 20 6 20 16" fill="none" stroke="#2766d8" stroke-width="3" stroke-linecap="round"/><rect x="2" y="3" width="8" height="7" rx="1" fill="#dfe6ec" stroke="#5b6670"/><rect x="22" y="22" width="8" height="7" rx="1" fill="#dfe6ec" stroke="#5b6670"/><path d="M24 4l4 3-4 3M8 25l-4 3 4 3" fill="none" stroke="#1f2430" stroke-width="1.5"/></svg>',
+};
+const TOOLS = [
+  { id: 'link', name: 'Check switch light', min: 2 },
+  { id: 'laptop', name: 'Plug laptop in at the drop', min: 3 },
+  { id: 'tone', name: 'Tone from the jack', min: 6 },
+  { id: 'cert', name: 'Certify jack → panel', min: 8 },
+  { id: 'config', name: 'Read port config', min: 4 },
+  { id: 'swap', name: 'Swap the patch cord', min: 3 },
+];
+const SHIFT = 6;
+let best = 0; try { best = +localStorage.getItem('tonetrace:best') || 0; } catch {}
+let score = 0, n = 0, tk, mins, used, wrong, closed;
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+
+function newTicket() {
+  n++;
+  const kind = KINDS[rnd(0, KINDS.length - 1)], num = rnd(1, 12);
+  const P = rnd(1, 24); let A = P; while (A === P) A = rnd(1, 24);
+  const pool = ['jack', 'staple', 'label', 'patch', 'vlan', 'shut'].concat(kind !== 'DESK' ? ['poe', 'poe'] : []);
+  const L = rnd(70, 290);
+  tk = { site: SITES[rnd(0, SITES.length - 1)], drop: `${kind} ${num}`, kind, P, A, L, X: rnd(25, L - 25), fault: pool[rnd(0, pool.length - 1)], no: rnd(10400, 19999) };
+  mins = 0; used = new Set(); wrong = new Set(); closed = false;
+  $('notes').innerHTML = '<div><span class="t">--</span><span>Nothing yet. Pick a tool.</span></div>';
+  $('result').hidden = true; $('diag').hidden = false; $('dk').hidden = false;
+  render();
+}
+const complaint = () => tk.kind === 'CAM' ? `${tk.drop} shows NO SIGNAL on the NVR.` : tk.kind === 'AP' ? `Wi-Fi is dead near ${tk.drop}. AP shows no lights.` : `${tk.drop} has no network.`;
+function render() {
+  $('tno').textContent = `Ticket #${tk.no} · ${tk.site}`;
+  $('ticket').innerHTML = `<div class="complaint">"${complaint()}"</div><div>Drop ${tk.drop} · labeled panel port ${tk.P} · switch port Gi1/0/${tk.P} · run about ${Math.round(tk.L / 10) * 10} ft</div>`;
+  $('tools').innerHTML = TOOLS.map(t => `<button type="button" data-t="${t.id}" class="${used.has(t.id) ? 'used' : ''}" ${closed ? 'disabled' : ''}>${ICON[t.id] || ''}<span>${t.name}</span><small>+${t.min} min${used.has(t.id) ? ' · done' : ''}</small></button>`).join('');
+  $('diag').innerHTML = Object.entries(CAUSE).filter(([k]) => k !== 'poe' || tk.kind !== 'DESK').map(([k, v]) => `<button type="button" data-c="${k}" ${wrong.has(k) || closed ? 'disabled' : ''}>${v}${wrong.has(k) ? '<small>Didn’t fix it</small>' : ''}</button>`).join('');
+  $('mins').textContent = `${mins} min`; const f = Math.min(1, mins / 60);
+  $('mbar').style.width = f * 100 + '%'; $('mbar').style.background = mins > 45 ? 'var(--stamp)' : mins > 30 ? '#c98a00' : 'var(--ok)';
+  $('score').textContent = '$' + score.toLocaleString(); $('count').textContent = `${Math.min(n, SHIFT)}/${SHIFT}`; $('best').textContent = '$' + Math.max(best, score).toLocaleString();
+}
+function result(id) {
+  const f = tk.fault, P = tk.P, A = tk.A;
+  const linkDown = ['jack', 'staple', 'patch', 'shut', 'poe'].includes(f);
+  switch (id) {
+    case 'link': return f === 'label' ? `Gi1/0/${P} light is GREEN. Something is plugged in there, but the drop's still dead.`
+      : f === 'vlan' ? `Gi1/0/${P} light is GREEN and blinking.` : `Gi1/0/${P} light is OFF.`;
+    case 'laptop': return f === 'vlan' ? 'Link up. Laptop got 192.168.99.27. That’s the guest VLAN, not the office network.'
+      : f === 'label' ? 'No link light on the laptop.' : linkDown ? 'No link light on the laptop.' : '';
+    case 'tone': return f === 'label' ? `Tone shows up on panel port ${A}, not ${P}. The label is wrong.` : `Tone shows up on panel port ${P}. Label matches.`;
+    case 'cert': return f === 'jack' ? `FAIL: split pair 3-6, about 1 ft from the wall end. ${tk.L} ft total.`
+      : f === 'staple' ? `FAIL: open on pair 1-2 at ${tk.X} ft. Run is ${tk.L} ft.`
+      : f === 'label' ? `No continuity to panel port ${P}. This cable doesn't land there.` : `PASS: Cat6, ${tk.L} ft, all pairs good.`;
+    case 'config': return f === 'vlan' ? `Gi1/0/${P}: enabled · access VLAN 99 (guest). Office is VLAN 10.`
+      : f === 'shut' ? `Gi1/0/${P}: administratively down (shutdown).`
+      : f === 'poe' ? `Gi1/0/${P}: enabled · VLAN 10 · PoE DENIED, switch power budget exceeded.`
+      : f === 'label' ? `Gi1/0/${P}: enabled · VLAN 10 · up, connected to another device's MAC.` : `Gi1/0/${P}: enabled · VLAN 10 · PoE ok · link down.`;
+    case 'swap': return f === 'patch' ? 'Swapped the cord. Link came UP. The old cord tests bad.' : 'Swapped the cord. No change.';
+  }
+}
+$('tools').addEventListener('click', e => {
+  const b = e.target.closest('button[data-t]'); if (!b || closed) return;
+  const t = TOOLS.find(x => x.id === b.dataset.t);
+  mins += used.has(t.id) ? Math.ceil(t.min / 2) : t.min; used.add(t.id);
+  const row = `<div class="new"><span class="t">${String(mins).padStart(2, '0')} min</span><span><b>${t.name}:</b> ${result(t.id)}</span></div>`;
+  $('notes').innerHTML = (used.size === 1 && $('notes').textContent.startsWith('--') ? '' : $('notes').innerHTML.replace(/ class="new"/g, '')) + row;
+  if (mins >= 60) return close(false, 'Over an hour on it. The ticket was escalated.');
+  render();
+});
+$('diag').addEventListener('click', e => {
+  const b = e.target.closest('button[data-c]'); if (!b || closed) return;
+  if (b.dataset.c === tk.fault) return close(true);
+  wrong.add(b.dataset.c); mins += 8;
+  $('notes').innerHTML = $('notes').innerHTML.replace(/ class="new"/g, '') + `<div class="new"><span class="t">${String(mins).padStart(2, '0')} min</span><span><b>Tried:</b> ${CAUSE[b.dataset.c]}. Didn't fix it. Customer called back.</span></div>`;
+  if (mins >= 60) return close(false, 'Over an hour on it. The ticket was escalated.');
+  render();
+});
+function close(ok, why) {
+  closed = true;
+  const pay = ok ? Math.max(0, 250 - Math.max(0, mins - 30) * 8) + (wrong.size ? 0 : 100) : 0;
+  score += pay;
+  const last = n >= SHIFT;
+  try { if (parent !== window) parent.postMessage({ arcade: 'tone-trace', score: score }, '*'); } catch (e) {} 
+  if (last && score > best) { best = score; try { localStorage.setItem('tonetrace:best', best); } catch {} }
+  $('diag').hidden = true; $('dk').hidden = true; $('result').hidden = false;
+  $('result').innerHTML = `<span class="stamp" style="color:${ok ? 'var(--ok)' : 'var(--stamp)'}">${ok ? 'Resolved' : 'Escalated'}</span>
+    <div>${ok ? `Cause: ${CAUSE[tk.fault].toLowerCase()}. ${mins} min on site.` : why + ` The cause was: ${CAUSE[tk.fault].toLowerCase()}.`}</div>
+    <div><b>+$${pay}</b>${ok && !wrong.size ? ' (includes $100 first-time-fix bonus)' : ''}</div>
+    ${last ? `<div><b>Shift total: $${score.toLocaleString()}</b>${score >= best && score > 0 ? ' · New best!' : ` · Best $${best.toLocaleString()}`}</div>` : ''}
+    <button type="button" class="primary" id="nextBtn">${last ? 'Start a new shift' : 'Next ticket →'}</button>`;
+  $('nextBtn').onclick = () => { if (last) { score = 0; n = 0; } newTicket(); };
+  render();
+}
+$('how').onclick = () => { $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; try { localStorage.setItem('tonetrace:seen', '1'); } catch {} };
+try { if (localStorage.getItem('tonetrace:seen')) $('howModal').hidden = true; } catch {}
+newTicket();
+})();
+</script>
+
+</body></html>

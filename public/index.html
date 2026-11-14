@@ -1,0 +1,306 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121417">
+<meta name="description" content="Field-work games from Aaromach: pull cable, terminate, hang cameras, splice fiber, dispatch the crew.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/svg+xml" href="icons/icon.svg">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Arcade">
+<script src="config.js"></script>
+<script src="scores.js"></script>
+<title>Aaromach Arcade</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap">
+<style>
+/* Layout: two tabs. Games = a wall of cartridges grouped by trade. Leaderboard = a plain standings sheet: game list down the side, one ranked table.
+   Inside a game, a slim standings drawer slides in from the right. Single dark shop look. */
+:root {
+  color-scheme: dark;
+  --bg: #121417; --panel: #1b1f25; --line: #2c333c; --fg: #e9ecef; --muted: #9aa3ad; --safety: #ffc21a;
+  --display: "Bungee", Impact, "Arial Black", sans-serif;
+  --body: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+}
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--body); padding-block: 20px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); box-sizing: border-box; }
+.wrap { max-width: 1040px; margin: 0 auto; display: grid; gap: 20px; }
+header { display: grid; gap: 14px; padding-bottom: 0; }
+h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: clamp(30px, 6vw, 52px); line-height: 1; color: var(--safety); text-wrap: balance; }
+header p { margin: 0; color: var(--muted); font-size: 15px; max-width: 60ch; }
+.tabs { display: flex; gap: 4px; border-bottom: 6px solid; border-image: repeating-linear-gradient(-45deg, var(--safety) 0 12px, #111 12px 24px) 6; }
+.tabs button { font-family: var(--display); font-size: 15px; color: var(--muted); background: none; border: 0; padding: 10px 14px 8px; cursor: pointer; border-radius: 6px 6px 0 0; }
+.tabs button[aria-selected="true"] { color: #111; background: var(--safety); }
+button:focus-visible { outline: 3px solid var(--safety); outline-offset: 2px; }
+h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+#gamesTab { display: grid; gap: 22px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.game { font: inherit; color: inherit; text-align: left; cursor: pointer; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 0; overflow: hidden; display: grid; grid-template-rows: 8px auto; transition: transform .12s, border-color .12s; }
+.game:hover { transform: translateY(-2px); border-color: var(--c); }
+.game i { background: var(--c); }
+.game div { padding: 12px 14px 14px; display: grid; gap: 4px; }
+.game b { font-family: var(--display); font-weight: 400; font-size: 20px; color: var(--c); }
+.game span { font-size: 14px; line-height: 1.4; }
+.game small { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.game em { font-style: normal; font-size: 12px; color: var(--muted); }
+.game .play { justify-self: start; margin-top: 6px; text-decoration: none; font-family: var(--display); font-size: 13px; color: #111; background: var(--c); border-radius: 6px; padding: 5px 12px; }
+.game:hover .play { filter: brightness(1.1); }
+
+/* Standings sheet */
+.sheet { display: grid; grid-template-columns: 210px 1fr; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.pickers { display: grid; align-content: start; border-right: 1px solid var(--line); padding: 6px 0; }
+.pickers button { font: inherit; font-size: 15px; font-weight: 700; color: var(--muted); background: none; border: 0; text-align: left; padding: 9px 14px; cursor: pointer; display: flex; align-items: center; gap: 10px; border-left: 3px solid transparent; }
+.pickers button::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex: none; }
+.pickers button[aria-selected="true"] { color: var(--fg); border-left-color: var(--c); background: rgba(255,255,255,.03); }
+.standings { padding: 16px 18px; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.shead { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.shead h3 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 24px; color: var(--c); }
+.shead span { font-size: 13px; color: var(--muted); }
+.by { display: flex; gap: 4px; }
+.by button { font: inherit; font-weight: 700; font-size: 13px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; cursor: pointer; }
+.by button[aria-pressed="true"] { color: #111; background: var(--safety); border-color: var(--safety); }
+.lbnote { font-size: 13px; color: var(--muted); margin: 0; }
+.namerow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+.namerow input { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 180px; }
+.namerow button { font: inherit; font-weight: 700; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+.namerow #nameSaved { color: #4cc38a; }
+table.rank { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.rank td { padding: 7px 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.rank tr:last-child td { border-bottom: 0; }
+.rank .n { width: 34px; color: var(--muted); font-weight: 700; }
+.rank tr.p1 .n { color: #ffd257; } .rank tr.p2 .n { color: #cfd6de; } .rank tr.p3 .n { color: #d99a62; }
+.rank .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rank .who img, .rank .who .av { width: 22px; height: 22px; border-radius: 50%; flex: none; }
+.rank .who .av { display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }
+.rank .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank .s { text-align: right; font-weight: 700; white-space: nowrap; }
+.rank .d { text-align: right; color: var(--muted); font-size: 12px; width: 72px; white-space: nowrap; }
+.rank tr.me td { color: var(--safety); }
+.empty { color: var(--muted); font-size: 14px; padding: 10px 0; }
+.playbtn { justify-self: start; font-family: var(--display); font-size: 13px; color: #111; background: var(--c); border: 0; border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+@media (max-width: 680px) {
+  .sheet { grid-template-columns: 1fr; }
+  .pickers { display: flex; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 0; }
+  .pickers button { white-space: nowrap; border-left: 0; border-bottom: 3px solid transparent; padding: 10px 12px; }
+  .pickers button[aria-selected="true"] { border-bottom-color: var(--c); }
+  .rank .d { display: none; }
+  .standings { padding: 12px; }
+}
+
+/* Player + in-game standings drawer */
+.player { position: fixed; inset: 0; z-index: 30; background: var(--bg); display: flex; flex-direction: column; }
+.pbar { display: flex; align-items: center; gap: 10px; padding: calc(8px + env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); border-bottom: 1px solid var(--line); }
+.pbar .back { font-family: var(--display); font-size: 13px; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 7px 12px; cursor: pointer; }
+.pbar strong { font-family: var(--display); font-weight: 400; font-size: 16px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pbar .lbtn { font: inherit; font-weight: 700; font-size: 13px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; cursor: pointer; white-space: nowrap; }
+.pbar .lbtn[aria-expanded="true"] { border-color: var(--safety); color: var(--safety); }
+.toast { font-size: 13px; color: var(--safety); white-space: nowrap; }
+.stage { flex: 1; display: flex; min-height: 0; position: relative; }
+.stage iframe { flex: 1; width: 100%; border: 0; background: #000; min-width: 0; }
+.drawer { width: 290px; flex: none; border-left: 1px solid var(--line); background: var(--panel); padding: 14px max(14px, env(safe-area-inset-right, 0px)) 14px 14px; overflow-y: auto; display: grid; gap: 10px; align-content: start; }
+.drawer h3 { margin: 0; font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.drawer .mine { font-size: 13px; color: var(--muted); }
+.drawer .rank td { font-size: 14px; padding: 6px 2px; }
+.drawer .rank .d { display: none; }
+@media (max-width: 760px) { .drawer { position: absolute; inset: 0 0 0 auto; width: min(320px, 86vw); box-shadow: -10px 0 30px rgba(0,0,0,.5); z-index: 2; } .toast { display: none; } }
+@media (prefers-reduced-motion: reduce) { .game { transition: none; } .game:hover { transform: none; } }
+</style>
+</head><body>
+
+
+<div class="wrap">
+  <header>
+    <h1>AAROMACH ARCADE</h1>
+    <p>Eleven games built from real field work: racks, cable pulls, terminations, cameras, fiber and dispatch. Your best run in each posts to the leaderboard.</p>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" id="tabGames" aria-selected="true">Games</button>
+      <button type="button" role="tab" id="tabLb" aria-selected="false">Leaderboard</button>
+    </div>
+  </header>
+  <div id="gamesTab">
+    <section><h2>Cabling</h2><div class="grid" data-g="cab"></div></section>
+    <section><h2>Cameras &amp; fiber</h2><div class="grid" data-g="cam"></div></section>
+    <section><h2>Racks, tools &amp; ops</h2><div class="grid" data-g="ops"></div></section>
+  </div>
+  <div id="lbTab" hidden>
+    <div class="sheet">
+      <div class="pickers" id="pickers" role="tablist" aria-label="Game"></div>
+      <div class="standings">
+        <div class="shead"><h3 id="sTitle"></h3><span id="sCount"></span></div>
+        <div class="by" id="byBtns" hidden><button type="button" data-by="score">Top score</button><button type="button" data-by="time">Fastest</button></div>
+        <p class="lbnote" id="lbnote">Loading scores…</p>
+        <form class="namerow" id="nameRow" hidden><label for="pname">Playing as</label><input id="pname" maxlength="24" autocomplete="nickname" placeholder="Your name"><button type="submit">Save</button><span id="nameSaved"></span></form>
+        <div id="sTable"></div>
+        <button type="button" class="playbtn" id="sPlay">Play</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="player" id="player" hidden>
+  <div class="pbar">
+    <button type="button" class="back" id="back">◂ All games</button>
+    <button type="button" class="lbtn" id="restart" title="Start this game over">↻ Restart</button>
+    <strong id="ptitle"></strong>
+    <span class="toast" id="toast"></span>
+    <button type="button" class="lbtn" id="lbtn" aria-expanded="false" aria-controls="drawer">Leaderboard</button>
+  </div>
+  <div class="stage">
+    <iframe id="frame" title="Game"></iframe>
+    <aside class="drawer" id="drawer" hidden>
+      <h3>Top 10</h3>
+      <div id="dTable"></div>
+      <div class="mine" id="dMine"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const GAMES = [
+  { id: 'pull-day', t: 'Pull Day', d: 'Route cable runs from the IDF to every drop under par.', k: 'Route puzzle', c: '#5aa9ff', g: 'cab' },
+  { id: 'terminate', timed: true, t: 'Terminate', d: 'T568A/B pin order, crimp and test before the pairs untwist.', k: 'Speed & precision', c: '#f07a1a', g: 'cab' },
+  { id: 'rough-in', t: 'Rough-In Day', d: 'Memorize the print, place every box before drywall.', k: 'Memory', c: '#e2c79a', g: 'cab' },
+  { id: 'lift-panic', t: 'Lift Panic', d: 'Hang cameras from a scissor lift and dodge the warehouse.', k: 'Arcade runner', c: '#ffc21a', g: 'cam' },
+  { id: 'coverage', t: 'Coverage', d: 'Aim cameras to cover every zone within NVR channels.', k: 'Placement puzzle', c: '#39d98a', g: 'cam' },
+  { id: 'splice', timed: true, t: 'Splice', d: 'Cleave, align and arc-fuse a 12-fiber tray.', k: 'Timing', c: '#7fe0ff', g: 'cam' },
+  { id: 'rack-and-stack', t: 'Rack & Stack', d: 'Rack falling gear. Every full row needs a switch.', k: 'Falling blocks', c: '#3ee08f', g: 'ops' },
+  { id: 'tone-trace', t: 'Tone & Trace', d: 'Find why the drop is dead, then pick the fix.', k: 'Deduction', c: '#ff8a6b', g: 'ops' },
+  { id: 'tool-drawer', t: 'Tool Drawer', d: 'Fit every real tool back in the foam. No gaps, nothing left over.', k: 'Packing puzzle', c: '#e2622b', g: 'ops' },
+  { id: 'find-the-tool', t: 'Find the Tool', d: 'Dig through the junk tote for the one tool on the work order.', k: 'Hidden object', c: '#ffe9a8', g: 'ops' },
+  { id: 'dispatch-board', t: 'Dispatch Board', d: 'Send four techs across town before tickets go late, and handle the calls that come in.', k: 'Management', c: '#c48bff', g: 'ops' },
+];
+const $ = id => document.getElementById(id);
+const G = id => GAMES.find(g => g.id === id);
+document.querySelectorAll('.grid').forEach(el => {
+  el.innerHTML = GAMES.filter(x => x.g === el.dataset.g).map(x => `<button type="button" class="game" data-id="${x.id}" style="--c:${x.c}"><i></i><div><small>${x.k}</small><b>${x.t}</b><span>${x.d}</span><em data-top="${x.id}"></em><u class="play">▶ Play</u></div></button>`).join('');
+});
+$('pickers').innerHTML = GAMES.map(x => `<button type="button" role="tab" data-pick="${x.id}" style="--c:${x.c}">${x.t}</button>`).join('');
+
+// ── Routing: #leaderboard is the standings tab, #<game id> plays a game. ──
+let current = null, lbGame = GAMES[0].id, drawerOpen = false;
+try { lbGame = G(localStorage.getItem('arcade:lbGame'))?.id || lbGame; drawerOpen = localStorage.getItem('arcade:drawer') === '1'; } catch {}
+function showTab(lb) {
+  $('gamesTab').hidden = lb; $('lbTab').hidden = !lb;
+  $('tabGames').setAttribute('aria-selected', !lb); $('tabLb').setAttribute('aria-selected', lb);
+}
+function openGame(id) {
+  const x = G(id); current = id;
+  $('ptitle').textContent = x.t; $('toast').textContent = '';
+  if (!$('frame').src.endsWith(`games/${id}.html`)) $('frame').src = `games/${id}.html`;
+  $('player').hidden = false; setDrawer(drawerOpen);
+  $('frame').addEventListener('load', () => $('frame').focus(), { once: true });
+}
+function closeGame() { current = null; $('player').hidden = true; $('frame').src = 'about:blank'; }
+function route() {
+  const h = location.hash.slice(1);
+  if (G(h)) return openGame(h);
+  closeGame(); showTab(h === 'leaderboard');
+}
+const go = h => { if (h) location.hash = h; else { history.replaceState(null, '', location.pathname + location.search); route(); } };
+document.addEventListener('click', e => { const b = e.target.closest('.game'); if (b) go(b.dataset.id); });
+$('tabGames').onclick = () => go('');
+$('tabLb').onclick = () => go('leaderboard');
+$('back').onclick = () => go('');
+$('sPlay').onclick = () => go(lbGame);
+document.querySelectorAll('#byBtns button').forEach(b => b.onclick = () => { lbBy = b.dataset.by; render(); });
+$('pickers').addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (!b) return; lbGame = b.dataset.pick; try { localStorage.setItem('arcade:lbGame', lbGame); } catch {} render(); });
+function setDrawer(v) { drawerOpen = v; $('drawer').hidden = !v; $('lbtn').setAttribute('aria-expanded', v); try { localStorage.setItem('arcade:drawer', v ? '1' : '0'); } catch {} render(); }
+$('lbtn').onclick = () => setDrawer(!drawerOpen);
+// Restart reloads the game from scratch (anything a game saves on the device, like a checkpoint, stays).
+$('restart').onclick = () => { if (!current) return; $('toast').textContent = ''; $('frame').src = `games/${current}.html?r=${Date.now()}`; $('frame').addEventListener('load', () => $('frame').focus(), { once: true }); };
+addEventListener('hashchange', route);
+
+// ── Scores: each player's bests live in one shared doc, scores/<their id>. ──
+const fmt = (x, v) => '$' + Math.round(v).toLocaleString();
+const ago = t => { if (!t) return ''; const d = (Date.now() - t) / 864e5; return d < 1 ? 'today' : d < 2 ? 'yesterday' : d < 30 ? `${Math.floor(d)}d ago` : new Date(t).toLocaleDateString(); };
+let me = null, rows = new Map(), names = new Map(), mine = {}, loaded = false;
+const S = window.ArcadeScores;
+const standings = (id, by = 'score') => {
+  const all = [...rows].map(([pid, r]) => ({ pid, s: +r?.[id]?.s, at: +r?.[id]?.at, t: +r?.[id]?.t, tat: +r?.[id]?.tat }));
+  // Fastest: completed runs only, quickest first.
+  if (by === 'time') return all.filter(r => Number.isFinite(r.t) && r.t > 0).map(r => ({ ...r, at: r.tat || r.at })).sort((a, b) => a.t - b.t);
+  return all.filter(r => Number.isFinite(r.s) && r.s > 0).sort((a, b) => b.s - a.s);
+};
+const clockFmt = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
+let lbBy = 'score';
+function table(x, list, ps, by = 'score') {
+  if (!list.length) return `<div class="empty">${loaded ? (by === 'time' ? 'No finished runs yet. Finish one to post a time.' : 'No scores yet. Be the first.') : 'Loading…'}</div>`;
+  return `<table class="rank"><tbody>${list.map((r, i) => `<tr class="p${i + 1} ${r.pid === me ? 'me' : ''}" data-pid="${r.pid}"><td class="n">${i + 1}</td><td><div class="who"><b class="av" style="background:hsl(${[...r.pid].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 55% 42%)">${(ps[r.pid]?.name || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase().replace(/[<>&"]/g, '')}</b><span></span></div></td><td class="s">${by === 'time' ? clockFmt(r.t) : fmt(x, r.s)}</td><td class="d">${ago(r.at)}</td></tr>`).join('')}</tbody></table>`;
+}
+function fillNames(root, ps) { root.querySelectorAll('tr[data-pid]').forEach(tr => { tr.querySelector('.who span').textContent = (ps[tr.dataset.pid]?.name || 'Someone') + (tr.dataset.pid === me ? ' (you)' : ''); }); }
+async function render() {
+  const ids = [...rows.keys()];
+  const ps = Object.fromEntries(ids.map(id => [id, { name: names.get(id) || 'Someone' }]));
+  GAMES.forEach(x => { const top = standings(x.id)[0]; const el = document.querySelector(`[data-top="${x.id}"]`); if (el) el.textContent = top ? `Leader: ${ps[top.pid]?.name || 'Someone'} · ${fmt(x, top.s)}` : ''; });
+  // Standings tab
+  const x = G(lbGame); if (!x.timed) lbBy = 'score';
+  const list = standings(lbGame, lbBy);
+  $('byBtns').hidden = !x.timed; document.querySelectorAll('#byBtns button').forEach(b => b.setAttribute('aria-pressed', b.dataset.by === lbBy));
+  document.querySelectorAll('[data-pick]').forEach(b => b.setAttribute('aria-selected', b.dataset.pick === lbGame));
+  $('sTitle').textContent = x.t; $('sTitle').style.setProperty('--c', x.c); $('sPlay').style.setProperty('--c', x.c);
+  $('sPlay').textContent = `Play ${x.t}`;
+  const myRank = list.findIndex(r => r.pid === me);
+  $('sCount').textContent = list.length ? `${list.length} player${list.length === 1 ? '' : 's'}${myRank >= 0 ? ` · you're #${myRank + 1}` : ''}` : '';
+  $('sTable').innerHTML = table(x, list.slice(0, 50), ps, lbBy); fillNames($('sTable'), ps);
+  // In-game drawer
+  if (current && drawerOpen) {
+    const gx = G(current), gl = standings(current), mr = gl.findIndex(r => r.pid === me);
+    $('dTable').innerHTML = table(gx, gl.slice(0, 10), ps); fillNames($('dTable'), ps);
+    const myT = +mine[current]?.t;
+    $('dMine').textContent = (mr >= 0 ? `Your best: ${fmt(gx, gl[mr].s)} · #${mr + 1} of ${gl.length}` : db ? 'Finish a run to post your score.' : '') + (gx.timed && myT ? ` · Fastest: ${clockFmt(myT)}` : '');
+  }
+}
+let writing = Promise.resolve();
+function post(gameId, score, time) {
+  if (!me || !loaded || !G(gameId)) return;
+  const prev = mine[gameId] || {};
+  const better = Number.isFinite(score) && score > 0 && score < 1e9 && (+prev.s || 0) < score;
+  const faster = G(gameId).timed && Number.isFinite(time) && time > 0 && time < 1e6 && (!prev.t || time < prev.t);
+  if (!better && !faster) return;
+  const next = { ...prev };
+  if (better) { next.s = Math.round(score); next.at = Date.now(); }
+  if (faster) { next.t = Math.round(time); next.tat = Date.now(); }
+  mine = { ...mine, [gameId]: next };
+  const body = mine;
+  writing = writing.then(() => S.save(body)).then(() => {
+    const r = standings(gameId).findIndex(r => r.pid === me);
+    $('toast').textContent = better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : `New fastest: ${clockFmt(time)}!`;
+  }).catch(() => { $('toast').textContent = 'Score not posted. Check your connection.'; });
+}
+addEventListener('message', e => {
+  if (e.source !== $('frame').contentWindow) return;
+  const d = e.data; if (!d || typeof d.arcade !== 'string' || d.arcade !== current) return;
+  post(d.arcade, Number(d.score), d.time == null ? NaN : Number(d.time));
+});
+route(); render();
+// Scores: a shared leaderboard (separate Firebase project, set in config.js) or this device only.
+S.start({
+  onRows(next) {
+    loaded = true; me = S.me;
+    rows = new Map([...next].map(([id, v]) => [id, v.games || {}])); names = new Map([...next].map(([id, v]) => [id, v.name]));
+    if (me && rows.has(me)) mine = { ...rows.get(me) };
+    render();
+  },
+  onStatus(st) {
+    $('lbnote').textContent = st === 'shared' ? 'Each player’s best run, shared with everyone who plays. Scores post automatically when a run ends.'
+      : st === 'local' ? 'Scores are saved on this device only. (The shared leaderboard switches on once the arcade’s Firebase project is set up.)'
+      : 'Scores stopped updating. Reopen the page to reconnect.';
+    $('nameRow').hidden = st === 'error'; $('pname').value = S.name || '';
+  },
+});
+$('nameRow').addEventListener('submit', async e => { e.preventDefault(); await S.setName($('pname').value); $('nameSaved').textContent = 'Saved'; setTimeout(() => $('nameSaved').textContent = '', 1500); });
+</script>
+
+<script>
+// Installable app + offline play: the service worker keeps every game cached after the first visit.
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body></html>

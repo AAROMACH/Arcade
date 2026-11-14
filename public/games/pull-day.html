@@ -1,0 +1,1169 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Pull Day</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Architects+Daughter&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a print-room drawing sheet — the floor plan on the left, a title block on the right (stacks under it on phones). Single "plan set" paper look. */
+:root {
+  color-scheme: light;
+  --paper: #f3f1ea;      /* bond paper */
+  --sheet: #fbfaf6;
+  --ink: #1d2a3a;        /* plan linework */
+  --muted: #6b7684;
+  --line: #c9cdd2;
+  --cable: #1f6fd1;      /* Cat6 blue */
+  --fire: #d6402c;       /* fire-rated wall */
+  --ok: #1f8a4c;
+  --gold: #a87400; --gold-k: #a87400; --m-track: #e3e0d6; --m-tick: #1d2a3a;
+  --display: "Archivo Narrow", "Arial Narrow", sans-serif;
+  --hand: "Architects Daughter", "Comic Sans MS", cursive;
+  --mono: "JetBrains Mono", ui-monospace, "Consolas", monospace;
+}
+html { height: 100%; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink); font-family: var(--display);
+  display: flex; align-items: safe center; justify-content: center; box-sizing: border-box; min-height: 100%;
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.sheet { display: flex; gap: 0; width: 100%; max-width: 1180px; background: var(--sheet); border: 2px solid var(--ink); box-shadow: 0 6px 20px rgba(29,42,58,.12); }
+.plan { flex: 1 1 auto; min-width: 0; padding: 10px; border-right: 2px solid var(--ink); }
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; max-width: 100%; touch-action: none; cursor: crosshair; }
+.block { width: 250px; flex: none; display: flex; flex-direction: column; min-width: 0; }
+.cell { padding: 10px 12px; border-bottom: 1px solid var(--ink); }
+.cell:last-child { border-bottom: 0; }
+.k { font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.v { font-family: var(--mono); font-weight: 700; font-size: 20px; font-variant-numeric: tabular-nums; }
+.title { font-weight: 700; font-size: 26px; letter-spacing: .02em; line-height: 1; }
+.sub { font-family: var(--hand); font-size: 15px; color: var(--muted); margin-top: 4px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Money: cost (green/amber/red against the target) vs. score (always gold). */
+.meter { display: grid; gap: 6px; }
+.meter .mrow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.meter .mcost { font-family: var(--mono); font-weight: 700; font-size: 24px; font-variant-numeric: tabular-nums; color: var(--m-col); }
+.meter .mtgt { font-size: 12px; color: var(--muted); text-align: right; }
+.meter .mtgt b { font-family: var(--mono); color: inherit; }
+.meter .mbar { position: relative; height: 10px; border-radius: 5px; background: var(--m-track); overflow: visible; }
+.meter .mfill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--m-col); transition: width .25s; }
+.meter .mtick { position: absolute; left: 66.67%; top: -4px; bottom: -4px; width: 2px; background: var(--m-tick); }
+.meter .mbest { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #b8860b; display: none; }
+.meter .mbest::after { content: "BEST"; position: absolute; bottom: -13px; left: 50%; transform: translateX(-50%); font-size: 8px; letter-spacing: .1em; color: #b8860b; }
+.meter .mbestline { font-size: 12px; color: var(--muted); margin-top: 8px; } .meter .mbestline b { color: #8a6500; font-family: var(--mono); }
+.sheetinfo { display: grid; gap: 3px; } .srow { display: grid; grid-template-columns: 16px 1fr; gap: 4px; font-size: 12px; line-height: 1.3; }
+.srow i { font-style: normal; font-weight: 800; text-align: center; } .srow.yes i { color: var(--ok); } .srow.part i { color: #b07a00; } .srow.no i, .srow.no span { color: #a3392b; } .srow.na { color: var(--muted); } .srow.wait { color: var(--muted); font-style: italic; display: block; }
+.meter .mtick::after { content: "TARGET"; position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 8px; letter-spacing: .1em; color: var(--muted); }
+.meter .mnote { font-size: 12px; font-weight: 700; color: var(--m-col); }
+.meter[data-state="idle"] { --m-col: var(--muted); }
+.meter[data-state="good"] { --m-col: #1f9a55; }
+.meter[data-state="near"] { --m-col: #d08a00; }
+.meter[data-state="bad"]  { --m-col: #d6402c; }
+.earned .v { color: var(--gold); }
+.earned .k { color: var(--gold-k); }
+
+.stars { font-size: 22px; letter-spacing: 2px; color: var(--line); }
+.stars b { color: #e0a100; font-weight: 400; }
+.note { font-family: var(--hand); font-size: 14px; line-height: 1.35; color: var(--ink); }
+.breakdown { margin-top: 8px; display: grid; gap: 2px; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.breakdown div { display: flex; justify-content: space-between; gap: 8px; }
+.breakdown .pos { color: var(--ok); } .breakdown .neg { color: var(--fire); }
+.breakdown .sum { border-top: 1px solid var(--ink); margin-top: 3px; padding-top: 3px; font-weight: 700; }
+.board { margin: 6px 0 0; padding-left: 20px; font-family: var(--mono); font-size: 12px; display: grid; gap: 2px; font-variant-numeric: tabular-nums; }
+.board li.me { font-weight: 700; color: var(--cable); }
+.legend { display: grid; gap: 8px; font-size: 12px; }
+.keylist { display: grid; gap: 6px; }
+.kgroup { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: start; padding-top: 6px; border-top: 1px dashed rgba(29,42,58,.2); }
+.kgroup:first-child { border-top: 0; padding-top: 0; }
+.kgroup > b { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
+.kgroup > div { display: flex; flex-wrap: wrap; gap: 5px 16px; }
+.keylist span { display: flex; align-items: center; gap: 7px; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { border: 1.5px solid var(--ok); color: var(--ok); background: transparent; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; padding: 3px 10px; border-radius: 999px; }
+.pill.on, .pill:hover { background: var(--ok); color: #fff; }
+.binfo { margin: 8px 0 0; padding: 8px 10px; background: #eef8f1; border-left: 3px solid var(--ok); font-size: 13px; line-height: 1.4; }
+#bonusKey { display: grid; gap: 6px; } #bonusKey > b { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.keylist svg, .tiles svg { width: 30px; height: 20px; flex: none; }
+.legend .bon { display: block; }
+.btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.tiers { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+.tiers button { padding: 4px 2px; font-size: 12px; display: grid; line-height: 1.1; border-width: 1.5px; }
+.tiers button small { font-size: 8.5px; letter-spacing: .02em; font-weight: 600; text-transform: none; }
+.tiers button.on { background: var(--ink); color: var(--sheet); }
+button { font-family: var(--display); font-weight: 700; font-size: 13px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: transparent; border: 2px solid var(--ink); padding: 7px 10px; cursor: pointer; }
+button.primary { background: var(--ink); color: var(--sheet); }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible { outline: 3px solid var(--cable); outline-offset: 2px; }
+/* Tips, leaderboard and legend sit in a strip under the plan, using the space below the drawing. */
+.under { display: grid; margin: 10px -10px -10px; border-top: 2px solid var(--ink); }
+.news { background: #fff8d6; } .news p { margin: 4px 0 0; font-size: 13px; line-height: 1.35; }
+.under .cell { border-bottom: 0; }
+.under .help { border-right: 1px solid var(--ink); display: flex; align-items: center; }
+.under .legend { border-top: 0; }
+
+@media (max-width: 820px) {
+  .meter .mcost { font-size: 18px; }
+  body { align-items: flex-start; padding-block: 6px; }
+  .sheet { flex-direction: column; }
+  .plan { border-right: 0; border-bottom: 2px solid var(--ink); padding: 4px; }
+  .block { width: 100%; }
+  .legend, .cell.help { display: none; }
+  .under { grid-template-columns: 1fr; margin: 4px -4px -4px; }
+  .btns { order: -1; padding: 8px; }
+  .btns button { flex: 1; padding: 8px 4px; font-size: 12px; }
+  .cell { padding: 8px 10px; }
+  .cell:first-child .title { font-size: 20px; }
+  .grid2 { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .v { font-size: 15px; }
+  .k { font-size: 9px; letter-spacing: .08em; }
+  .stars { font-size: 18px; }
+  .lb:not([open]) .board { display: none; }
+}
+[hidden] { display: none !important; }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(29,42,58,.55);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--sheet); border: 2px solid var(--ink); padding: 18px; width: 100%; max-width: 520px; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; box-shadow: 0 10px 30px rgba(29,42,58,.25); }
+.card h2 { margin: 0; font-weight: 700; font-size: 26px; }
+.card h3 { margin: 4px 0 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.how { max-width: 560px; gap: 12px; }
+.how h3 { margin-top: 2px; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; counter-reset: st; }
+.steps li { counter-increment: st; border: 1.5px solid var(--ink); padding: 8px; display: grid; gap: 3px; align-content: start; position: relative; background: #fff; }
+.steps li::before { content: counter(st); position: absolute; top: -10px; left: -10px; width: 22px; height: 22px; border-radius: 50%; background: var(--ink); color: var(--sheet); font: 700 12px/22px var(--mono); text-align: center; }
+.steps svg { width: 100%; height: auto; }
+.steps b { font-size: 15px; }
+.steps span { font-size: 12.5px; line-height: 1.35; color: var(--muted); }
+.limits { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.limits div { border-left: 3px solid var(--cable); padding: 2px 8px; display: grid; }
+.limits b { font-family: var(--mono); font-size: 20px; }
+.limits span { font-size: 12px; color: var(--muted); line-height: 1.3; }
+.tiles { display: grid; gap: 4px; }
+.tiles h4 { margin: 8px 0 2px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.tgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; }
+@media (max-width: 520px) { .tgrid { grid-template-columns: 1fr; } }
+.tgrid > div { display: grid; grid-template-columns: 30px 1fr auto; align-items: center; gap: 8px; font-size: 13px; line-height: 1.25; }
+.tiles i { width: 26px; height: 20px; display: block; }
+.tiles em { font-style: normal; font-family: var(--mono); font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 3px; white-space: nowrap; }
+.tiles .ok { background: #dff3e6; color: var(--ok); } .tiles .slow { background: #fff1cc; color: #8a5a00; }
+.tiles .cost { background: #e3ecfa; color: var(--cable); } .tiles .no { background: #fbe1dc; color: var(--fire); }
+.how .tip { background: #fff8d6; border: 1px solid #e8d48a; padding: 8px 10px; font-size: 13px; }
+.bonus { display: flex; flex-wrap: wrap; gap: 6px; }
+.bonus span { border: 1.5px solid var(--ok); color: var(--ok); font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+@media (max-width: 520px) {
+  .steps { grid-template-columns: 1fr; } .steps li { grid-template-columns: 90px 1fr; column-gap: 10px; } .steps svg { grid-row: span 2; }
+  .tiles { grid-template-columns: 1fr; } .limits b { font-size: 17px; }
+}
+</style>
+
+<div class="sheet">
+  <div class="plan"><canvas id="cv" width="960" height="600" aria-label="Floor plan — drag cable runs from the IDF to each drop"></canvas>
+    <div class="under">
+      <div class="cell legend"><div class="keylist" id="legend"></div>
+      <div class="bon" id="bonusKey"></div>
+    </div>
+    </div>
+  </div>
+  <div class="block">
+    <div class="cell"><div class="title">PULL DAY</div><div class="sub" id="site">Sheet T-101 · Level 1</div>
+      <div class="tiers" id="tiers" aria-label="Tiers"></div></div>
+    <div class="cell grid2">
+      <div><div class="k">Cable pulled</div><div class="v" id="feet">0 ft</div></div>
+      <div><div class="k">Firestops</div><div class="v" id="sleeves">0</div></div>
+      <div><div class="k">Drops</div><div class="v" id="drops">0/0</div></div>
+      <div><div class="k">Labor</div><div class="v" id="labor">0h 00m</div></div>
+      <div><div class="k">Holes cut</div><div class="v" id="holes">0</div></div>
+    </div>
+    <div class="cell"><div class="meter" id="meter" data-state="idle">
+        <div class="mrow"><div><div class="k">Your cost</div><div class="mcost">$0</div></div><div class="mtgt">Target cost<br><b class="mtarget">$0</b></div></div>
+        <div class="mbar"><div class="mfill"></div><div class="mtick" title="Target cost: what a good installer would spend. At or under it = 3 stars."></div><div class="mbest" title="Best plan the game found for this sheet"></div></div>
+        <div class="mnote">Nothing spent yet.</div>
+        <div class="mbestline">Best plan found: <b class="mbestv">…</b></div>
+      </div></div>
+    <div class="cell earned"><div class="grid2">
+        <div><div class="k">Score earned</div><div class="v" id="score">$0</div></div>
+        <div><div class="k">This sheet</div><div class="stars" id="stars">★★★</div></div>
+      </div>
+      <div class="breakdown" id="breakdown" hidden></div>
+    </div>
+    <div class="cell sheetinfo" id="sheetInfo"></div>
+    <div class="cell news" id="news" hidden><div class="k">New on this sheet</div><p id="newsText"></p></div>
+    <div class="cell btns">
+      <button id="how" type="button">How to play</button>
+      <button id="undo" type="button">Undo run</button>
+      <button id="redo" type="button">Restart sheet</button>
+      <button id="next" type="button" class="primary" disabled>Next sheet →</button>
+    </div>
+    <details class="cell lb" open><summary class="k">Leaderboard · this device</summary><ol class="board" id="board"></ol></details>
+  </div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card how">
+    <h2>How to play</h2>
+
+    <ol class="steps">
+      <li>
+        <svg viewBox="0 0 120 70" aria-hidden="true"><rect x="6" y="20" width="30" height="30" fill="#1d2a3a"/><text x="21" y="40" fill="#fbfaf6" font-size="11" font-weight="700" text-anchor="middle" font-family="Archivo Narrow, sans-serif">IDF</text><path d="M40 35 H100" stroke="#1f6fd1" stroke-width="4" stroke-dasharray="6 5"/><path d="M98 27 l10 8 l-10 8" fill="none" stroke="#1f6fd1" stroke-width="3"/></svg>
+        <b>Press the IDF</b><span>The rack in the IDF closet. Every cable starts here.</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 120 70" aria-hidden="true"><path d="M10 50 H60 V20 H100" fill="none" stroke="#1f6fd1" stroke-width="4" stroke-linejoin="round"/><path d="M100 8 l12 21 h-24z" fill="#fbfaf6" stroke="#1d2a3a" stroke-width="2.5"/></svg>
+        <b>Drag to a drop</b><span>Box by box to each ▲ (CAM, AP, DESK). Drag back to undo.</span>
+      </li>
+      <li>
+        <svg viewBox="0 0 120 70" aria-hidden="true"><text x="60" y="34" font-size="26" text-anchor="middle" fill="#e0a100">★★★</text><text x="60" y="58" font-size="13" text-anchor="middle" fill="#1d2a3a" font-family="JetBrains Mono, monospace" font-weight="700">≤ TARGET</text></svg>
+        <b>Beat the target</b><span>Connect every drop at or under the target cost.</span>
+      </li>
+    </ol>
+
+    <h3>Limits</h3>
+    <div class="limits">
+      <div><b>328 ft</b><span>max per run (one box = 16 ft)</span></div>
+      <div><b>✓</b><span>runs can cross each other, but not through another device</span></div>
+      <div><b>1×</b><span>each hole or firestop is paid once — later runs share it free</span></div>
+    </div>
+
+    <h3>What's on the plan</h3>
+    <div class="tiles" id="tiles"></div>
+
+    <h3>Score bonuses <small style="font-weight:400;text-transform:none;letter-spacing:0">— tap one to see how to earn it</small></h3>
+    <div id="bonusHow"></div>
+
+    <button id="howClose" type="button" class="primary">Start pulling</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const cv = document.getElementById('cv'), g = cv.getContext('2d');
+const $ = id => document.getElementById(id);
+const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
+const COLS = PORTRAIT ? 10 : 16, ROWS = PORTRAIT ? 15 : 10, T = 60, FT_PER_TILE = 16.4, MAX_TILES = 20; // 20 tiles × 5 m = 100 m
+// Pricing (for looks — the sheet is scored in dollars and labor minutes).
+const $FT = 0.45, RATE = 85;                       // cable $/ft, labor $/hr
+const MIN = { open: 2.5, tray: 0.75, conduit: 1.5, emi: 4, fw: 2.5, occ: 5 };   // labor minutes per 16 ft section
+const SLEEVE = 45, SLEEVE_MIN = 60, EMI_EXTRA = 14, SLEEVE_CAP = 2, PIPE_CAP = 3;   // pre-made sleeve: 2 cables; conduit run: 3
+const money = n => `$${Math.round(n).toLocaleString()}`;
+const hm = m => `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, '0')}m`;
+const INK = '#1d2a3a', FIRE = '#d6402c', CABLE = ['#1f6fd1', '#1f8a4c', '#8a3fd1', '#d97a00', '#0f8a8a', '#c2185b', '#4a5a6a'];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Tile types
+// CONDUIT is a pre-made sleeve through a masonry wall; PIPE is a tile of a conduit run (in one pull box, out the other).
+const F = 0, WALL = 1, FW = 2, HVAC = 3, LOCK = 4, TRAY = 5, CONDUIT = 6, EMI = 7, OCC = 8, DRY = 9, WOOD = 10, CONC = 11, PIPE = 12, RACK = 13;   // WALL = brick
+// Walls you must make a hole through, and what each hole costs (labor minutes + bit wear). Later runs reuse it.
+const HOLE = { [WOOD]: { min: 20, bit: 5, tag: 'BORE', name: 'wood' }, [WALL]: { min: 60, bit: 25, tag: 'CORE', name: 'brick' }, [CONC]: { min: 120, bit: 45, tag: 'CORE', name: 'concrete' } };
+const isCore = v => v === WOOD || v === WALL || v === CONC;
+// Drywall still needs a hole, but it's a quick cut with a jab saw: 10 minutes, no bit wear.
+HOLE[DRY] = { min: 10, bit: 0, tag: 'CUT', name: 'drywall' };
+const isHole = v => isCore(v) || v === DRY;
+let map, under, pid, deco, sheetKind = '', zones = [], pipes = [], rooms = [], idf, drops, runs, drawing, level = 1, total = 0, parCost = 0, done = false, t = 0, hover = null, msg = null;
+let bestLevel = 1, jobScore = 0, sheetScores = [], jobId = Date.now();
+let board = [];
+try { board = JSON.parse(localStorage.getItem('pullday:board') || '[]'); } catch {}
+try { bestLevel = +localStorage.getItem('pullday:best') || 1; } catch {}
+// Tiers of 15 levels. New things arrive a few at a time inside a tier; drops ramp every 5 levels,
+// and ease back at the start of each tier. Tier 4 reuses everything and keeps adding drops.
+const TIERS = [
+  { n: 1, name: 'Basics', first: 1 },
+  { n: 2, name: 'Ratings', first: 16 },
+  { n: 3, name: 'Infra', first: 31 },
+  { n: 4, name: 'Hardened', first: 46 },
+];
+const UNLOCK = { fire: 16, wood: 19, elec: 22, sleeve: 25, pipe: 31, lock: 34, conc: 37, hard: 46 };
+const NEWS = {
+  16: 'New: fire separation. A fire wall across the building, or a sealed fire-rated room. Crossing it needs a firestop (1 h, then shared free).',
+  19: 'New: wood walls. Bore through for 20 min, or use the door.',
+  22: 'New: the electrical room and occupied offices. You can pass through, but it is slow and pricey.',
+  25: 'New: sleeves. Pre-made holes through the block corridor wall, 2 cables each, free to use.',
+  31: 'New: conduit runs. In at one pull box, out the other, 3 cables. A fast way across the fire separation.',
+  34: 'New: a locked server room. No access.',
+  37: 'New: poured concrete corridor walls (2 h to core) and the cable tray no longer runs the whole corridor.',
+  46: 'Hardened: everything is in play. Every sheet adds drops, so share the tray, sleeves, conduit and holes.',
+};
+const has = f => level >= UNLOCK[f];
+const tierOf = L => L >= 46 ? 4 : L >= 31 ? 3 : L >= 16 ? 2 : 1;
+const dropsFor = L => { const t = tierOf(L), into = Math.floor((L - TIERS[t - 1].first) / 5); return Math.min(10, [3, 4, 5, 7][t - 1] + into); };
+// Pick up where you left off.
+level = Math.max(1, bestLevel);
+
+const P = f => Math.round(COLS * f), R = f => Math.round(ROWS * f);   // layout as fractions of the sheet
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const key = (x, y) => y * COLS + x;
+const inb = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+const passable = (x, y) => inb(x, y) && [F, FW, TRAY, CONDUIT, EMI, OCC, WALL, DRY, WOOD, CONC, PIPE].includes(map[y][x]);
+// What a tile looks like on the plan: a sleeve or conduit passing through a wall still shows that wall.
+const matAt = (x, y) => (under && under[y][x] != null) ? under[y][x] : map[y][x];
+// Conduit rule: a cable gets into a conduit run only from its pull box, and leaves only at the other box.
+const atPt = (x, y, q) => x === q[0] && y === q[1];
+function canStep(ax, ay, bx, by) {
+  if (!passable(bx, by)) return false;
+  const pa = pid[ay][ax], pb = pid[by][bx];
+  if (pb >= 0) { if (pa === pb) return true; const Q = pipes[pb]; return (atPt(bx, by, Q.endA) && atPt(ax, ay, Q.boxA)) || (atPt(bx, by, Q.endB) && atPt(ax, ay, Q.boxB)); }
+  if (pa >= 0) { const Q = pipes[pa]; return (atPt(ax, ay, Q.endA) && atPt(bx, by, Q.boxA)) || (atPt(ax, ay, Q.endB) && atPt(bx, by, Q.boxB)); }
+  return true;
+}
+// One tile of a run: cable + labor, plus the surcharge for what it passes through.
+const tileMin = v => v === OCC ? MIN.occ : v === TRAY ? MIN.tray : v === PIPE ? MIN.conduit : v === EMI ? MIN.emi : v === FW ? MIN.fw : MIN.open;
+const tileCost = v => FT_PER_TILE * $FT + tileMin(v) / 60 * RATE + (v === EMI ? EMI_EXTRA : 0);
+const sleeveCost = SLEEVE + SLEEVE_MIN / 60 * RATE;
+const drillCost = v => isHole(v) ? HOLE[v].bit + HOLE[v].min / 60 * RATE : 0;
+
+// ── Level generation: rooms with doors, maybe a fire wall, ducts, a locked room. Always solvable. ──
+cv.width = COLS * T; cv.height = ROWS * T; cv.style.aspectRatio = `${COLS} / ${ROWS}`;
+function build() {
+  window.__buildFails = window.__buildFails || 0;
+  for (let attempt = 0; attempt < 400; attempt++) {
+    map = Array.from({ length: ROWS }, () => Array(COLS).fill(F));
+    under = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    pid = Array.from({ length: ROWS }, () => Array(COLS).fill(-1));
+    pipes = []; rooms = []; zones = [];
+    deco = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    // Lay the building out along its long axis (u) and short axis (v). Portrait sheets turn it;
+    // every sheet is also mirrored at random, so the IDF can end up in any corner.
+    const LU = PORTRAIT ? ROWS : COLS, LV = PORTRAIT ? COLS : ROWS;
+    const fU = rnd(0, 1), fV = rnd(0, 1);
+    const XY = (u, v) => { const uu = fU ? LU - 1 - u : u, vv = fV ? LV - 1 - v : v; return PORTRAIT ? [vv, uu] : [uu, vv]; };
+    const inUV = (u, v) => u >= 0 && v >= 0 && u < LU && v < LV;
+    const set = (u, v, val) => { const [x, y] = XY(u, v); map[y][x] = val; };
+    const get = (u, v) => { if (!inUV(u, v)) return -1; const [x, y] = XY(u, v); return map[y][x]; };
+    const setUnder = (u, v, val) => { const [x, y] = XY(u, v); under[y][x] = val; };
+    const setDeco = (u, v, val) => { const [x, y] = XY(u, v); deco[y][x] = val; };
+    const TIER = tierOf(level);
+    const corrMat = has('hard') || (has('conc') && Math.random() < .5) ? CONC : WALL;
+    // A band is a strip of rooms. Rooms are lined up along its axis ('u' or 'v'); d0–d1 is its depth;
+    // `wall` is the depth line holding the doors (the corridor wall).
+    const cellOf = (B, a, d) => B.axis === 'u' ? [a, d] : [d, a];
+    const setB = (B, a, d, val) => set(...cellOf(B, a, d), val);
+    const bands = [], trays = [], ducts = [];
+    let fu = -1, fireLine = false;
+    // ── Pick a building type ──
+    const kind = ['double', 'double', 'open', 'cross', 'cross', 'warehouse'][rnd(0, 5)];
+    const wantFire = has('fire'), fireRoom = wantFire && kind !== 'warehouse' && Math.random() < .5;
+    const pickFu = (avoid = () => false) => { for (let i = 0; i < 20; i++) { const f = rnd(Math.round(LU * .4), Math.round(LU * .58)); if (!avoid(f)) return f; } return -1; };
+    if (kind === 'double' || kind === 'cross') {
+      // Double-loaded corridor (two rows), block walls each side; 'cross' adds a crossing corridor.
+      const wA = rnd(2, LV - 6), wB = wA + 3;
+      for (let u = 0; u < LU; u++) { set(u, wA, corrMat); set(u, wB, corrMat); }
+      const cu = kind === 'cross' ? rnd(4, LU - 5) : -1;
+      const segsA = cu < 0 ? [[0, LU - 1]] : [[0, cu - 2], [cu + 2, LU - 1]];
+      segsA.forEach(([lo, hi]) => { bands.push({ axis: 'u', lo, hi, d0: 0, d1: wA - 1, wall: wA }); bands.push({ axis: 'u', lo, hi, d0: wB + 1, d1: LV - 1, wall: wB }); });
+      const trayV = wA + 1 + rnd(0, 1); trays.push([[0, trayV], [LU - 1, trayV]]);
+      ducts.push([[0, trayV === wA + 1 ? wA + 2 : wA + 1], [LU - 1, trayV === wA + 1 ? wA + 2 : wA + 1]]);
+      if (cu >= 0) {
+        // The crossing corridor: one tile wide, block walls both sides, open through the main corridor.
+        for (let v = 0; v < LV; v++) if (v < wA || v > wB) { set(cu - 1, v, corrMat); set(cu + 1, v, corrMat); }
+        set(cu, wA, F); set(cu, wB, F);
+        if (Math.random() < .6) trays.push([[cu, 0], [cu, LV - 1]]);
+      }
+      if (wantFire && !fireRoom) fu = pickFu(f => cu >= 0 && Math.abs(f - cu) <= 2);
+    } else if (kind === 'open') {
+      // Offices along one long wall, a corridor along them, then an open office floor (desk pods).
+      const d = rnd(3, 4);
+      for (let u = 0; u < LU; u++) set(u, d, corrMat);
+      const endRooms = Math.random() < .5, eu = LU - 4;
+      bands.push({ axis: 'u', lo: 0, hi: LU - 1, d0: 0, d1: d - 1, wall: d });
+      if (endRooms) { for (let v = d + 1; v < LV; v++) set(eu, v, DRY); bands.push({ axis: 'v', lo: d + 1, hi: LV - 1, d0: eu + 1, d1: LU - 1, wall: eu, drywall: true }); }
+      trays.push([[0, d + 1], [endRooms ? eu - 1 : LU - 1, d + 1]]);
+      { const dv = rnd(d + 2, LV - 2); ducts.push([[0, dv], [endRooms ? eu - 1 : LU - 1, dv]]); }
+      if (wantFire && !fireRoom) fu = pickFu(f => endRooms && f >= eu - 2);
+      // Desk pods on the open floor (just furniture; cable can pass over them).
+      zones.push({ name: 'OPEN OFFICE', uv: [0, d + 2, endRooms ? eu - 1 : LU - 1, LV - 1] });
+      for (let u = 1; u < (endRooms ? eu - 1 : LU - 1); u += 3) for (let v = d + 3; v < LV - 1; v += 3) { setDeco(u, v, 1); setDeco(u + 1, v, 1); }
+    } else {
+      // Warehouse: an office wing (rooms + a hallway) at one end, then a high-bay warehouse with racking.
+      const wingD = 3, hall = wingD + 1, sep = hall + 1;
+      for (let v = 0; v < LV; v++) set(wingD, v, corrMat);
+      bands.push({ axis: 'v', lo: 0, hi: LV - 1, d0: 0, d1: wingD - 1, wall: wingD });
+      // The office/warehouse wall: the fire separation when that's unlocked, otherwise block with doors.
+      for (let v = 0; v < LV; v++) set(sep, v, wantFire ? FW : corrMat);
+      if (wantFire) { fu = sep; fireLine = true; } else { set(sep, rnd(1, 3), F); set(sep, rnd(LV - 4, LV - 2), F); }
+      // Pallet racking: long rows with aisles between, and a cross aisle.
+      const cross = rnd(sep + 4, LU - 4);
+      for (let v = 2; v < LV - 3; v += 3) for (let u = sep + 2; u < LU - 1; u++) if (u !== cross && u !== cross + 1) set(u, v, RACK);
+      trays.push([[sep + 1, 1], [LU - 1, 1]]);
+      ducts.push([[sep + 2, LV - 1], [LU - 1, LV - 1]]);
+      zones.push({ name: 'WAREHOUSE', uv: [sep + 1, 0, LU - 1, LV - 1] });
+    }
+    if (fu > 0 && !fireLine) { fireLine = true; }
+    // ── Rooms ──
+    // Cut a band into rooms 3–5 tiles wide; the IDF closet (2 wide) sits at the low end of one band.
+    function cut(lo, hi, first) {
+      const walls = []; let pos = lo;
+      if (first) { walls.push(lo + first); pos = lo + first + 1; }
+      for (;;) { const w = rnd(3, 5); if (hi - pos - w < 3) break; walls.push(pos + w); pos += w + 1; }
+      return walls;
+    }
+    const idfBand = (() => { const c = bands.filter(B => B.lo === 0 && B.hi - B.lo >= 5 && !(B.axis === 'u' && fu > 0 && fu < 4)); return c[rnd(0, c.length - 1)]; })();
+    if (!idfBand) continue;
+    bands.forEach(B => {
+      const segs = B.axis === 'u' && fu > B.lo && fu < B.hi ? [[B.lo, fu - 1], [fu + 1, B.hi]] : [[B.lo, B.hi]];
+      segs.forEach(([lo, hi], si) => {
+        if (hi - lo < 1) return;
+        const walls = cut(lo, hi, si === 0 && B === idfBand ? 2 : 0), edges = [lo - 1, ...walls, hi + 1];
+        for (let i = 0; i + 1 < edges.length; i++) rooms.push({ band: B, a0: edges[i] + 1, a1: edges[i + 1] - 1, left: edges[i], right: edges[i + 1], leftFixed: i === 0, rightFixed: i + 2 === edges.length, type: 'office' });
+      });
+    });
+    const idfRoom = rooms.find(r => r.band === idfBand && r.a0 === idfBand.lo); idfRoom.type = 'idf';
+    const pool = rooms.filter(r => r.type === 'office').sort(() => Math.random() - .5);
+    const take = (type, ok = () => true) => { const r = pool.find(r => r.type === 'office' && ok(r)); if (r) r.type = type; };
+    const wide = r => r.a1 - r.a0 >= 2 && r.band.d1 - r.band.d0 >= 1;
+    take('mech', wide);
+    if (has('elec')) { take('elec'); take('occ'); }
+    if (has('lock')) take('lock');
+    if (fireRoom) take('fire', r => !r.leftFixed && !r.rightFixed && r.a1 - r.a0 >= 2 && !r.band.drywall);
+    const fr = rooms.find(r => r.type === 'fire');
+    if (fireRoom && !fr) continue;
+    const NAMES = ['OFFICE', 'OFFICE', 'CONF RM', 'BREAK RM', 'STORAGE', 'OFFICE', 'COPY RM', 'TRAINING', 'OFFICE'];
+    rooms.filter(r => r.type === 'office').forEach((r, i) => r.name = NAMES[(i + rnd(0, 3)) % NAMES.length]);
+    const rated = r => !r || ['idf', 'elec', 'mech', 'lock', 'fire'].includes(r.type);
+    // Partitions: block around rated rooms, drywall between offices (some wood from level 19).
+    rooms.forEach(r => {
+      if (r.rightFixed) return;
+      const B = r.band, nb = rooms.find(o => o.band === B && o.a0 === r.right + 1);
+      const mat = r.type === 'fire' || nb?.type === 'fire' ? FW : rated(r) || rated(nb) ? WALL : has('wood') && Math.random() < .3 ? WOOD : DRY;
+      for (let d = B.d0; d <= B.d1; d++) setB(B, r.right, d, mat);
+      if (nb && !rated(r) && !rated(nb) && B.d1 - B.d0 >= 2 && Math.random() < .3) setB(B, r.right, rnd(0, 1) ? B.d0 : B.d1, F);
+    });
+    if (fu > 0) for (let v = 0; v < LV; v++) set(fu, v, FW);
+    // Fill the special rooms.
+    rooms.forEach(r => {
+      const B = r.band, fill = { elec: EMI, occ: OCC, lock: LOCK }[r.type];
+      if (fill !== undefined) for (let a = r.a0; a <= r.a1; a++) for (let d = B.d0; d <= B.d1; d++) setB(B, a, d, fill);
+      if (r.type === 'mech') { // air handler: a 2×2 unit at the far side of the room, away from the corridor
+        const farD = B.wall < B.d0 ? B.d1 : B.d0, dd = farD === B.d0 ? 1 : -1, aa = rnd(0, 1) ? r.a0 : r.a1 - 1;
+        [[0, 0], [1, 0], [0, dd], [1, dd]].forEach(([i, j]) => setB(B, aa + i, farD + j, HVAC));
+      }
+    });
+    // One door per room onto its corridor (none for the sealed fire-rated room).
+    rooms.forEach(r => { if (r.type === 'fire') return; r.door = r.type === 'idf' ? r.a0 + 1 : rnd(r.a0, r.a1); setB(r.band, r.door, r.band.wall, F); });
+    if (fr) for (let a = fr.left; a <= fr.right; a++) setB(fr.band, a, fr.band.wall, FW);
+    // ── Ceiling: cable tray, duct trunk ──
+    const lineCells = ([[u0, v0], [u1, v1]]) => { const o = []; if (v0 === v1) for (let u = Math.min(u0, u1); u <= Math.max(u0, u1); u++) o.push([u, v0]); else for (let v = Math.min(v0, v1); v <= Math.max(v0, v1); v++) o.push([u0, v]); return o; };
+    trays.forEach((t, ti) => {
+      let cells = lineCells(t);
+      if (has('conc') && ti === 0) { const keep = rnd(Math.round(cells.length * .55), cells.length); cells = Math.random() < .5 ? cells.slice(0, keep) : cells.slice(cells.length - keep); }
+      cells.forEach(([u, v]) => { if (get(u, v) === F) set(u, v, TRAY); });
+    });
+    ducts.forEach(dl => {
+      const cells = lineCells(dl).filter(([u, v]) => get(u, v) === F); if (cells.length < 4) return;
+      const len = rnd(2, 3 + Math.min(TIER, 2)), s0 = rnd(0, cells.length - len);
+      cells.slice(s0, s0 + len).forEach(([u, v]) => { if (get(u, v) === F) set(u, v, HVAC); });
+    });
+    // ── Sleeves: pre-made holes through a block wall that joins two open spaces ──
+    const isW = m => [WALL, CONC, FW, DRY, WOOD].includes(m), openT = m => [F, TRAY, OCC, EMI].includes(m);
+    if (has('sleeve')) for (let n = 0, tries = 0; n < (has('hard') ? 2 : 1) && tries < 200; tries++) {
+      const u = rnd(1, LU - 2), v = rnd(1, LV - 2); if (get(u, v) !== corrMat) continue;
+      const alongU = get(u - 1, v) === corrMat && get(u + 1, v) === corrMat && openT(get(u, v - 1)) && openT(get(u, v + 1));
+      const alongV = get(u, v - 1) === corrMat && get(u, v + 1) === corrMat && openT(get(u - 1, v)) && openT(get(u + 1, v));
+      if (alongU || alongV) { set(u, v, CONDUIT); setUnder(u, v, corrMat); n++; }
+    }
+    // ── Conduit run: straight, a pull box at each end, crossing the fire separation ──
+    if (has('pipe') && (fireLine || fr)) for (let tries = 0; tries < 300; tries++) {
+      const alongU = Math.random() < .7, len = rnd(6, 9);
+      const u0 = alongU ? rnd(1, LU - len - 1) : rnd(0, LU - 1), v0 = alongU ? rnd(0, LV - 1) : rnd(1, LV - len - 1);
+      if (!alongU && LV - len - 1 < 1) continue;
+      const cells = []; for (let i = 0; i < len; i++) cells.push(alongU ? [u0 + i, v0] : [u0, v0 + i]);
+      const boxA = alongU ? [u0 - 1, v0] : [u0, v0 - 1], boxB = alongU ? [u0 + len, v0] : [u0, v0 + len];
+      if (get(...boxA) !== F || get(...boxB) !== F) continue;
+      const ms = cells.map(c => get(...c));
+      if (!ms.includes(FW) || ms.some(m => [HVAC, TRAY, RACK, CONDUIT, -1].includes(m))) continue;
+      if (ms.some((m, i) => i && isW(m) && isW(ms[i - 1]))) continue;          // never run inside a wall
+      const [ix, iy] = (() => { const v = idfBand.wall < idfBand.d0 ? idfBand.d1 : idfBand.d0; return XY(...cellOf(idfBand, idfBand.lo, v)); })();
+      if ([...cells, boxA, boxB].some(c => { const [x, y] = XY(...c); return x === ix && y === iy; })) continue;
+      const id = pipes.length, xy = [];
+      cells.forEach(([u, v]) => { const m = get(u, v); if (isW(m)) setUnder(u, v, m); set(u, v, PIPE); const [x, y] = XY(u, v); pid[y][x] = id; xy.push([x, y]); });
+      pipes.push({ cells: xy, boxA: XY(...boxA), endA: XY(...cells[0]), boxB: XY(...boxB), endB: XY(...cells[len - 1]) });
+      break;
+    }
+    // The IDF rack sits in its closet, against the wall away from the door.
+    { const B = idfBand, v = B.wall < B.d0 ? B.d1 : B.d0; const [u, vv] = cellOf(B, B.lo, v); const [x, y] = XY(u, vv); idf = { x, y }; set(u, vv, F); }
+    // Room and zone rectangles in sheet coordinates, for labels.
+    const rectOf = (u0, v0, u1, v1) => { const a = XY(u0, v0), b = XY(u1, v1); return { x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]) }; };
+    rooms.forEach(r => { const [u0, v0] = cellOf(r.band, r.a0, r.band.d0), [u1, v1] = cellOf(r.band, r.a1, r.band.d1); Object.assign(r, rectOf(u0, v0, u1, v1)); });
+    zones.forEach(z => Object.assign(z, rectOf(...z.uv)));
+    sheetKind = kind; window.__pdKind = kind;
+    const inIdf = (x, y) => x >= idfRoom.x0 && x <= idfRoom.x1 && y >= idfRoom.y0 && y <= idfRoom.y1;
+    const isBox = (x, y) => pipes.some(q => atPt(x, y, q.boxA) || atPt(x, y, q.boxB));
+    // Drops: reachable inside 100 m, not crowded
+    const dist = bfs(idf.x, idf.y);
+    const dpool = [];
+    for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (map[y][x] === F && !inIdf(x, y) && !isBox(x, y) && dist[key(x, y)] >= 4 && dist[key(x, y)] <= MAX_TILES && [[1,0],[-1,0],[0,1],[0,-1]].filter(([dx, dy]) => passable(x + dx, y + dy) && map[y + dy][x + dx] !== PIPE).length >= 2) dpool.push({ x, y, d: dist[key(x, y)] });
+    const n = dropsFor(level), gap = n >= 8 ? 2 : 3;
+    if (dpool.length < n * 2) continue;
+    dpool.sort(() => Math.random() - .5);
+    drops = [];
+    for (const p of dpool) { if (drops.length >= n) break; if (drops.every(d => Math.abs(d.x - p.x) + Math.abs(d.y - p.y) >= gap)) drops.push(p); }
+    if (drops.length < n) continue;
+    // Spread the work: at least half the drops on the far side (past the fire wall when there is one).
+    if (drops.filter(d => d.d >= 8).length < Math.ceil(n / 2)) continue;
+    if (fr && !drops.some(d => d.x >= fr.x0 && d.x <= fr.x1 && d.y >= fr.y0 && d.y <= fr.y1)) continue;   // something to pull into the rated room
+    // Far ones first so the hard drops show up.
+    const kinds = ['CAM', 'AP', 'DESK', 'CAM', 'TV', 'AP', 'DESK', 'CAM', 'AP', 'PHONE'];
+    drops.forEach((d, i) => { d.label = `${kinds[i % kinds.length]} ${i + 1}`; d.run = null; });
+    const each = drops.map(d => dijkstra(d));
+    if (each.some(c => c >= 9999)) continue;   // every drop must be pullable within 328 ft
+    parCost = each.reduce((s, c) => s + c, 0);
+    const real = planCost();
+    if (real === null) continue;                 // some drop can't be pulled under the real rules — new sheet
+    parCost = Math.max(parCost, real);
+    runs = []; drawing = null; done = false; msg = null;
+    sync(); analyze();
+    return;
+  }
+  window.__buildFails++;
+}
+function bfs(sx, sy) {
+  const d = new Array(COLS * ROWS).fill(Infinity); d[key(sx, sy)] = 0; const q = [[sx, sy]];
+  while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = x + dx, ny = y + dy; if (inb(nx, ny) && canStep(x, y, nx, ny) && d[key(nx, ny)] === Infinity) { d[key(nx, ny)] = d[key(x, y)] + 1; q.push([nx, ny]); } } }
+  return d;
+}
+// Cheapest single run to a drop (feet + its own sleeves) within 328 ft — the par a careless installer
+// would hit. Layered by tile count (at most 20 steps), so it's exact and fast on a 16×10 sheet.
+function dijkstra(target) {
+  const N = COLS * ROWS; let cur = new Float64Array(N).fill(Infinity); cur[key(idf.x, idf.y)] = 0;
+  let best = Infinity;
+  for (let step = 0; step < MAX_TILES; step++) {
+    const nxt = new Float64Array(N).fill(Infinity);
+    for (let k = 0; k < N; k++) {
+      if (cur[k] === Infinity) continue;
+      const x = k % COLS, y = (k - x) / COLS;
+      if (x === target.x && y === target.y) continue;
+      for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nx = x + dx, ny = y + dy;
+        if (!inb(nx, ny) || !canStep(x, y, nx, ny) || isOtherDrop(nx, ny, target)) continue;
+        const c = cur[k] + tileCost(map[ny][nx]) + (map[ny][nx] === FW ? sleeveCost : drillCost(map[ny][nx])), nk = key(nx, ny);
+        if (c < nxt[nk]) nxt[nk] = c;
+      }
+    }
+    const tk = key(target.x, target.y); if (nxt[tk] < best) best = nxt[tk];
+    cur = nxt;
+  }
+  return best === Infinity ? 9999 : best;
+}
+// Best sequential plan under the real rules (≤328 ft, no passing other drops, conduit fill,
+// holes and sleeves shared once cut). Tries a few orders; returns its price, or null if a drop can't be reached.
+// A plan routes every drop in turn. Holes, firestops and conduit/sleeve fill carry over between runs.
+// W weighs a plan: W.tile(v) per tile, W.fs per new firestop, W.hole(v) per new hole.
+const W_COST = { tile: v => tileCost(v), fs: sleeveCost, hole: v => drillCost(v) };
+const W_TILES = { tile: () => 1, fs: 0, hole: () => 0 };
+const W_MINS = { tile: v => tileMin(v), fs: SLEEVE_MIN, hole: v => isHole(v) ? HOLE[v].min : 0 };
+const W_NOCORE = { tile: v => isCore(v) ? 1e6 : 1, fs: 0, hole: () => 0 };
+const freshState = () => ({ used: new Map(), sleeves: new Set(), holes: new Set() });
+function commit(path, st) {
+  new Set(path.map(([x, y]) => pid[y][x]).filter(i => i >= 0)).forEach(i => st.used.set('p' + i, (st.used.get('p' + i) || 0) + 1));
+  path.forEach(([x, y]) => { const k = key(x, y); if (map[y][x] === CONDUIT) st.used.set(k, (st.used.get(k) || 0) + 1); if (map[y][x] === FW) st.sleeves.add(k); if (isHole(map[y][x])) st.holes.add(k); });
+}
+function routeOne(d, st, W) {
+  let cur = new Map([[key(idf.x, idf.y), { c: 0, path: [[idf.x, idf.y]] }]]), best = null;
+  for (let step = 0; step < MAX_TILES; step++) {
+    const nxt = new Map();
+    for (const [k, sv] of cur) {
+      const x = k % COLS, y = (k - x) / COLS;
+      if (x === d.x && y === d.y) continue;
+      for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+        const nx = x + dx, ny = y + dy, nk = key(nx, ny);
+        if (!inb(nx, ny) || !canStep(x, y, nx, ny) || isOtherDrop(nx, ny, d) || sv.path.some(q => q[0] === nx && q[1] === ny)) continue;
+        const v = map[ny][nx];
+        if (v === CONDUIT && (st.used.get(nk) || 0) >= SLEEVE_CAP) continue;
+        if (pid[ny][nx] >= 0 && pid[y][x] !== pid[ny][nx] && (st.used.get('p' + pid[ny][nx]) || 0) >= PIPE_CAP) continue;
+        const c = sv.c + W.tile(v) + (v === FW && !st.sleeves.has(nk) ? W.fs : 0) + (!st.holes.has(nk) ? W.hole(v) : 0);
+        if (!nxt.has(nk) || nxt.get(nk).c > c) nxt.set(nk, { c, path: [...sv.path, [nx, ny]] });
+      }
+    }
+    const hit = nxt.get(key(d.x, d.y)); if (hit && (!best || hit.c < best.c)) best = hit;
+    cur = nxt;
+  }
+  return best;
+}
+function planTotal(paths, W) {
+  let c = 0; const fs = new Set(), h = new Set();
+  paths.forEach(pth => pth.slice(1).forEach(([x, y]) => { const v = map[y][x]; c += W.tile(v); if (v === FW) fs.add(key(x, y)); if (isHole(v)) h.add(key(x, y)); }));
+  c += fs.size * W.fs; h.forEach(k => { c += W.hole(map[Math.floor(k / COLS)][k % COLS]); });
+  return c;
+}
+function solveOrder(order, W) {
+  const st = freshState(), got = new Map();
+  for (const d of order) { const b = routeOne(d, st, W); if (!b) return null; commit(b.path, st); got.set(d, b.path); }
+  const paths = drops.map(d => got.get(d)); return { paths, total: planTotal(paths, W) };
+}
+// Rip up one run at a time and re-route it against all the others, until nothing gets better.
+function improve(plan, W) {
+  for (let pass = 0, changed = true; changed && pass < 4; pass++) {
+    changed = false;
+    for (let i = 0; i < drops.length; i++) {
+      const st = freshState(); plan.paths.forEach((pth, j) => { if (j !== i) commit(pth, st); });
+      const b = routeOne(drops[i], st, W); if (!b) continue;
+      const np = plan.paths.slice(); np[i] = b.path; const tt = planTotal(np, W);
+      if (tt < plan.total - 1e-6) { plan = { paths: np, total: tt }; changed = true; }
+    }
+  }
+  return plan;
+}
+const heurOrders = () => [[...drops].sort((a, b) => b.x - a.x), [...drops].sort((a, b) => a.x - b.x), [...drops].sort((a, b) => a.y - b.y), [...drops]];
+function planCost() {
+  let best = null;
+  for (const o of heurOrders()) { const pl = solveOrder(o, W_COST); if (pl && (best === null || pl.total < best)) best = pl.total; }
+  return best;
+}
+// Reachability with some tiles closed (used to tell which drops sit past the fire separation).
+function reachWithout(blocked) {
+  const d = new Array(COLS * ROWS).fill(Infinity); d[key(idf.x, idf.y)] = 0; const q = [[idf.x, idf.y]];
+  while (q.length) { const [x, y] = q.shift(); for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) { const nx = x + dx, ny = y + dy; if (inb(nx, ny) && !blocked(map[ny][nx]) && canStep(x, y, nx, ny) && d[key(nx, ny)] === Infinity) { d[key(nx, ny)] = d[key(x, y)] + 1; q.push([nx, ny]); } } }
+  return d;
+}
+// After a sheet loads: search hard for the best plan, and work out which bonuses this sheet allows.
+// Runs in small slices so the page never freezes; a new sheet cancels the old search.
+let analysis = null, sheetToken = 0;
+function analyze() {
+  const token = ++sheetToken; analysis = null; renderAnalysis();
+  const orders = heurOrders(), nRand = drops.length <= 5 ? 36 : 24;
+  for (let i = 0; i < nRand; i++) orders.push([...drops].sort(() => Math.random() - .5));
+  const plans = [], jobs = []; let best = null, tiles = Infinity, mins = Infinity, noCore = false;
+  orders.forEach(o => jobs.push(() => { const pl = solveOrder(o, W_COST); if (pl) plans.push(pl); }));
+  jobs.push(() => { plans.sort((a, b) => a.total - b.total); });
+  for (let i = 0; i < 4; i++) jobs.push(() => { if (plans[i]) { plans[i] = improve(plans[i], W_COST); if (!best || plans[i].total < best.total) best = plans[i]; } });
+  heurOrders().forEach(o => jobs.push(() => { const pl = solveOrder(o, W_TILES); if (pl) tiles = Math.min(tiles, improve(pl, W_TILES).total); }));
+  heurOrders().forEach(o => jobs.push(() => { const pl = solveOrder(o, W_MINS); if (pl) mins = Math.min(mins, improve(pl, W_MINS).total); }));
+  heurOrders().forEach(o => jobs.push(() => { const pl = solveOrder(o, W_NOCORE); if (pl && pl.total < 1e6) noCore = true; }));
+  const finish = () => {
+    const dist = bfs(idf.x, idf.y), minTiles = drops.reduce((a, d) => a + dist[key(d.x, d.y)], 0);
+    const hasFire = map.some(r => r.includes(FW));
+    const open = reachWithout(v => v === FW || v === PIPE), past = drops.filter(d => open[key(d.x, d.y)] === Infinity).length;
+    const per = mins / drops.length;
+    analysis = {
+      best: best ? Math.round(best.total) : null, plan: best ? best.paths : null,
+      under: !!best && best.total < parCost - 1,
+      shortest: tiles <= minTiles ? 'yes' : tiles <= minTiles * 1.1 ? 'tight' : 'no',
+      fire: !hasFire ? 'none' : past >= 2 ? 'yes' : 'one', past,
+      noCore, crew: per <= 30 ? 'fast' : per <= 60 ? 'steady' : 'no', per: Math.round(per),
+    };
+    renderAnalysis(); sync();
+  };
+  const step = () => { if (token !== sheetToken) return; const t0 = performance.now(); while (jobs.length && performance.now() - t0 < 14) jobs.shift()(); if (jobs.length) setTimeout(step, 0); else finish(); };
+  setTimeout(step, 20);
+}
+function renderAnalysis() {
+  const el = $('sheetInfo'); if (!el) return;
+  if (!analysis) { el.innerHTML = '<div class="k">This sheet</div><div class="srow wait">Working out the best plan…</div>'; return; }
+  // Only what can be earned here: names, no hints about routes, footage or labor.
+  const a = analysis, can = ['Sheet complete'];
+  if (a.best) can.push('Best plan');
+  if (a.under) can.push('Under target');
+  if (a.shortest === 'yes') can.push('Shortest pull'); else if (a.shortest === 'tight') can.push('Tight pull');
+  if (a.fire === 'yes') can.push('Shared firestops');
+  if (a.noCore) can.push('No core drilling');
+  if (a.crew === 'fast') can.push('Fast crew'); else if (a.crew === 'steady') can.push('Steady crew');
+  el.innerHTML = '<div class="k">Bonuses you can earn here</div>' + can.map(n => `<div class="srow yes"><i>✓</i><span>${n}</span></div>`).join('');
+}
+const dropAt = (x, y) => drops.find(d => d.x === x && d.y === y);
+const isOtherDrop = (x, y, target) => { const d = dropAt(x, y); return d && d !== target; };
+
+// ── Scoring: cable feet + firestops. A sleeve already cut through a fire wall is shared by later runs. ──
+function tally() {
+  let tiles = 0, cost = 0, mins = 0;
+  const sleeves = new Set(), holes = new Set();
+  runs.forEach(r => r.path.slice(1).forEach(([x, y]) => { const v = map[y][x]; tiles++; cost += tileCost(v); mins += tileMin(v); if (v === FW) sleeves.add(key(x, y)); if (isHole(v)) holes.add(key(x, y)); }));
+  cost += sleeves.size * sleeveCost; mins += sleeves.size * SLEEVE_MIN;
+  let cores = 0; holes.forEach(k => { const v = map[Math.floor(k / COLS)][k % COLS]; cost += drillCost(v); mins += HOLE[v].min; if (isCore(v)) cores++; });
+  return { feet: Math.round(tiles * FT_PER_TILE), sleeves: sleeves.size, holes: holes.size, cores, cost: Math.round(cost), mins };
+}
+// Cables already in each conduit.
+const conduitLoad = (x, y) => runs.filter(r => r.path.some(q => q[0] === x && q[1] === y)).length;
+const pipeLoad = id => runs.filter(r => r.path.some(([x, y]) => pid[y][x] === id)).length;
+// Sheet score: base for the level, then bonuses for beating par, the shortest pull,
+// fewer firestops and core holes (shared or avoided), and quick labor.
+function scoreSheet(s) {
+  const lines = [];
+  const add = (label, pts) => { if (pts) lines.push([label, Math.round(pts)]); };
+  add(`Sheet ${level} complete`, 300 + level * 100);
+  // Par: every dollar under par is a point; over par costs half a point.
+  const vsPar = parCost - s.cost;
+  if (Math.abs(vsPar) >= 1) add(vsPar >= 0 ? 'Under target' : 'Over target', vsPar >= 0 ? vsPar : vsPar / 2);
+  // Matching (or beating) the best plan the game found for this sheet.
+  if (analysis && analysis.best && s.cost <= analysis.best + 1) add(s.cost < analysis.best - 1 ? 'Beat the best plan' : 'Best plan', 400);
+  // Cable: compared with the shortest possible total (every drop pulled the most direct way).
+  const dist = bfs(idf.x, idf.y);
+  const minTiles = drops.reduce((a, d) => a + dist[key(d.x, d.y)], 0);
+  const used = runs.reduce((a, r) => a + r.path.length - 1, 0);
+  if (used <= minTiles) add('Shortest possible pull', 300);
+  else if (used <= minTiles * 1.1) add('Tight pull (within 10%)', 150);
+  // Firestops: each run that crossed a fire wall through a sleeve someone else already cut.
+  const crossings = runs.reduce((a, r) => a + r.path.filter(([x, y]) => map[y][x] === FW).length, 0);
+  add('Shared firestops', (crossings - s.sleeves) * 100);
+  const hasFW = map.some(row => row.includes(FW));
+  if (hasFW && s.sleeves <= 1) add('One sleeve for everyone', 150);
+  // Core holes: none at all, or reused by later runs.
+  const drilled = runs.reduce((a, r) => a + r.path.filter(([x, y]) => isCore(map[y][x])).length, 0);
+  if (!s.cores) add('No core drilling', 150);
+  else add('Reused core holes', (drilled - s.cores) * 75);
+  // Labor: average per drop.
+  const perDrop = s.mins / drops.length;
+  if (perDrop <= 30) add('Fast crew (≤30 min/drop)', 250);
+  else if (perDrop <= 60) add('Steady crew (≤60 min/drop)', 100);
+  const total = Math.max(0, lines.reduce((a, l) => a + l[1], 0));
+  return { lines, total };
+}
+function showBreakdown(sc) {
+  const el = $('breakdown');
+  el.hidden = false;
+  el.innerHTML = sc.lines.map(([l, v]) => `<div><span>${l}</span><span class="${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString()}</span></div>`).join('')
+    + `<div class="sum"><span>Sheet score</span><span>$${sc.total.toLocaleString()}</span></div>`;
+}
+function saveBoard() {
+try { if (parent !== window) parent.postMessage({ arcade: 'pull-day', score: jobScore }, '*'); } catch (e) {}   const row = { id: jobId, score: jobScore, sheets: sheetScores.length, at: new Date().toLocaleDateString() };
+  board = board.filter(b => b.id !== jobId).concat(jobScore > 0 ? [row] : []).sort((a, b) => b.score - a.score).slice(0, 5);
+  try { localStorage.setItem('pullday:board', JSON.stringify(board)); } catch {}
+  renderBoard();
+}
+function renderBoard() {
+  $('board').innerHTML = board.length
+    ? board.map(b => `<li class="${b.id === jobId ? 'me' : ''}">$${b.score.toLocaleString()} · ${b.sheets} sheet${b.sheets === 1 ? '' : 's'} · ${b.at}</li>`).join('')
+    : '<li style="list-style:none;margin-left:-20px;color:var(--muted)">Finish a sheet to post a score.</li>';
+}
+const starsFor = cost => cost <= parCost + 1 ? 3 : cost <= parCost * 1.12 ? 2 : 1;
+
+// Cost meter: the bar fills with your cost; the tick marks the target (at 2/3 of the bar).
+function costMeter(cost, target, el) {
+  const bt = el.querySelector('.mbest'), best = analysis && analysis.best;
+  bt.style.display = best ? 'block' : 'none'; if (best) bt.style.left = Math.min(100, best / target / 1.5 * 100) + '%';
+  el.querySelector('.mbestv').textContent = best ? '$' + best.toLocaleString() : 'working it out…';
+  const ratio = target ? cost / target : 0, over = cost - target;
+  const state = cost === 0 ? 'idle' : ratio <= 1.0001 ? 'good' : ratio <= 1.12 ? 'near' : 'bad';
+  el.dataset.state = state;
+  el.querySelector('.mfill').style.width = Math.min(100, ratio / 1.5 * 100) + '%';
+  el.querySelector('.mcost').textContent = '$' + Math.round(cost).toLocaleString();
+  el.querySelector('.mtarget').textContent = '$' + Math.round(target).toLocaleString();
+  el.querySelector('.mnote').textContent = cost === 0 ? 'Nothing spent yet.'
+    : over <= 0 ? (over > -1 ? 'Right on target.' : `$${Math.round(-over).toLocaleString()} under target.`)
+    : `$${Math.round(over).toLocaleString()} over target.`;
+}
+function sync() {
+  const s = tally();
+  $('site').textContent = `Sheet T-${100 + level} · Level ${level} · Tier ${tierOf(level)}`;
+  $('feet').textContent = `${s.feet} ft`; $('sleeves').textContent = s.sleeves;
+  $('drops').textContent = `${runs.length}/${drops.length}`; costMeter(s.cost, parCost, $('meter'));
+  $('labor').textContent = hm(s.mins); $('holes').textContent = s.holes;
+  const st = done ? starsFor(s.cost) : 0;
+  $('stars').innerHTML = '<b>' + '★'.repeat(st) + '</b>' + '★'.repeat(3 - st);
+  $('score').textContent = '$' + jobScore.toLocaleString();
+  $('undo').disabled = !runs.length || done; $('next').disabled = !done;
+  const news = !done && NEWS[level]; $('news').hidden = !news; if (news) $('newsText').textContent = news.replace(/^New: (.)/, (m, c) => c.toUpperCase());
+}
+
+// ── Input: drag a path tile by tile; drag back to undo a step. ──
+function tileAt(e) {
+  const r = cv.getBoundingClientRect();
+  const x = Math.floor((e.clientX - r.left) / r.width * COLS), y = Math.floor((e.clientY - r.top) / r.height * ROWS);
+  return inb(x, y) ? [x, y] : null;
+}
+cv.addEventListener('pointerdown', e => {
+  if (done) return;
+  const p = tileAt(e); if (!p) return;
+  if (p[0] === idf.x && p[1] === idf.y) { drawing = { path: [p], color: CABLE[runs.length % CABLE.length] }; cv.setPointerCapture(e.pointerId); }
+  else {
+    // Tapping a finished drop pulls that run back out.
+    const d = dropAt(p[0], p[1]);
+    if (d && d.run) { runs = runs.filter(r => r !== d.run); d.run = null; sync(); }
+    else flash('Start at the IDF rack, in the IDF closet.');
+  }
+});
+cv.addEventListener('pointermove', e => {
+  const p = tileAt(e); hover = p;
+  if (!drawing || !p) return;
+  const path = drawing.path, last = path[path.length - 1];
+  if (p[0] === last[0] && p[1] === last[1]) return;
+  // Step back
+  if (path.length > 1 && p[0] === path[path.length - 2][0] && p[1] === path[path.length - 2][1]) { path.pop(); return; }
+  if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) !== 1) return;  // only neighbours (drag slower)
+  if (!passable(p[0], p[1])) { const ty = map[p[1]][p[0]]; flash(ty === RACK ? 'Pallet racking in the way.' : ty === HVAC ? 'Ductwork in the way.' : ty === LOCK ? 'Locked room — no access.' : 'That\'s a wall. Find a door.'); return; }
+  if (path.some(q => q[0] === p[0] && q[1] === p[1])) return;
+  if (!canStep(last[0], last[1], p[0], p[1])) { flash(pid[p[1]][p[0]] >= 0 ? 'Conduit: go in at a pull box.' : 'Stay in the conduit to the other pull box.'); return; }
+  if (map[p[1]][p[0]] === CONDUIT && conduitLoad(p[0], p[1]) >= SLEEVE_CAP) { flash('Sleeve is full — 2 cables max.'); return; }
+  { const np = pid[p[1]][p[0]]; if (np >= 0 && pid[last[1]][last[0]] !== np && pipeLoad(np) >= PIPE_CAP) { flash('Conduit is full — 3 cables max.'); return; } }
+  const d = dropAt(p[0], p[1]);
+  if (d && d.run) { flash(`${d.label} already has a run.`); return; }
+  if (path.length - 1 >= MAX_TILES) { flash('Over 328 ft — that run would fail certification.'); return; }
+  if (isHole(map[p[1]][p[0]]) && !runs.some(r => r.path.some(q => q[0] === p[0] && q[1] === p[1]))) { const hv = HOLE[map[p[1]][p[0]]]; flash(hv.tag === 'CUT' ? 'Cut through the drywall: +10 min (later runs reuse it)' : hv.tag === 'BORE' ? `Bore through the wood wall: +${hv.min} min (later runs reuse it)` : `Core drill through ${hv.name}: +${hm(hv.min)} labor (later runs reuse it)`, 1.8); }
+  if (map[p[1]][p[0]] === OCC && map[last[1]][last[0]] !== OCC) flash('Occupied office — work around people: slow going', 1.4);
+  path.push(p);
+  if (d) finish(d);
+});
+const endDraw = () => { if (drawing) { drawing = null; } };
+cv.addEventListener('pointerup', endDraw); cv.addEventListener('pointercancel', endDraw);
+cv.addEventListener('pointerleave', () => { hover = null; });
+
+function finish(d) {
+  const run = { path: drawing.path, color: drawing.color, drop: d };
+  d.run = run; runs.push(run); drawing = null;
+  if (runs.length === drops.length) {
+    done = true; const s = tally(); const st = starsFor(s.cost);
+    total += s.cost;
+    const sc = scoreSheet(s); sheetScores.push(sc.total); jobScore += sc.total; showBreakdown(sc); saveBoard();
+    flash(analysis && analysis.best && s.cost < analysis.best - 1 ? 'You beat the best plan the game found!' : s.cost < parCost - 1 ? 'Under target. Good planning!' : st === 3 ? 'Right on target. Clean pull.' : st === 2 ? 'A little long. Close.' : 'Done, but long. Look for shorter paths.', 2.4);
+    level >= bestLevel && (bestLevel = level + 1);
+    try { localStorage.setItem('pullday:best', bestLevel); } catch {}
+    renderTiers();
+  }
+  sync();
+}
+function flash(text, d = 1.4) { msg = { text, t: d }; }
+$('how').onclick = () => { $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; try { localStorage.setItem('pullday:seenHow', '1'); } catch {} };
+try { if (localStorage.getItem('pullday:seenHow')) $('howModal').hidden = true; } catch {}
+if (PORTRAIT) document.querySelector('.lb').open = false;
+$('undo').onclick = () => { const r = runs.pop(); if (r) r.drop.run = null; sync(); };
+$('redo').onclick = () => { if (done) { total -= tally().cost; jobScore -= sheetScores.pop() || 0; saveBoard(); } $('breakdown').hidden = true; runs.forEach(r => r.drop.run = null); runs = []; done = false; sync(); };
+$('next').onclick = () => { level++; $('breakdown').hidden = true; build(); renderTiers(); };
+function renderTiers() {
+  const cur = tierOf(level);
+  $('tiers').innerHTML = TIERS.map(t => { const open = bestLevel >= t.first || t.n <= cur; return `<button type="button" data-t="${t.n}" class="${t.n === cur ? 'on' : ''}" ${open ? '' : 'disabled'}>${open ? '' : '🔒 '}T${t.n}<small>${t.name}</small></button>`; }).join('');
+}
+$('tiers').addEventListener('click', e => { const b = e.target.closest('button[data-t]'); if (!b || b.disabled) return; const t = TIERS[+b.dataset.t - 1];
+  level = tierOf(level) === t.n ? level : t.n === tierOf(bestLevel) ? bestLevel : t.first; $('breakdown').hidden = true; build(); renderTiers(); });
+
+// ── Drawing: drafting-sheet floor plan ──
+function draw() {
+  g.fillStyle = '#fbfaf6'; g.fillRect(0, 0, cv.width, cv.height);
+  // Drafting grid
+  g.strokeStyle = '#e7e4dc'; g.lineWidth = 1;
+  for (let x = 0; x <= COLS; x++) { g.beginPath(); g.moveTo(x * T + .5, 0); g.lineTo(x * T + .5, cv.height); g.stroke(); }
+  for (let y = 0; y <= ROWS; y++) { g.beginPath(); g.moveTo(0, y * T + .5); g.lineTo(cv.width, y * T + .5); g.stroke(); }
+  g.strokeStyle = 'rgba(29,42,58,.035)'; for (let x = 0; x < cv.width; x += T / 4) { g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, cv.height); g.stroke(); } for (let y = 0; y < cv.height; y += T / 4) { g.beginPath(); g.moveTo(0, y + .5); g.lineTo(cv.width, y + .5); g.stroke(); }
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const v = map[y][x], X = x * T, Y = y * T;
+    const mv = matAt(x, y);
+    if (isCore(mv)) archWall(x, y);
+    if (mv === FW) {
+      g.save(); g.beginPath(); const vFW = (inb(x, y - 1) && matAt(x, y - 1) === FW) || (inb(x, y + 1) && matAt(x, y + 1) === FW) || !horizFW(x, y); if (vFW) g.rect(X + 18, Y, T - 36, T); if (horizFW(x, y)) { g.rect(X, Y + 18, T, T - 36); } g.clip();
+      for (let i = -T; i < T * 2; i += 8) { g.strokeStyle = FIRE; g.lineWidth = 3; g.beginPath(); g.moveTo(X + i, Y); g.lineTo(X + i + T, Y + T); g.stroke(); }
+      g.restore();
+    }
+    if (v === HVAC) {
+      g.fillStyle = '#dfe3e8'; g.fillRect(X + 2, Y + 2, T - 4, T - 4);
+      g.strokeStyle = '#8b96a3'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X + 2, Y + 2); g.lineTo(X + T - 2, Y + T - 2); g.moveTo(X + T - 2, Y + 2); g.lineTo(X + 2, Y + T - 2); g.stroke();
+      g.strokeRect(X + 2, Y + 2, T - 4, T - 4);
+    }
+    if (v === TRAY) {
+      // Ladder tray: two rails with rungs, joined to neighbouring tray tiles.
+      const h = (inb(x - 1, y) && map[y][x - 1] === TRAY) || (inb(x + 1, y) && map[y][x + 1] === TRAY) || !(inb(x, y - 1) && map[y - 1][x] === TRAY);
+      g.strokeStyle = '#7d8794'; g.lineWidth = 2;
+      if (h) { g.beginPath(); g.moveTo(X, Y + 18); g.lineTo(X + T, Y + 18); g.moveTo(X, Y + T - 18); g.lineTo(X + T, Y + T - 18); g.stroke(); for (let i = 6; i < T; i += 12) { g.beginPath(); g.moveTo(X + i, Y + 18); g.lineTo(X + i, Y + T - 18); g.stroke(); } }
+      else { g.beginPath(); g.moveTo(X + 18, Y); g.lineTo(X + 18, Y + T); g.moveTo(X + T - 18, Y); g.lineTo(X + T - 18, Y + T); g.stroke(); for (let i = 6; i < T; i += 12) { g.beginPath(); g.moveTo(X + 18, Y + i); g.lineTo(X + T - 18, Y + i); g.stroke(); } }
+    }
+    if (deco && deco[y][x] && v === F) { // a desk pod: two desks back to back with chairs
+      g.strokeStyle = '#9aa3ad'; g.lineWidth = 1.3; g.strokeRect(X + 8, Y + 16, T - 16, 12); g.strokeRect(X + 8, Y + 30, T - 16, 12);
+      g.fillStyle = '#c9ced4'; g.beginPath(); g.arc(X + T / 2, Y + 9, 4, 0, 7); g.arc(X + T / 2, Y + 50, 4, 0, 7); g.fill();
+    }
+    if (v === RACK) { // pallet racking: uprights and orange beams, pallets between
+      g.fillStyle = '#eef0f2'; g.fillRect(X, Y + 8, T, T - 16);
+      g.fillStyle = '#d9c7a3'; for (let i = 0; i < 2; i++) g.fillRect(X + 5 + i * 28, Y + 14, 22, T - 28);
+      g.fillStyle = '#e07b1a'; g.fillRect(X, Y + 8, T, 4); g.fillRect(X, Y + T - 12, T, 4);
+      g.fillStyle = '#2f5d8a'; g.fillRect(X, Y + 8, 3, T - 16); g.fillRect(X + T / 2 - 1, Y + 8, 3, T - 16);
+    }
+    if (v === EMI) {
+      g.fillStyle = 'rgba(255,196,0,.28)'; g.fillRect(X, Y, T, T);
+      g.strokeStyle = 'rgba(184,118,0,.55)'; g.lineWidth = 1.5;
+      for (let i = 0; i < 3; i++) { g.beginPath(); g.arc(X + T / 2, Y + T / 2, 8 + i * 9 + (reduce ? 0 : (t * 10) % 9), 0, 7); g.stroke(); }
+    }
+    if (v === OCC) {
+      g.fillStyle = 'rgba(31,111,209,.08)'; g.fillRect(X, Y, T, T);
+      if ((x + y) % 2 === 0) { // a desk and a person
+        g.strokeStyle = '#7d8794'; g.lineWidth = 1.5; g.strokeRect(X + 12, Y + 30, 36, 14);
+        g.fillStyle = '#7d8794'; g.beginPath(); g.arc(X + 30, Y + 20, 6, 0, 7); g.fill(); g.fillRect(X + 24, Y + 25, 12, 6);
+      }
+    }
+    if (v === LOCK) {
+      g.save(); g.beginPath(); g.rect(X, Y, T, T); g.clip();
+      g.strokeStyle = '#9aa3ad'; g.lineWidth = 1.5; for (let i = -T; i < T * 2; i += 9) { g.beginPath(); g.moveTo(X + i, Y + T); g.lineTo(X + i + T, Y); g.stroke(); }
+      g.restore();
+    }
+  }
+  roomLabels(); label('CABLE TRAY', TRAY);
+  // Runs (bundled runs sit side by side inside a tile)
+  const usage = new Map();
+  const all = drawing ? [...runs, drawing] : runs;
+  all.forEach(r => r.path.forEach(([x, y]) => usage.set(key(x, y), (usage.get(key(x, y)) || 0) + 1)));
+  const slot = new Map();
+  all.forEach(r => {
+    g.strokeStyle = r.color; g.lineWidth = 4; g.lineJoin = 'round'; g.lineCap = 'round';
+    g.beginPath();
+    r.path.forEach(([x, y], i) => {
+      const k = key(x, y), n = usage.get(k), s = slot.get(k) || 0; slot.set(k, s + 1);
+      const off = (s - (n - 1) / 2) * 6;
+      const px = x * T + T / 2 + off, py = y * T + T / 2 + off;
+      i ? g.lineTo(px, py) : g.moveTo(px, py);
+    });
+    g.stroke();
+  });
+  // Core holes already drilled
+  const holes = new Set(); runs.forEach(r => r.path.forEach(([x, y]) => { if (isHole(map[y][x])) holes.add(key(x, y)); }));
+  holes.forEach(k => { const x = k % COLS, y = Math.floor(k / COLS), hv = HOLE[map[y][x]], small = hv.tag !== 'CORE'; g.fillStyle = '#fbfaf6'; g.strokeStyle = '#d97a00'; g.lineWidth = 3; g.beginPath(); g.arc(x * T + T / 2, y * T + T / 2, small ? 11 : 14, 0, 7); g.fill(); g.stroke(); g.fillStyle = '#d97a00'; g.font = `700 ${small ? 9 : 10}px "JetBrains Mono", monospace`; g.textAlign = 'center'; g.fillText(hv.tag, x * T + T / 2, y * T + T / 2 + 4); });
+  // Firestops already cut
+  const cut = new Set(); runs.forEach(r => r.path.forEach(([x, y]) => { if (map[y][x] === FW) cut.add(key(x, y)); }));
+  cut.forEach(k => { const x = k % COLS, y = Math.floor(k / COLS); g.fillStyle = '#fff'; g.strokeStyle = FIRE; g.lineWidth = 2.5; g.beginPath(); g.arc(x * T + T / 2, y * T + T / 2, 12, 0, 7); g.fill(); g.stroke(); g.fillStyle = FIRE; g.font = '700 11px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.fillText('FS', x * T + T / 2, y * T + T / 2 + 4); });
+
+  drywalls();
+  doorSwings();
+  sleevesAndConduit();
+  // IDF: a rack in plan, with its patch-panel rows.
+  { const X = idf.x * T, Y = idf.y * T;
+    g.fillStyle = INK; g.fillRect(X + 6, Y + 6, T - 12, T - 12);
+    g.fillStyle = '#3d5272'; for (let i = 0; i < 4; i++) g.fillRect(X + 11, Y + 12 + i * 9, T - 22, 5);
+    g.fillStyle = '#fbfaf6'; g.font = '700 13px "Archivo Narrow", sans-serif'; g.textAlign = 'center'; g.fillText('IDF', X + T / 2, Y + T - 9); }
+  if (!runs.length && !drawing && !reduce) { g.strokeStyle = 'rgba(31,111,209,.6)'; g.lineWidth = 2; g.beginPath(); g.arc(idf.x * T + T / 2, idf.y * T + T / 2, 30 + Math.sin(t * 4) * 5, 0, 7); g.stroke(); }
+  // Drops: drafting symbol (triangle) + tag
+  drops.forEach(d => {
+    const X = d.x * T + T / 2, Y = d.y * T + T / 2;
+    // Outlet symbol with a leader to a tag bubble, like a real low-voltage plan.
+    g.fillStyle = d.run ? d.run.color : '#fbfaf6'; g.strokeStyle = INK; g.lineWidth = 2.5;
+    g.beginPath(); g.moveTo(X, Y - 14); g.lineTo(X + 14, Y + 11); g.lineTo(X - 14, Y + 11); g.closePath(); g.fill(); g.stroke();
+    const up = d.y > 0, ty = up ? Y - 30 : Y + 30;
+    g.strokeStyle = 'rgba(29,42,58,.6)'; g.lineWidth = 1; g.beginPath(); g.moveTo(X + 6, up ? Y - 12 : Y + 11); g.lineTo(X + 14, ty); g.stroke();
+    g.font = '15px "Architects Daughter", cursive'; const tw = g.measureText(d.label).width + 14;
+    const bx = X + 10 + tw > cv.width - 6 ? X - 10 - tw : X + 10;
+    g.fillStyle = '#fbfaf6'; g.strokeStyle = INK; g.lineWidth = 1.5; g.beginPath(); g.roundRect(bx, ty - 11, tw, 20, 10); g.fill(); g.stroke();
+    g.textAlign = 'left'; g.fillStyle = INK; g.fillText(d.label, bx + 7, ty + 4); g.textAlign = 'center';
+    if (d.run) { g.fillStyle = '#fbfaf6'; g.font = '700 11px "JetBrains Mono", monospace'; g.fillText(`${Math.round((d.run.path.length - 1) * FT_PER_TILE)}'`, X, Y + 8); }
+  });
+  // Live footage on the pull in progress
+  if (drawing) {
+    const n = drawing.path.length - 1, last = drawing.path[n], ft = Math.round(n * FT_PER_TILE), left = MAX_TILES - n;
+    g.font = '700 14px "JetBrains Mono", monospace'; g.textAlign = 'left';
+    const tx = Math.min(last[0] * T + T - 4, cv.width - 120), ty = Math.max(16, last[1] * T + 4);
+    g.fillStyle = 'rgba(251,250,246,.9)'; g.fillRect(tx - 4, ty - 14, 116, 20);
+    g.fillStyle = left <= 3 ? FIRE : INK; g.fillText(`${ft} ft · ${left * 16} left`, tx, ty);
+  }
+  // Title strip message
+  if (msg) {
+    msg.t -= 1 / 60; g.globalAlpha = Math.max(0, Math.min(1, msg.t * 2));
+    g.font = '22px "Architects Daughter", cursive'; const w = g.measureText(msg.text).width + 30;
+    g.fillStyle = '#fff8d6'; g.strokeStyle = INK; g.lineWidth = 1.5; g.fillRect(cv.width / 2 - w / 2, cv.height - 54, w, 38); g.strokeRect(cv.width / 2 - w / 2, cv.height - 54, w, 38);
+    g.fillStyle = INK; g.textAlign = 'center'; g.fillText(msg.text, cv.width / 2, cv.height - 28);
+    g.globalAlpha = 1; if (msg.t <= 0) msg = null;
+  }
+  // North arrow and graphic scale (each tile = 16 ft), bottom left.
+  { const top = idf.y >= ROWS / 2, right = idf.x < COLS / 2, nx = right ? cv.width - 140 : 26, ny = top ? 50 : cv.height - 70;
+    g.fillStyle = 'rgba(251,250,246,.9)'; g.fillRect(nx - 16, ny - 32, 136, 32 + (top ? 60 : 62) - 0); 
+    g.strokeStyle = INK; g.lineWidth = 1.5; g.beginPath(); g.arc(nx, ny, 13, 0, 7); g.stroke();
+    g.fillStyle = INK; g.beginPath(); g.moveTo(nx, ny - 13); g.lineTo(nx + 6, ny + 6); g.lineTo(nx, ny + 2); g.closePath(); g.fill();
+    g.font = '700 11px "Archivo Narrow", sans-serif'; g.textAlign = 'center'; g.fillText('N', nx, ny - 17);
+    const sx = right ? cv.width - 140 - 12 : 14, sy = top ? 84 : cv.height - 26;
+    for (let i = 0; i < 4; i++) { g.fillStyle = i % 2 ? '#fbfaf6' : INK; g.fillRect(sx + i * T / 2, sy, T / 2, 6); } g.strokeStyle = INK; g.lineWidth = 1; g.strokeRect(sx, sy, T * 2, 6);
+    g.fillStyle = INK; g.font = '600 10px "JetBrains Mono", monospace'; g.textAlign = 'left'; g.fillText('0', sx, sy + 17); g.fillText("32'", sx + T * 2 - 14, sy + 17); }
+  // Sheet border with corner ticks.
+  g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(1.5, 1.5, cv.width - 3, cv.height - 3);
+  g.lineWidth = 1; g.strokeRect(6.5, 6.5, cv.width - 13, cv.height - 13);
+}
+// A wall tile as a drafted wall: light hatch inside two heavy outlines, joined to its neighbors.
+function archWall(x, y) {
+  const X = x * T, Y = y * T, th = T * .5, o = (T - th) / 2, W = (a, b) => !inb(a, b) || isCore(matAt(a, b)), mat = matAt(x, y);
+  const segs = [[X + o, Y + o, th, th]];
+  if (W(x + 1, y)) segs.push([X + o, Y + o, T - o, th]); if (W(x - 1, y)) segs.push([X, Y + o, o + th, th]);
+  if (W(x, y + 1)) segs.push([X + o, Y + o, th, T - o]); if (W(x, y - 1)) segs.push([X + o, Y, th, o + th]);
+  g.save(); g.beginPath(); segs.forEach(r => g.rect(...r)); g.clip();
+  if (mat === CONC) {
+    // Poured concrete: gray with aggregate dots and small triangles (the drafting symbol).
+    g.fillStyle = '#c9ccd0'; g.fillRect(X, Y, T, T);
+    let sd = x * 131 + y * 71 + 3; const r = () => (sd = (sd * 16807) % 2147483647) / 2147483647;
+    g.fillStyle = 'rgba(29,42,58,.55)'; for (let i = 0; i < 40; i++) { g.beginPath(); g.arc(X + r() * T, Y + r() * T, .6 + r() * 1.1, 0, 7); g.fill(); }
+    g.strokeStyle = 'rgba(29,42,58,.6)'; g.lineWidth = 1; for (let i = 0; i < 8; i++) { const cx = X + r() * T, cy = Y + r() * T, z = 2.5 + r() * 2; g.beginPath(); g.moveTo(cx, cy - z); g.lineTo(cx + z, cy + z); g.lineTo(cx - z, cy + z); g.closePath(); g.stroke(); }
+  } else if (mat === WOOD) {
+    // Wood framing with blocking: warm tan with grain running along the wall.
+    g.fillStyle = '#e2bf8a'; g.fillRect(X, Y, T, T);
+    const along = W(x - 1, y) || W(x + 1, y);
+    g.strokeStyle = 'rgba(120,75,30,.45)'; g.lineWidth = 1;
+    for (let i = 2; i < T; i += 5) { g.beginPath(); if (along) { g.moveTo(X, Y + i); for (let k = 0; k <= T; k += 10) g.lineTo(X + k, Y + i + Math.sin((X + k) * .09 + i) * 1.2); } else { g.moveTo(X + i, Y); for (let k = 0; k <= T; k += 10) g.lineTo(X + i + Math.sin((Y + k) * .09 + i) * 1.2, Y + k); } g.stroke(); }
+  } else {
+  // Brick in running bond, drawn in sheet coordinates so courses line up across tiles.
+  g.fillStyle = '#d7a58a'; g.fillRect(X, Y, T, T);
+  g.strokeStyle = 'rgba(29,42,58,.7)'; g.lineWidth = 1;
+  const cH = 6, bW = 14;
+  for (let yy = Math.floor(Y / cH) * cH; yy < Y + T; yy += cH) {
+    g.beginPath(); g.moveTo(X, yy + .5); g.lineTo(X + T, yy + .5); g.stroke();
+    const off = (yy / cH) % 2 ? bW / 2 : 0;
+    for (let xx = Math.floor(X / bW) * bW - bW + off; xx < X + T; xx += bW) { g.beginPath(); g.moveTo(xx + .5, yy); g.lineTo(xx + .5, yy + cH); g.stroke(); }
+  }
+  }
+  g.restore();
+  // Outline: split the tile into a 3×3 grid (side, wall, side); draw every edge between wall and not-wall.
+  const fill = (i, j) => (i === 1 && j === 1) || (i === 2 && j === 1 && W(x + 1, y)) || (i === 0 && j === 1 && W(x - 1, y)) || (i === 1 && j === 0 && W(x, y - 1)) || (i === 1 && j === 2 && W(x, y + 1));
+  const cx0 = [X, X + o, X + o + th, X + T], cy0 = [Y, Y + o, Y + o + th, Y + T];
+  const filled = (i, j) => i < 0 ? j === 1 && W(x - 1, y) : i > 2 ? j === 1 && W(x + 1, y) : j < 0 ? i === 1 && W(x, y - 1) : j > 2 ? i === 1 && W(x, y + 1) : fill(i, j);
+  g.strokeStyle = INK; g.lineWidth = 2.5; g.lineCap = 'square'; g.beginPath();
+  for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
+    if (!fill(i, j)) continue;
+    const L = cx0[i], Rr = cx0[i + 1], Tt = cy0[j], B = cy0[j + 1];
+    if (!filled(i, j - 1)) { g.moveTo(L, Tt); g.lineTo(Rr, Tt); }
+    if (!filled(i, j + 1)) { g.moveTo(L, B); g.lineTo(Rr, B); }
+    if (!filled(i - 1, j)) { g.moveTo(L, Tt); g.lineTo(L, B); }
+    if (!filled(i + 1, j)) { g.moveTo(Rr, Tt); g.lineTo(Rr, B); }
+  }
+  g.stroke(); g.lineCap = 'butt';
+}
+// Drywall partition: a thin wall that stops at the ceiling grid. Drawn as an ink band with a light
+// core so it reads as one continuous outline, joined to any wall next to it.
+const isWallish = (a, b) => !inb(a, b) || [WALL, DRY, WOOD, CONC, FW].includes(matAt(a, b));
+function drywalls() { [0, 1].forEach(pass => { for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (matAt(x, y) === DRY) dryWall(x, y, pass); }); }
+function dryWall(x, y, pass) {
+  const X = x * T, Y = y * T, th = 12, o = (T - th) / 2;
+  const rects = [[X + o, Y + o, th, th]];
+  if (isWallish(x + 1, y)) rects.push([X + o, Y + o, T - o, th]); if (isWallish(x - 1, y)) rects.push([X, Y + o, o + th, th]);
+  if (isWallish(x, y + 1)) rects.push([X + o, Y + o, th, T - o]); if (isWallish(x, y - 1)) rects.push([X + o, Y, th, o + th]);
+  // Pass 0 lays the ink outline for every drywall tile; pass 1 fills the cores, so joins between tiles stay seamless.
+  if (pass === 0) { g.fillStyle = INK; rects.forEach(([a, b, w, h]) => g.fillRect(a - 1.5, b - 1.5, w + 3, h + 3)); return; }
+  g.fillStyle = '#f1f2ef'; rects.forEach(([a, b, w, h]) => g.fillRect(a + .5, b + .5, w - 1, h - 1));
+  // Stud ticks every 16" (a quarter tile) down the core.
+  g.save(); g.beginPath(); rects.forEach(r => g.rect(...r)); g.clip(); g.fillStyle = 'rgba(29,42,58,.22)';
+  const horiz = isWallish(x - 1, y) || isWallish(x + 1, y), vert = isWallish(x, y - 1) || isWallish(x, y + 1);
+  for (let i = 0; i < T; i += T / 4) { if (horiz && !vert) g.fillRect(X + i - .5, Y + o + 3, 1, th - 6); if (vert && !horiz) g.fillRect(X + o + 3, Y + i - .5, th - 6, 1); }
+  g.restore();
+}
+// Door swings drawn in every one-tile gap between wall runs.
+function doorSwings() {
+  g.strokeStyle = 'rgba(29,42,58,.55)'; g.lineWidth = 1.2;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if ([WALL, FW, DRY, WOOD, CONC, CONDUIT, PIPE].includes(map[y][x]) || under[y][x] != null) continue;
+    const W = (a, b) => inb(a, b) && (isCore(matAt(a, b)) || matAt(a, b) === DRY), X = x * T, Y = y * T;
+    if (W(x - 1, y) && W(x + 1, y)) { g.beginPath(); g.moveTo(X + 2, Y + T / 2); g.lineTo(X + 2, Y + T / 2 - T + 6); g.arc(X + 2, Y + T / 2, T - 6, -Math.PI / 2, 0); g.stroke(); }
+    else if (W(x, y - 1) && W(x, y + 1)) { g.beginPath(); g.moveTo(X + T / 2, Y + 2); g.lineTo(X + T / 2 + T - 6, Y + 2); g.arc(X + T / 2, Y + 2, T - 6, 0, Math.PI / 2); g.stroke(); }
+  }
+}
+function joinWalls(x, y) {
+  const X = x * T, Y = y * T;
+  if (inb(x + 1, y) && map[y][x + 1] === WALL) g.fillRect(X + T - 4, Y + 4, 8, T - 8);
+  if (inb(x, y + 1) && map[y + 1][x] === WALL) g.fillRect(X + 4, Y + T - 4, T - 8, 8);
+}
+const horizFW = (x, y) => (inb(x - 1, y) && matAt(x - 1, y) === FW) || (inb(x + 1, y) && matAt(x + 1, y) === FW);
+// Room names like a real plan: special rooms get a boxed tag in the middle, offices a small name in the corner.
+function roomLabels() {
+  zones.forEach(z => { g.font = '700 12px "Archivo Narrow", sans-serif'; g.textAlign = 'left'; g.fillStyle = 'rgba(29,42,58,.4)'; g.fillText(z.name, z.x0 * T + 6, z.y1 * T + T - 8); });
+  rooms.forEach(r => {
+    const tag = { idf: '', elec: '⚡ ELEC RM', mech: 'MECH', lock: 'LOCKED · SERVER', occ: 'OCCUPIED', fire: '1-HR RATED RM' }[r.type];
+    if (tag === '') return;
+    if (tag) {
+      g.font = '700 13px "Archivo Narrow", sans-serif'; g.textAlign = 'center';
+      const cx = (r.x0 + r.x1 + 1) / 2 * T, cy = (r.y0 + r.y1 + 1) / 2 * T, w = g.measureText(tag).width + 14;
+      g.fillStyle = 'rgba(251,250,246,.92)'; g.fillRect(cx - w / 2, cy - 11, w, 19); g.fillStyle = '#5d6876'; g.fillText(tag, cx, cy + 4);
+    } else if (r.name) { g.font = '600 11px "Archivo Narrow", sans-serif'; g.textAlign = 'left'; g.fillStyle = 'rgba(29,42,58,.45)'; g.fillText(r.name, r.x0 * T + 6, r.y0 * T + 14); }
+  });
+}
+// Sleeves (a short pipe through a block wall) and conduit runs (pipe between two pull boxes), with their fill.
+function sleevesAndConduit() {
+  const stub = (x, y, horizWall, load, cap) => {
+    const cx = x * T + T / 2, cy = y * T + T / 2, L = T * .62, Wd = 16;
+    g.fillStyle = '#c3c9cf'; g.strokeStyle = INK; g.lineWidth = 2;
+    g.beginPath(); horizWall ? g.roundRect(cx - Wd / 2, cy - L / 2, Wd, L, 4) : g.roundRect(cx - L / 2, cy - Wd / 2, L, Wd, 4); g.fill(); g.stroke();
+    g.fillStyle = INK; g.beginPath(); g.arc(cx, cy, 4, 0, 7); g.fill();
+    const full = load >= cap; g.font = '700 11px "JetBrains Mono", monospace'; g.textAlign = 'center';
+    const tx = horizWall ? cx + 22 : cx, ty = horizWall ? cy + 4 : cy - 18; const w = 30;
+    g.fillStyle = '#fbfaf6'; g.fillRect(tx - w / 2, ty - 11, w, 15); g.fillStyle = full ? FIRE : INK; g.fillText(`${load}/${cap}`, tx, ty);
+  };
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (map[y][x] === CONDUIT) stub(x, y, horizFWLike(x, y), conduitLoad(x, y), SLEEVE_CAP);
+  pipes.forEach((q, i) => {
+    const c = ([x, y]) => [x * T + T / 2, y * T + T / 2], a = c(q.boxA), b = c(q.boxB), load = pipeLoad(i), full = load >= PIPE_CAP;
+    g.lineCap = 'butt';
+    g.strokeStyle = INK; g.lineWidth = 14; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke();
+    g.strokeStyle = '#c3c9cf'; g.lineWidth = 10; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke();
+    g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.beginPath(); g.moveTo(a[0], a[1] - (a[1] === b[1] ? 2 : 0)); g.lineTo(b[0], b[1] - (a[1] === b[1] ? 2 : 0)); g.stroke();
+    // Couplings every 10 ft stick
+    g.fillStyle = INK; q.cells.forEach(([x, y]) => { const [px, py] = c([x, y]); a[1] === b[1] ? g.fillRect(px - 1.5, py - 8, 3, 16) : g.fillRect(px - 8, py - 1.5, 16, 3); });
+    [q.boxA, q.boxB].forEach(bx => { const [px, py] = c(bx); g.fillStyle = '#e9ecef'; g.strokeStyle = INK; g.lineWidth = 2; g.fillRect(px - 15, py - 15, 30, 30); g.strokeRect(px - 15, py - 15, 30, 30);
+      g.lineWidth = 1; g.beginPath(); g.moveTo(px - 15, py - 15); g.lineTo(px + 15, py + 15); g.moveTo(px + 15, py - 15); g.lineTo(px - 15, py + 15); g.stroke();
+      g.fillStyle = '#fbfaf6'; g.fillRect(px - 10, py - 7, 20, 14); g.fillStyle = INK; g.font = '700 10px "JetBrains Mono", monospace'; g.textAlign = 'center'; g.fillText('PB', px, py + 4); });
+    const mid = c(q.cells[Math.floor(q.cells.length / 2)]); { g.font = '700 12px "JetBrains Mono", monospace'; const hw = (g.measureText('CONDUIT 0/3').width + 12) / 2; mid[0] = Math.max(hw + 4, Math.min(cv.width - hw - 4, mid[0])); }
+    g.font = '700 12px "JetBrains Mono", monospace'; const tx = `CONDUIT ${load}/${PIPE_CAP}`, w = g.measureText(tx).width + 12;
+    g.fillStyle = '#fbfaf6'; g.fillRect(mid[0] - w / 2, mid[1] - 26, w, 17); g.strokeStyle = INK; g.lineWidth = 1; g.strokeRect(mid[0] - w / 2, mid[1] - 26, w, 17);
+    g.fillStyle = full ? FIRE : INK; g.fillText(tx, mid[0], mid[1] - 13);
+  });
+}
+// A wall tile runs left–right when its neighbours to the sides are walls too.
+const horizFWLike = (x, y) => isWallish(x - 1, y) || isWallish(x + 1, y);
+function label(text, type) {
+  let minx = 99, miny = 99, maxx = -1, maxy = -1;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (map[y][x] === type) { minx = Math.min(minx, x); miny = Math.min(miny, y); maxx = Math.max(maxx, x); maxy = Math.max(maxy, y); }
+  if (maxx < 0) return;
+  g.font = '700 14px "Archivo Narrow", sans-serif'; g.textAlign = 'center';
+  const cx = (minx + maxx + 1) / 2 * T, cy = (miny + maxy + 1) / 2 * T;
+  g.fillStyle = 'rgba(251,250,246,.92)'; g.fillRect(cx - 34, cy - 12, 68, 20);
+  g.fillStyle = '#6b7684'; g.fillText(text, cx, cy + 4);
+}
+
+
+// ── Plan key: small drawings that match the plan symbols; the legend and How to play both use it ──
+const SV = b => `<svg viewBox="0 0 30 20" aria-hidden="true">${b}</svg>`;
+const clipBox = (x, y, w, h, inner) => `<svg x="${x}" y="${y}" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${inner}</svg>`;
+const hatch = (col, w, h, step = 4, sw = 1.6) => { let o = ''; for (let i = -h; i < w + h; i += step) o += `<path d="M${i} ${h} L${i + h} 0" stroke="${col}" stroke-width="${sw}"/>`; return o; };
+const ICON = {
+  idf: SV(`<rect x="6" y="1" width="18" height="18" fill="#1d2a3a"/><rect x="9" y="4" width="12" height="2" fill="#3d5272"/><rect x="9" y="8" width="12" height="2" fill="#3d5272"/><rect x="9" y="12" width="12" height="2" fill="#3d5272"/>`),
+  drop: SV(`<path d="M15 2 L25 18 H5 Z" fill="#fbfaf6" stroke="#1d2a3a" stroke-width="2"/>`),
+  door: SV(`<rect x="0" y="16" width="5" height="3" fill="#1d2a3a"/><rect x="25" y="16" width="5" height="3" fill="#1d2a3a"/><path d="M5 17 V4 A13 13 0 0 1 18 17" fill="none" stroke="#1d2a3a" stroke-width="1.2"/>`),
+  open: SV(`<rect x=".5" y=".5" width="29" height="19" fill="#fbfaf6" stroke="#c9cdd2"/><path d="M15 0 V20 M0 10 H30" stroke="#e7e4dc"/>`),
+  tray: SV(`<path d="M0 5 H30 M0 15 H30" stroke="#7d8794" stroke-width="2"/>${[3, 9, 15, 21, 27].map(x => `<path d="M${x} 5 V15" stroke="#7d8794" stroke-width="2"/>`).join('')}`),
+  dry: SV(`<rect x="1" y="7" width="28" height="6" fill="#f1f2ef" stroke="#1d2a3a" stroke-width="1.5"/><path d="M8 8.5 V11.5 M15 8.5 V11.5 M22 8.5 V11.5" stroke="rgba(29,42,58,.3)"/>`),
+  wood: SV(`<rect x="1" y="4" width="28" height="12" fill="#e2bf8a" stroke="#1d2a3a" stroke-width="1.5"/><path d="M2 8 q7 -1.5 14 0 t13 0 M2 12 q7 1.5 14 0 t13 0" fill="none" stroke="rgba(120,75,30,.55)"/>`),
+  brick: SV(`<rect x="1" y="4" width="28" height="12" fill="#d7a58a" stroke="#1d2a3a" stroke-width="1.5"/><path d="M1 8 H29 M1 12 H29 M8 4 V8 M18 4 V8 M13 8 V12 M23 8 V12 M8 12 V16 M18 12 V16" stroke="rgba(29,42,58,.7)"/>`),
+  conc: SV(`<rect x="1" y="4" width="28" height="12" fill="#c9ccd0" stroke="#1d2a3a" stroke-width="1.5"/><circle cx="6" cy="8" r=".9" fill="#1d2a3a"/><circle cx="20" cy="12" r=".9" fill="#1d2a3a"/><circle cx="25" cy="7" r=".9" fill="#1d2a3a"/><path d="M11 13 l2 -4 l2 4 z M21 9.5 l1.5 -3 l1.5 3 z" fill="none" stroke="#1d2a3a" stroke-width=".8"/>`),
+  fire: SV(clipBox(0, 5, 30, 10, `<rect width="30" height="10" fill="#fff"/>${hatch('#d6402c', 30, 10, 4, 2)}`)),
+  sleeve: SV(`<rect x="1" y="6" width="28" height="8" fill="#d7a58a" stroke="#1d2a3a" stroke-width="1.2"/><rect x="11" y="1" width="8" height="18" rx="2" fill="#c3c9cf" stroke="#1d2a3a" stroke-width="1.5"/><circle cx="15" cy="10" r="1.8" fill="#1d2a3a"/>`),
+  conduit: SV(`<path d="M7 10 H23" stroke="#1d2a3a" stroke-width="6"/><path d="M7 10 H23" stroke="#c3c9cf" stroke-width="4"/><rect x="1" y="5" width="9" height="10" fill="#e9ecef" stroke="#1d2a3a" stroke-width="1.2"/><path d="M1 5 L10 15 M10 5 L1 15" stroke="#1d2a3a" stroke-width=".6"/><rect x="20" y="5" width="9" height="10" fill="#e9ecef" stroke="#1d2a3a" stroke-width="1.2"/><path d="M20 5 L29 15 M29 5 L20 15" stroke="#1d2a3a" stroke-width=".6"/>`),
+  occ: SV(`<rect width="30" height="20" fill="rgba(31,111,209,.12)"/><circle cx="15" cy="6" r="3" fill="#7d8794"/><rect x="12" y="9" width="6" height="3" fill="#7d8794"/><rect x="7" y="12" width="16" height="6" fill="none" stroke="#7d8794" stroke-width="1.2"/>`),
+  elec: SV(`<rect width="30" height="20" fill="rgba(255,196,0,.3)"/><circle cx="15" cy="10" r="3" fill="none" stroke="rgba(184,118,0,.7)"/><circle cx="15" cy="10" r="6.5" fill="none" stroke="rgba(184,118,0,.7)"/><circle cx="15" cy="10" r="9.5" fill="none" stroke="rgba(184,118,0,.55)"/>`),
+  hvac: SV(`<rect x="1" y="1" width="28" height="18" fill="#dfe3e8" stroke="#8b96a3" stroke-width="1.2"/><path d="M1 1 L29 19 M29 1 L1 19" stroke="#8b96a3" stroke-width="1.2"/>`),
+  rack: SV(`<rect x="0" y="4" width="30" height="12" fill="#eef0f2"/><rect x="3" y="6" width="10" height="8" fill="#d9c7a3"/><rect x="17" y="6" width="10" height="8" fill="#d9c7a3"/><rect x="0" y="4" width="30" height="2" fill="#e07b1a"/><rect x="0" y="14" width="30" height="2" fill="#e07b1a"/><rect x="0" y="4" width="2" height="12" fill="#2f5d8a"/><rect x="14" y="4" width="2" height="12" fill="#2f5d8a"/>`),
+  lock: SV(clipBox(0, 0, 30, 20, `<rect width="30" height="20" fill="#fbfaf6"/>${hatch('#9aa3ad', 30, 20, 5, 1.2)}`)),
+  hole: SV(`<circle cx="15" cy="10" r="8.5" fill="#fbfaf6" stroke="#d97a00" stroke-width="2"/><text x="15" y="12.5" font-size="6.5" font-weight="700" text-anchor="middle" fill="#d97a00" font-family="JetBrains Mono, monospace">CORE</text>`),
+  fs: SV(`<circle cx="15" cy="10" r="8.5" fill="#fff" stroke="#d6402c" stroke-width="2"/><text x="15" y="12.5" font-size="7" font-weight="700" text-anchor="middle" fill="#d6402c" font-family="JetBrains Mono, monospace">FS</text>`),
+};
+const KEY = [
+  ['start', 'idf', 'IDF rack', 'every run starts here', 'ok'],
+  ['start', 'drop', 'Drop (device)', 'runs end here; can’t pass through', 'ok'],
+  ['path', 'door', 'Doorway', 'free', 'ok'],
+  ['path', 'open', 'Open ceiling', 'normal', 'ok'],
+  ['path', 'tray', 'Cable tray', 'fastest, cheapest', 'ok'],
+  ['wall', 'dry', 'Drywall', 'cut +10 min', 'ok'],
+  ['wall', 'wood', 'Wood wall', 'bore +20 min', 'cost'],
+  ['wall', 'brick', 'Brick wall', 'core +1 h', 'cost'],
+  ['wall', 'conc', 'Concrete wall', 'core +2 h', 'cost'],
+  ['wall', 'fire', 'Fire-rated wall or room', 'firestop +1 h', 'cost'],
+  ['path', 'sleeve', 'Sleeve (pre-made hole)', 'free, 2 cables', 'ok'],
+  ['path', 'conduit', 'Conduit + pull boxes', 'in one box, out the other · 3 cables', 'ok'],
+  ['room', 'occ', 'Occupied office', 'slow', 'slow'],
+  ['room', 'elec', 'Electrical room', 'slow + $', 'slow'],
+  ['room', 'hvac', 'Ductwork / air handler', 'no go', 'no'],
+  ['room', 'lock', 'Locked room', 'no go', 'no'],
+  ['room', 'rack', 'Pallet racking', 'no go', 'no'],
+  ['work', 'hole', 'Hole you cut (CUT / BORE / CORE)', 'paid once, shared', 'ok'],
+  ['work', 'fs', 'Firestop you made', 'paid once, shared', 'ok'],
+];
+const GROUPS = [['start', 'Start & finish'], ['path', 'Pathways'], ['wall', 'Walls'], ['room', 'Rooms'], ['work', 'Your work']];
+$('legend').innerHTML = GROUPS.map(([g, title]) => `<div class="kgroup"><b>${title}</b><div>${KEY.filter(e => e[0] === g).map(([, k, n, note]) => `<span>${ICON[k]}${n} — ${note}</span>`).join('')}</div></div>`).join('');
+$('tiles').innerHTML = GROUPS.map(([g, title]) => `<h4>${title}</h4><div class="tgrid">${KEY.filter(e => e[0] === g).map(([, k, n, note, cls]) => `<div>${ICON[k]}<span>${n}</span><em class="${cls}">${note}</em></div>`).join('')}</div>`).join('');
+// Score bonuses: tap one to see what earns it.
+const BONUS = [
+  ['Sheet complete', 'Finish every drop on the sheet: $300, plus $100 per level.'],
+  ['Best plan', 'Spend no more than the best plan the game found for this sheet (the gold BEST mark on your cost bar): +$400.'],
+  ['Under target', 'Come in under the target cost: +$1 for every dollar under. Going over costs $0.50 per dollar over.'],
+  ['Shortest pull', 'Use the least cable possible, every drop by its most direct route: +$300. Within 10% of that: +$150.'],
+  ['Shared firestops', 'Send more runs through a firestop you already paid for: +$100 per extra run. If the whole sheet crosses the fire separation through one firestop: +$150 more.'],
+  ['No / reused cores', 'Never bore or core wood, brick or concrete: +$150 (drywall cuts don\u2019t count). If you do, every later run that reuses the hole: +$75.'],
+  ['Fast crew', 'Keep labor low: averaging 30 min or less per drop pays +$250; 60 min or less pays +$100. Tray and conduit are the fastest.'],
+];
+const bonusHTML = id => `<div class="pills">${BONUS.map(([n], i) => `<button type="button" class="pill" data-b="${i}">${n}</button>`).join('')}</div><p class="binfo" id="${id}" hidden></p>`;
+$('bonusHow').innerHTML = bonusHTML('binfoHow'); $('bonusKey').innerHTML = '<b>Score bonuses</b>' + bonusHTML('binfoKey');
+document.addEventListener('click', e => {
+  const b = e.target.closest('.pill'); if (!b) return;
+  const box = b.closest('.pills').nextElementSibling, open = b.classList.contains('on');
+  b.closest('.pills').querySelectorAll('.pill').forEach(x => x.classList.remove('on'));
+  if (open) { box.hidden = true; return; }
+  b.classList.add('on'); const [n, d] = BONUS[+b.dataset.b]; box.innerHTML = `<b>${n}:</b> ${d}`; box.hidden = false;
+});
+renderBoard();
+function loop() { t += 1 / 60; draw(); requestAnimationFrame(loop); }
+build(); renderTiers(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

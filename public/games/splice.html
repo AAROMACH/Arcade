@@ -1,0 +1,303 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Splice</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@600;800&family=Azeret+Mono:wght@400;600&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: a fusion splicer. The splicer's twin-camera screen on top, the 12-fiber tray under it, one big action key. Single dark instrument look. */
+:root {
+  color-scheme: dark;
+  --case: #1e2124;       /* splicer housing */
+  --screen: #061018;
+  --fg: #e6eef2;
+  --muted: #8a979f;
+  --core: #7fe0ff;       /* lit glass */
+  --good: #5ee08a;
+  --bad: #ff6464;
+  --key: #f2a33a;        /* splicer orange key */
+  --display: "Exo 2", "Arial Narrow", sans-serif;
+  --mono: "Azeret Mono", ui-monospace, Consolas, monospace;
+}
+html, body { height: 100%; }
+body { background: radial-gradient(ellipse at 50% 30%, #2a2f35, #111316 70%); color: var(--fg); font-family: var(--mono); padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; align-items: safe center; box-sizing: border-box; }
+.unit { position: relative; width: 100%; max-width: 760px; border-radius: 22px; padding: 16px; display: grid; gap: 10px;
+  background: repeating-radial-gradient(circle at 20% 30%, rgba(255,255,255,.018) 0 1px, transparent 1px 3px), linear-gradient(180deg, #2b2f34, #1b1e22);
+  box-shadow: 0 18px 40px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 0 2px #34393f, inset 0 0 0 6px #1a1d21; }
+/* Orange rubber bumpers on the four corners */
+.unit::before, .unit::after { content: ""; position: absolute; width: 46px; height: 46px; border: 7px solid var(--key); pointer-events: none; }
+.unit::before { top: -3px; left: -3px; border-right: 0; border-bottom: 0; border-radius: 22px 0 0 0; }
+.unit::after { bottom: -3px; right: -3px; border-left: 0; border-top: 0; border-radius: 0 0 22px 0; }
+.top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 28px; letter-spacing: .08em; line-height: 1; }
+.stats { display: flex; gap: 14px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+.stat { display: grid; } .stat span { font-size: 9px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.stat b { font-size: 16px; font-weight: 600; }
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; max-width: 100%; border-radius: 6px; background: var(--screen); touch-action: none;
+  border: 10px solid #0d0f12; outline: 2px solid #3a4047; box-shadow: 0 0 0 4px #24282d, inset 0 0 30px rgba(127,224,255,.08); box-sizing: border-box; }
+.tray { display: grid; grid-template-columns: repeat(12, 1fr); gap: 4px; }
+.tray div { height: 34px; border-radius: 4px; position: relative; display: grid; place-items: end center; font-size: 9px; padding-bottom: 2px; color: #000; font-weight: 600; }
+.tray div.cur { outline: 2px solid var(--fg); outline-offset: 2px; }
+.tray div i { position: absolute; top: 3px; left: 50%; transform: translateX(-50%); font-style: normal; font-size: 10px; background: rgba(6,16,24,.85); color: var(--fg); padding: 0 3px; border-radius: 3px; white-space: nowrap; }
+.row { display: flex; gap: 8px; align-items: stretch; }
+.key { flex: 1; font-family: var(--display); font-weight: 800; font-size: 22px; letter-spacing: .08em; color: #1b1205; background: linear-gradient(180deg, #ffb95a, var(--key) 55%, #d98a26); border: 0; border-radius: 14px; padding: 16px; cursor: pointer; box-shadow: 0 5px 0 #a8661a, 0 8px 14px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.4); touch-action: none; user-select: none; -webkit-user-select: none; }
+.key:active, .key.down { transform: translateY(3px); box-shadow: 0 2px 0 #a8661a; }
+.small { font-family: var(--display); font-weight: 600; font-size: 14px; color: var(--fg); background: #2c3034; border: 0; border-radius: 10px; padding: 0 14px; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--core); outline-offset: 2px; }
+.hint { font-size: 12px; color: var(--muted); min-height: 1.3em; }
+@media (max-width: 520px) { .tray div { height: 28px; } .tray div i { display: none; } h1 { font-size: 22px; } }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(6,8,10,.8);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--case); border: 2px solid var(--key); border-radius: 14px; padding: 18px; max-width: 480px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-size: 28px; color: var(--key); letter-spacing: .06em; }
+.card h3 { margin: 4px 0 0; font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 13px; line-height: 1.55; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+</style>
+
+<div class="unit">
+  <div class="top">
+    <h1>SPLICE</h1>
+    <div class="stats">
+      <div class="stat"><span>Score</span><b id="score">0</b></div>
+      <div class="stat"><span>Level</span><b id="tray">EASY</b></div>
+      <div class="stat"><span>Avg loss</span><b id="avg">–</b></div>
+      <div class="stat"><span>Time</span><b id="time">0:00</b></div>
+      <div class="stat"><span>Redos</span><b id="redo">0/3</b></div>
+      <div class="stat"><span>Best</span><b id="best">0</b></div>
+    </div>
+  </div>
+  <canvas id="cv" width="960" height="600" aria-label="Fusion splicer screen"></canvas>
+  <div class="hint" id="hint">Press the key to start.</div>
+  <div class="tray" id="trayEl" aria-label="12-fiber splice tray"></div>
+  <div class="row">
+    <button type="button" class="key" id="key">START</button>
+    <button type="button" class="small" id="how">How to play</button>
+  </div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>SPLICE</h2>
+    <p>Fuse all 12 fibers in the tray, in color order. Fibers 1–3 are easy, 4–6 medium, 7–9 hard, 10–12 super hard.</p>
+    <h3>Each fiber</h3>
+    <ul>
+      <li><b>Cleave:</b> the green window lands somewhere new on the dial every fiber, and it shrinks while you wait. Hit the bright center for a perfect cleave (+75).</li>
+      <li><b>Align X, then Y:</b> the right core jitters, surges and stalls. Press when it lines up with the left one. On super hard, both cores move.</li>
+      <li><b>Arc:</b> hold to fire. The fill rises at an uneven rate and the green band drifts. Let go when the fill's edge is inside the band.</li>
+    </ul>
+    <h3>Scoring</h3>
+    <ul>
+      <li>The splicer estimates the loss. ≤0.05 dB is great, ≤0.15 dB passes. Over that, you cut it out and do it again.</li>
+      <li>From hard on, the dial and the arc bar wander around while you aim.</li>
+      <li>3 redos and the shift's over. Finish all 12 for a bonus, plus 250 for every redo you didn't use.</li>
+      <li>Keys: Space or Enter works too.</li>
+    </ul>
+    <button type="button" class="key" id="howClose" style="flex:none">Power on</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const cv = $('cv'), g = cv.getContext('2d'), W = cv.width, H = cv.height;
+const FIBERS = [['Blue', '#2f6fe0'], ['Orange', '#f07a1a'], ['Green', '#2f9a46'], ['Brown', '#7a4a24'], ['Slate', '#7d8790'], ['White', '#f2f2ee'], ['Red', '#d8322a'], ['Black', '#151515'], ['Yellow', '#f2d22e'], ['Violet', '#8a4fd1'], ['Rose', '#f29bb6'], ['Aqua', '#3ad1d1']];
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let best = 0; try { best = +localStorage.getItem('splice:best') || 0; } catch {}
+let runT = 0;   // seconds on the clock this run
+let state = "idle", stage, fiber, tray = 1, score = 0, redos = 0, losses = [], ph = 0, res = {}, arc = 0, holding = false, msg = null, combo = 0;
+// stage: cleave → alignX → alignY → arc → result
+// Every moving target runs on its own motion: three sines at random speeds, plus random
+// speed surges and stalls and the odd jump, so there's no rhythm to learn.
+function mkMotion(base, d = diff()) {
+  const parts = [1, .55, .3].map((a, i) => ({ a: a * (.7 + Math.random() * .6), w: base * (.8 + Math.random() * 1.4) * (1 + i * .9), p: Math.random() * 7 }));
+  const sum = parts.reduce((s, x) => s + x.a, 0);
+  return { t: 0, warp: 1, warpT: 0,
+    val() { return parts.reduce((s, x) => s + x.a * Math.sin(this.t * x.w + x.p), 0) / sum; },
+    step(dt) { this.warpT -= dt; if (this.warpT <= 0) { const sw = .15 + .85 * d; this.warp = 1 - .6 * sw + Math.random() * 1.6 * sw; this.warpT = .2 + Math.random() * .8; if (Math.random() < .22 * d) this.t += .5 + Math.random() * 2; } this.t += dt * this.warp; } };
+}
+let mo, mo2 = null, zone, bandMo, rateMo, gaugeMo = null;   // mo2: the left core (super hard); gaugeMo: wandering gauges
+function newShift() { tray = 1; score = 0; redos = 0; losses = []; combo = 0; runT = 0; newTray(); }
+function newTray() { fiber = 0; renderTray(); startFiber(); }
+const TIERS = [
+  // chaos: how much the motion surges/stalls/jumps (0 = smooth). drift: how far the gauges wander on screen.
+  { name: 'EASY',       col: '#5ee08a', needle: .7,  zoneW: .36, shrink: .02, zoneMin: .14, zoneSpread: .3,  align: 1.1, chaos: .1,  bandW: .26, bandAmp: .05, bandSpd: .25, fillVar: .05, drift: 0,   twin: false },
+  { name: 'MEDIUM',     col: '#f2d22e', needle: 1.25, zoneW: .28, shrink: .05, zoneMin: .08, zoneSpread: .55, align: 2.0, chaos: .45, bandW: .17, bandAmp: .18, bandSpd: .6,  fillVar: .15, drift: 0,   twin: false },
+  { name: 'HARD',       col: '#f2a33a', needle: 1.9, zoneW: .22, shrink: .08, zoneMin: .05, zoneSpread: .75, align: 2.9, chaos: .8,  bandW: .12, bandAmp: .27, bandSpd: 1.0, fillVar: .28, drift: 50,  twin: false },
+  { name: 'SUPER HARD', col: '#ff6464', needle: 2.5, zoneW: .17, shrink: .1,  zoneMin: .035, zoneSpread: .8, align: 3.3, chaos: 1,   bandW: .085, bandAmp: .32, bandSpd: 1.4, fillVar: .38, drift: 140, twin: true },
+];
+const tierOf = () => TIERS[Math.min(3, Math.floor(fiber / 3))];
+const diff = () => tierOf().chaos;
+const speedK = () => 1;
+function startFiber() {
+  stage = 'cleave'; res = {}; arc = 0; holding = false; state = 'play';
+  const T = tierOf();
+  mo = mkMotion(T.needle); mo2 = null;
+  gaugeMo = T.drift ? [mkMotion(.5), mkMotion(.7)] : null;
+  // The cleave window lands somewhere new on the dial every fiber, and shrinks the longer you wait.
+  zone = { c: (Math.random() * 2 - 1) * T.zoneSpread, w: T.zoneW, w0: T.zoneW, shrink: T.shrink, min: T.zoneMin, t: 0 };
+  hint(); renderTray();
+}
+function hint() {
+  $('hint').textContent = { cleave: 'CLEAVE: press when the needle is in the green window. The bright center is a perfect cleave. The window shrinks while you wait.', alignX: tierOf().twin ? 'ALIGN X: both cores are moving. Press when they line up (top view).' : 'ALIGN X: press when the right core lines up with the left (top view).', alignY: tierOf().twin ? 'ALIGN Y: both cores moving, side view.' : 'ALIGN Y: same thing, side view.', arc: 'ARC: hold the key. Let go when the orange fill is inside the moving green band.', result: '' }[stage] || '';
+  $('key').textContent = stage === 'arc' ? 'HOLD TO ARC' : stage === 'result' ? 'NEXT' : state === 'over' ? 'NEW SHIFT' : 'SET';
+}
+// Misalignment = right core minus left core. In super hard the left core moves too.
+const offset = () => mo.val() * 6 - (mo2 ? mo2.val() * 4.5 : 0);   // microns
+const leftOff = () => mo2 ? mo2.val() * 4.5 : 0;
+const bandW = () => tierOf().bandW;
+const bandC = () => .55 + bandMo.val() * tierOf().bandAmp;  // band centre wanders more each tier
+function press() {
+  if (state === 'idle' || state === 'over' || state === 'won') { newShift(); return; }
+  if (stage === 'cleave') {
+    const d = Math.abs(mo.val() - zone.c), core = zone.w * .28;
+    res.core = d <= core;
+    res.angle = res.core ? .05 : d <= zone.w ? .15 + (d / zone.w) * .45 : .6 + (d - zone.w) * 7;
+    stage = 'alignX'; mo = mkMotion(tierOf().align); mo2 = tierOf().twin ? mkMotion(tierOf().align * .8) : null;
+  }
+  else if (stage === 'alignX') { res.x = offset(); stage = 'alignY'; mo = mkMotion(tierOf().align); mo2 = tierOf().twin ? mkMotion(tierOf().align * .8) : null; }
+  else if (stage === 'alignY') { res.y = offset(); stage = 'arc'; arc = 0; mo2 = null; bandMo = mkMotion(tierOf().bandSpd); rateMo = mkMotion(1.3); }
+  else if (stage === 'arc') { holding = true; }
+  else if (stage === 'result') { next(); return; }
+  hint();
+}
+function release() {
+  if (stage !== 'arc' || !holding) return;
+  holding = false;
+  const c = bandC(), h = bandW() / 2;
+  res.arc = Math.max(0, Math.abs(arc - c) - h); res.over = arc > c + h;
+  finish();
+}
+function finish() {
+  const loss = 0.012 + res.angle * 0.03 + (Math.abs(res.x) + Math.abs(res.y)) * 0.018 + res.arc * 1.4;
+  res.loss = Math.round(loss * 1000) / 1000;
+  res.grade = loss <= .05 ? 'GREAT' : loss <= .15 ? 'PASS' : 'FAIL';
+  if (res.grade === 'FAIL') { redos++; combo = 0; msg = res.arc && res.over ? 'Over-fused: bubble in the joint.' : res.arc ? 'Under-fused: weak joint.' : res.angle > 1 ? 'Bad cleave angle.' : 'Cores misaligned.'; }
+  else { combo++; losses.push(res.loss); const pts = Math.round(((res.grade === 'GREAT' ? 200 : 100) + (res.core ? 75 : 0)) * (1 + Math.min(4, combo - 1) * .25) * (1 + Math.floor(fiber / 3) * .5)); score += pts; msg = `+$${pts}${res.core ? ' · perfect cleave' : ''}${combo > 1 ? ` · ${combo} in a row` : ''}`; }
+  stage = 'result'; hint(); sync();
+  if (redos >= 3) { state = 'over'; try { if (parent !== window) parent.postMessage({ arcade: 'splice', score: score }, '*'); } catch (e) {} if (score > best) { best = score; try { localStorage.setItem('splice:best', best); } catch {} } $('hint').textContent = 'Three redos. Shift over.'; $('key').textContent = 'NEW SHIFT'; sync(); }
+}
+function next() {
+  if (res.grade === 'FAIL') { startFiber(); return; }
+  fiber++;
+  if (fiber >= 12) {
+    // Tray complete: game over, with a bonus for each redo you didn't use.
+    fiber = 11; score += 1000 + (3 - redos) * 250; state = 'won';
+    try { if (parent !== window) parent.postMessage({ arcade: 'splice', score: score, time: Math.round(runT) }, '*'); } catch (e) {}
+    let bt = 0; try { bt = +localStorage.getItem('splice:bestTime') || 0; if (!bt || runT < bt) localStorage.setItem('splice:bestTime', Math.round(runT)); } catch {}
+    if (score > best) { best = score; try { localStorage.setItem('splice:best', best); } catch {} }
+    $('hint').textContent = `Tray complete in ${clk(runT)}. All 12 fibers spliced.`; $('key').textContent = 'NEW TRAY'; renderTray(); sync(); return;
+  }
+  if (fiber % 3 === 0) msg = null;
+  startFiber();
+}
+const clk = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+function sync() {
+  if ($('time')) $('time').textContent = clk(runT);
+  $('score').textContent = '$' + score.toLocaleString(); $('tray').textContent = state === 'idle' ? 'EASY' : tierOf().name; $('tray').style.color = state === 'idle' ? '' : tierOf().col; $('redo').textContent = `${redos || 0}/3`;
+  $('avg').textContent = losses && losses.length ? (losses.reduce((a, b) => a + b, 0) / losses.length).toFixed(3) + ' dB' : '–';
+  $('best').textContent = '$' + Math.max(best, score || 0).toLocaleString();
+}
+function renderTray() {
+  $('trayEl').innerHTML = FIBERS.map(([n, c], i) => `<div class="${i === fiber && state !== 'idle' ? 'cur' : ''}" style="background:${c};opacity:${i < fiber ? .35 : 1}"><i>${n}</i>${i < fiber ? '✓' : ''}</div>`).join('');
+  sync();
+}
+const key = $('key');
+key.addEventListener('pointerdown', e => { e.preventDefault(); key.classList.add('down'); if (!$('howModal').hidden) return; press(); });
+addEventListener('pointerup', () => { key.classList.remove('down'); release(); });
+addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'Enter') && !e.repeat && $('howModal').hidden) { e.preventDefault(); press(); } });
+addEventListener('keyup', e => { if (e.code === 'Space' || e.code === 'Enter') release(); });
+$('how').onclick = () => { $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; };
+
+// ── Drawing: two camera views (X top, Y bottom) and a status strip ──
+function fiberView(y0, h, label, off, gap, endAngle, fused, col, offL = 0) {
+  const cy = y0 + h / 2, scale = 9;   // px per micron
+  g.fillStyle = '#0a1a26'; g.fillRect(20, y0, W - 40, h);
+  g.fillStyle = '#8a979f'; g.font = '600 14px "Azeret Mono", monospace'; g.textAlign = 'left'; g.fillText(label, 32, y0 + 22);
+  const r = 55, left = W / 2 - gap / 2, right = W / 2 + gap / 2;
+  const fib = (x0, x1, dy, tilt) => {
+    g.fillStyle = 'rgba(160,190,205,.35)'; g.beginPath(); g.moveTo(x0, cy + dy - r); g.lineTo(x1 + tilt, cy + dy - r); g.lineTo(x1 - tilt, cy + dy + r); g.lineTo(x0, cy + dy + r); g.closePath(); g.fill();
+    g.fillStyle = '#7fe0ff'; g.fillRect(Math.min(x0, x1), cy + dy - 5, Math.abs(x1 - x0), 10);
+  };
+  if (fused) {
+    g.fillStyle = 'rgba(160,190,205,.35)'; g.fillRect(40, cy - r, W - 80, r * 2);
+    g.fillStyle = '#7fe0ff'; g.fillRect(40, cy - 5, W / 2 - 40, 10); g.fillRect(W / 2, cy - 5 + off * scale, W / 2 - 40, 10);
+    g.fillStyle = col; g.fillRect(W / 2 - 3, cy - r, 6, r * 2);
+  } else {
+    fib(40, left, offL * scale, endAngle * 6);
+    fib(W - 40, right, off * scale, -endAngle * 6);
+  }
+  g.strokeStyle = 'rgba(127,224,255,.25)'; g.setLineDash([4, 6]); g.beginPath(); g.moveTo(40, cy); g.lineTo(W - 40, cy); g.stroke(); g.setLineDash([]);
+}
+function draw(dt) {
+  g.fillStyle = '#061018'; g.fillRect(0, 0, W, H);
+  if (state === 'idle') {
+    g.fillStyle = '#f2a33a'; g.font = '800 64px "Exo 2", sans-serif'; g.textAlign = 'center'; g.fillText('SPLICE', W / 2, 250);
+    g.fillStyle = '#e6eef2'; g.font = '400 18px "Azeret Mono", monospace'; g.fillText('12 fibers: 3 easy, 3 medium, 3 hard, 3 super hard.', W / 2, 300);
+    g.fillText(`Best $${best.toLocaleString()}`, W / 2, 334); return;
+  }
+  const k = speedK();
+  const live = state === 'play' && $('howModal').hidden && !document.hidden;
+  if (live) { const b4 = Math.floor(runT); runT += dt; if (Math.floor(runT) !== b4) $('time').textContent = clk(runT); }
+  if (live && (stage === 'cleave' || stage === 'alignX' || stage === 'alignY')) { mo.step(dt); if (mo2) mo2.step(dt); }
+  if (live && gaugeMo) gaugeMo.forEach(m => m.step(dt));
+  if (live && stage === 'cleave') { zone.t += dt; zone.w = Math.max(zone.min, zone.w0 - zone.t * zone.shrink * k); }
+  if (live && stage === 'arc') { bandMo.step(dt); if (holding) { rateMo.step(dt); const T = tierOf(); arc += dt * (.42 - T.fillVar * .4 + (rateMo.val() + 1) * T.fillVar) * k; if (arc >= 1) { arc = 1; release(); } } }
+  const fusedNow = stage === 'result' && res.grade !== 'FAIL';
+  const col = FIBERS[fiber][1];
+  // What each view shows: the right core's offset, and (super hard) the left core moving too.
+  const rx = stage === 'alignX' ? mo.val() * 6 : res.x ?? 3, ry = stage === 'alignY' ? mo.val() * 6 : res.y ?? -3;
+  const lx = stage === 'alignX' ? leftOff() : 0, ly = stage === 'alignY' ? leftOff() : 0;
+  const gap = stage === 'cleave' ? 140 : stage === 'arc' ? (holding ? Math.max(0, 30 - arc * 60) : 30) : stage === 'result' ? 0 : 60;
+  const ang = stage === 'cleave' ? 0 : res.angle || 0;
+  fiberView(14, 230, 'X VIEW', fusedNow ? res.x : rx, gap, ang, fusedNow, col, fusedNow ? 0 : lx);
+  fiberView(256, 230, 'Y VIEW', fusedNow ? res.y : ry, gap, ang, fusedNow, col, fusedNow ? 0 : ly);
+  // Arc glow
+  if (stage === 'arc' && holding && !reduce) { const r = g.createRadialGradient(W / 2, 250, 0, W / 2, 250, 160); r.addColorStop(0, `rgba(200,230,255,${.3 + arc * .6})`); r.addColorStop(1, 'rgba(200,230,255,0)'); g.fillStyle = r; g.fillRect(0, 0, W, 500); }
+  // Status strip
+  const y = 500;
+  g.fillStyle = '#0a1a26'; g.fillRect(20, y, W - 40, 86);
+  g.fillStyle = '#e6eef2'; g.font = '600 16px "Azeret Mono", monospace'; g.textAlign = 'left';
+  g.fillText(`FIBER ${fiber + 1}/12 · ${FIBERS[fiber][0].toUpperCase()}`, 36, y + 26);
+  g.fillStyle = tierOf().col; g.font = '800 14px "Exo 2", sans-serif'; g.fillText(tierOf().name, 120, y + 46); g.font = '600 16px "Azeret Mono", monospace';
+  // Hard and super hard: the gauges wander around while you try to read them.
+  const T = tierOf(), gdx = gaugeMo ? gaugeMo[0].val() * T.drift : 0, gdy = gaugeMo ? gaugeMo[1].val() * Math.min(18, T.drift * .2) : 0;
+  g.fillStyle = col; g.fillRect(36, y + 36, 60, 10);
+  if (stage === 'cleave') {
+    // Dial spans -1..1 across 140°; the green window and its bright core sit wherever this fiber put them.
+    const cx = W - 230 - Math.abs(gdx) * .9, cy = y + 80 + gdy, R = 66, A = v => Math.PI * 1.5 + v * Math.PI * .39;
+    g.lineWidth = 10; g.strokeStyle = '#1a2a36'; g.beginPath(); g.arc(cx, cy, R, A(-1), A(1)); g.stroke();
+    g.strokeStyle = 'rgba(94,224,138,.55)'; g.beginPath(); g.arc(cx, cy, R, A(zone.c - zone.w), A(zone.c + zone.w)); g.stroke();
+    g.strokeStyle = '#d9ffe6'; g.beginPath(); g.arc(cx, cy, R, A(zone.c - zone.w * .28), A(zone.c + zone.w * .28)); g.stroke();
+    const na = A(mo.val());
+    g.strokeStyle = '#f2a33a'; g.lineWidth = 3; g.beginPath(); g.moveTo(cx, cy); g.lineTo(cx + Math.cos(na) * (R + 8), cy + Math.sin(na) * (R + 8)); g.stroke();
+    g.fillStyle = '#f2a33a'; g.beginPath(); g.arc(cx, cy, 5, 0, 7); g.fill();
+  } else if (stage === 'alignX' || stage === 'alignY') {
+    g.fillStyle = '#e6eef2'; g.textAlign = 'right'; g.fillText(`${stage === 'alignX' ? 'X' : 'Y'} offset ${offset().toFixed(2)} µm`, W - 36, y + 26);
+    g.fillText(`cleave ${res.angle.toFixed(2)}°`, W - 36, y + 54);
+  } else if (stage === 'arc') {
+    const c = bandC(), hw = bandW() / 2, a = c - hw, b = c + hw, bw = W - 400 - T.drift * .6, bx = 360 + T.drift * .3 + gdx * .3;
+    g.fillStyle = '#1a2a36'; g.fillRect(bx, y + 30, bw, 26);
+    g.fillStyle = 'rgba(94,224,138,.5)'; g.fillRect(bx + a * bw, y + 30, (b - a) * bw, 26);
+    g.fillStyle = '#f2a33a'; g.fillRect(bx, y + 30, arc * bw, 26);
+    g.strokeStyle = '#5ee08a'; g.lineWidth = 2; g.strokeRect(bx + a * bw, y + 27, (b - a) * bw, 32);
+    g.fillStyle = '#e6eef2'; g.textAlign = 'left'; g.fillText('ARC', bx, y + 22);
+  } else if (stage === 'result') {
+    g.textAlign = 'right'; g.font = '800 34px "Exo 2", sans-serif';
+    g.fillStyle = res.grade === 'FAIL' ? '#ff6464' : res.grade === 'GREAT' ? '#5ee08a' : '#e6eef2';
+    g.fillText(`${res.grade} · ${res.loss.toFixed(3)} dB`, W - 36, y + 42);
+    g.font = '600 15px "Azeret Mono", monospace'; g.fillStyle = '#e6eef2'; g.fillText(msg || '', W - 36, y + 70);
+  }
+  if (state === 'won') { g.fillStyle = 'rgba(6,16,24,.85)'; g.fillRect(0, 0, W, H); g.textAlign = 'center'; g.fillStyle = '#5ee08a'; g.font = '800 56px "Exo 2", sans-serif'; g.fillText('TRAY COMPLETE', W / 2, 250); g.fillStyle = '#e6eef2'; g.font = '400 20px "Azeret Mono", monospace'; g.fillText(`Score $${score.toLocaleString()}${score >= best && score ? ' · new best!' : ` · best $${best.toLocaleString()}`}`, W / 2, 300); g.fillText(`Time ${clk(runT)}`, W / 2, 334); }
+  if (state === 'over') { g.fillStyle = 'rgba(6,16,24,.85)'; g.fillRect(0, 0, W, H); g.textAlign = 'center'; g.fillStyle = '#ff6464'; g.font = '800 56px "Exo 2", sans-serif'; g.fillText('SHIFT OVER', W / 2, 250); g.fillStyle = '#e6eef2'; g.font = '400 20px "Azeret Mono", monospace'; g.fillText(`Score $${score.toLocaleString()}${score >= best && score ? ' · new best!' : ` · best $${best.toLocaleString()}`}`, W / 2, 300); }
+}
+let last = performance.now();
+function loop(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; draw(dt); requestAnimationFrame(loop); }
+fiber = 0; renderTray(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

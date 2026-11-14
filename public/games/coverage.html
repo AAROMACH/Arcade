@@ -1,0 +1,726 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Coverage</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Architects+Daughter&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: an NVR monitor. Site plan in the "live view" pane, a status column beside it (under it on phones). Single dark monitor look. */
+:root {
+  color-scheme: dark;
+  --bg: #0b1014;
+  --screen: #0f171d;
+  --frame: #222c33;
+  --fg: #d9e4ea;
+  --muted: #7d8f9b;
+  --cover: #39d98a;     /* covered */
+  --need: #ff5c5c;      /* uncovered zone */
+  --cone: #6fc3ff;
+  --gold: #ffc34d; --gold-k: #c99a3a; --m-track: #22303a; --m-tick: #d9e4ea; --mono-num: var(--mono);
+  --display: "Rajdhani", "Arial Narrow", sans-serif;
+  --mono: "Share Tech Mono", ui-monospace, Consolas, monospace;
+}
+html, body { min-height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--mono); padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; align-items: safe center; box-sizing: border-box; }
+.mon { width: 100%; max-width: 1180px; display: flex; gap: 14px; background: linear-gradient(#26313a, #1c252c); border: 1px solid #33434e; border-radius: 14px; padding: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+.view { flex: 1 1 auto; min-width: 0; position: relative; }
+canvas { display: block; width: 100%; height: auto; max-width: 100%; border-radius: 6px; background: var(--screen); touch-action: manipulation; cursor: crosshair; }
+.rec { position: absolute; bottom: 10px; right: 12px; font-size: 12px; color: var(--need); letter-spacing: .1em; pointer-events: none; }
+.side { width: 290px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 32px; letter-spacing: .06em; line-height: 1; }
+.sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+.box { background: var(--screen); border-radius: 8px; padding: 10px; display: grid; gap: 8px; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+/* Money: cost (green/amber/red against the target) vs. score (always gold). */
+.meter { display: grid; gap: 6px; }
+.meter .mrow { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.meter .mcost { font-family: var(--mono); font-weight: 700; font-size: 24px; font-variant-numeric: tabular-nums; color: var(--m-col); }
+.meter .mtgt { font-size: 12px; color: var(--muted); text-align: right; }
+.meter .mtgt b { font-family: var(--mono); color: inherit; }
+.meter .mbar { position: relative; height: 10px; border-radius: 5px; background: var(--m-track); overflow: visible; }
+.meter .mfill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 5px; background: var(--m-col); transition: width .25s; }
+.meter .mtick { position: absolute; left: 66.67%; top: -4px; bottom: -4px; width: 2px; background: var(--m-tick); }
+.meter .mtick::after { content: "TARGET"; position: absolute; top: -13px; left: 50%; transform: translateX(-50%); font-size: 8px; letter-spacing: .1em; color: var(--muted); }
+.meter .mnote { font-size: 12px; font-weight: 700; color: var(--m-col); }
+.meter[data-state="idle"] { --m-col: var(--muted); }
+.meter[data-state="good"] { --m-col: #39d98a; }
+.meter[data-state="near"] { --m-col: #ffc34d; }
+.meter[data-state="bad"]  { --m-col: #ff5c5c; }
+.earned .v { color: var(--gold); }
+.earned .k { color: var(--gold-k); }
+
+.k { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.v { font-size: 19px; font-variant-numeric: tabular-nums; }
+.tools { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.tools button { display: grid; grid-template-columns: 26px 1fr; grid-template-rows: auto auto; column-gap: 8px; align-items: center; text-align: left; padding: 8px 10px; }
+.tools button .ic { grid-row: span 2; width: 24px; height: 24px; border-radius: 50%; background: #e8eef2; position: relative; display: grid; place-items: center; font-size: 13px; color: #16212a; }
+.tools button .ic.dome::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #16212a; }
+.tools button .ic.bullet { border-radius: 5px; height: 14px; width: 26px; }
+.tools button .ic.bullet::after { content: ""; position: absolute; right: 2px; width: 5px; height: 8px; border-radius: 2px; background: #16212a; }
+.tools button .ic.fish::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #16212a; box-shadow: 0 0 0 4px #c9d6df; }
+.tools button .ic.rm { background: #3a2226; color: var(--need); }
+.tools button small { grid-column: 2; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; color: var(--muted); align-items: center; }
+.legend span { display: inline-flex; align-items: center; gap: 5px; }
+.legend i { width: 16px; height: 12px; border-radius: 2px; display: inline-block; }
+.lg-wall { background: #5d6b77; box-shadow: inset 0 2px 0 #7d8c98; }
+.lg-shelf { background: linear-gradient(90deg, #f0ad4e 0 25%, #5bc0de 25% 50%, #5cb85c 50% 75%, #d9534f 75%); box-shadow: 0 0 0 2px #5b6670; }
+button { font-family: var(--display); font-weight: 700; font-size: 15px; letter-spacing: .05em; color: var(--fg); background: #1a252d; border: 1px solid #33434e; border-radius: 6px; padding: 8px 6px; cursor: pointer; touch-action: manipulation; }
+button.on { border-color: var(--cone); box-shadow: inset 0 0 0 1px var(--cone); color: var(--cone); }
+button.go { background: var(--cover); color: #062014; border-color: var(--cover); }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible { outline: 2px solid var(--cone); outline-offset: 2px; }
+button small { display: block; font-family: var(--mono); font-weight: 400; font-size: 10px; color: var(--muted); letter-spacing: 0; }
+.note { font-size: 12px; line-height: 1.45; color: var(--muted); }
+.stars { font-size: 22px; color: #33434e; letter-spacing: 2px; } .stars b { color: #ffc34d; font-weight: 400; }
+.row { display: flex; gap: 6px; flex-wrap: wrap; } .row button { flex: 1; }
+@media (max-width: 820px) { .mon { flex-direction: column; } .side { width: 100%; } .v { font-size: 15px; } h1 { font-size: 24px; } }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(5,8,10,.8);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--screen); border: 1px solid #33434e; border-radius: 12px; padding: 18px; max-width: 480px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-size: 30px; color: var(--cover); }
+.card h3 { margin: 4px 0 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 13px; line-height: 1.55; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+/* ── Drawing-sheet skin (matches Pull Day): paper, ink linework, a title-block column ── */
+:root { color-scheme: light; --bg: #f3f1ea; --screen: #fbfaf6; --frame: #1d2a3a; --fg: #1d2a3a; --muted: #6b7684;
+  --cover: #1f8a4c; --need: #c0392b; --cone: #1f6fd1; --gold: #a87400; --gold-k: #a87400; --m-track: #e3e0d6; --m-tick: #1d2a3a;
+  --display: "Archivo Narrow", "Arial Narrow", sans-serif; --mono: "JetBrains Mono", ui-monospace, Consolas, monospace; --hand: "Architects Daughter", cursive; }
+body { font-family: var(--display); }
+.mon { background: var(--screen); border: 2px solid var(--fg); border-radius: 0; padding: 0; gap: 0; box-shadow: 0 6px 20px rgba(29,42,58,.12); }
+.view { padding: 10px; border-right: 2px solid var(--fg); }
+canvas { background: var(--screen); border-radius: 0; }
+.rec { color: var(--muted); font-family: var(--hand); letter-spacing: 0; bottom: 16px; right: 20px; font-size: 14px; }
+.side { padding: 0; gap: 0; }
+.side > * { padding: 10px 12px; border-bottom: 1px solid var(--fg); }
+.side > *:last-child { border-bottom: 0; }
+.box { background: transparent; border-radius: 0; }
+h1 { font-family: var(--display); letter-spacing: .02em; font-size: 26px; }
+.sub { font-family: var(--hand); font-size: 15px; }
+.k { font-weight: 700; }
+.v { font-family: var(--mono); font-weight: 700; }
+button { font-family: var(--display); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: 13px; color: var(--fg); background: transparent; border: 2px solid var(--fg); border-radius: 0; }
+button.on { border-color: var(--cone); box-shadow: inset 0 0 0 1px var(--cone); color: var(--cone); background: #eef4fc; }
+button.go { background: var(--fg); color: var(--screen); border-color: var(--fg); }
+button small { text-transform: none; color: var(--muted); font-family: var(--mono); }
+.tools button .ic { background: #fff; box-shadow: inset 0 0 0 2px var(--fg); }
+.tools button .ic.dome::after, .tools button .ic.fish::after, .tools button .ic.bullet::after { background: var(--fg); }
+.tools button .ic.fish::after { box-shadow: 0 0 0 4px #d5dbe0; }
+.lg-wall { background: repeating-linear-gradient(45deg, #1d2a3a 0 1px, #e9e6dd 1px 4px); box-shadow: inset 0 0 0 1.5px #1d2a3a; }
+.lg-shelf { background: #e9e6dd; box-shadow: inset 0 0 0 1.5px #1d2a3a; }
+.stars { color: #d6d2c6; } .stars b { color: #c99400; }
+.meter[data-state="good"] { --m-col: #1f8a4c; } .meter[data-state="near"] { --m-col: #b07800; } .meter[data-state="bad"] { --m-col: #c0392b; }
+.modal { background: rgba(29,42,58,.45); }
+.card { background: var(--screen); border: 2px solid var(--fg); border-radius: 0; box-shadow: 0 10px 30px rgba(29,42,58,.25); }
+.card h2 { color: var(--fg); font-family: var(--display); }
+.meter .mbest { position: absolute; top: -4px; bottom: -4px; width: 2px; background: #b8860b; display: none; }
+.meter .mbest::after { content: "BEST"; position: absolute; bottom: -13px; left: 50%; transform: translateX(-50%); font-size: 8px; letter-spacing: .1em; color: #b8860b; }
+.meter .mbestline { font-size: 12px; color: var(--muted); margin-top: 8px; } .meter .mbestline b { color: #8a6500; font-family: var(--mono); }
+.sheetinfo { display: grid; gap: 3px; } .srow { display: grid; grid-template-columns: 16px 1fr; gap: 4px; font-size: 13px; } .srow i { font-style: normal; font-weight: 800; color: var(--cover); text-align: center; }
+.breakdown { margin-top: 8px; display: grid; gap: 2px; font-family: var(--mono); font-size: 12px; }
+.breakdown > div { display: flex; justify-content: space-between; gap: 8px; } .breakdown .k { display: block; margin-bottom: 2px; }
+.breakdown .pos { color: var(--cover); } .breakdown .neg { color: var(--need); } .breakdown .sum { border-top: 1px solid var(--fg); padding-top: 3px; font-weight: 700; }
+/* The key under the plan, grouped like Pull Day's */
+.under { margin: 10px -10px -10px; border-top: 2px solid var(--fg); padding: 10px 12px; display: grid; gap: 6px; font-size: 12px; }
+.kgroup { display: grid; grid-template-columns: 92px 1fr; gap: 8px; align-items: start; padding-top: 6px; border-top: 1px dashed rgba(29,42,58,.2); }
+.kgroup:first-child { border-top: 0; padding-top: 0; }
+.kgroup > b { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding-top: 4px; }
+.kgroup > div { display: flex; flex-wrap: wrap; gap: 5px 16px; } .kgroup span { display: flex; align-items: center; gap: 7px; }
+.kgroup svg { width: 30px; height: 20px; flex: none; }
+.pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pill { border: 1.5px solid var(--cover); color: var(--cover); background: transparent; font-size: 12px; font-weight: 700; letter-spacing: 0; text-transform: none; padding: 3px 10px; border-radius: 999px; }
+.pill.on, .pill:hover { background: var(--cover); color: #fff; }
+.binfo { margin: 8px 0 0; padding: 8px 10px; background: #eef8f1; border-left: 3px solid var(--cover); font-size: 13px; line-height: 1.4; }
+@media (max-width: 820px) { .under { margin: 4px -4px -4px; } .kgroup { grid-template-columns: 1fr; } }
+@media (max-width: 820px) { .view { border-right: 0; border-bottom: 2px solid var(--fg); padding: 4px; } }
+</style>
+
+<div class="mon">
+  <div class="view"><canvas id="cv" aria-label="Site plan. Tap a spot to hang a camera, tap a camera to turn it."></canvas><div class="rec" id="rec">● SITE 1</div>
+    <div class="under"><div id="key"></div><div><div class="k" style="margin:4px 0">Score bonuses — tap one</div><div id="bonusKey"></div></div></div></div>
+  <div class="side">
+    <div><h1>COVERAGE</h1><div class="sub" id="site">Site survey · level 1</div></div>
+    <div class="box">
+      <div class="k">Camera to hang</div>
+      <div class="tools">
+        <button type="button" data-t="wide" class="on"><span class="ic dome"></span>Dome<small>100° wide · $180</small></button>
+        <button type="button" data-t="tele"><span class="ic bullet"></span>Bullet<small>45° long · $240</small></button>
+        <button type="button" data-t="fish" id="fishBtn" hidden><span class="ic fish"></span>360°<small>all around · $300</small></button>
+      </div>
+      <div class="note">Tap the plan to hang one. Tap a camera to select it, tap again to turn it 45°. <b>Drag</b> a camera to move it. To take it down, drag it off the plan, press and hold it and tap the red ✕, or select it and press Delete.</div>
+    </div>
+    <div class="box">
+      <div class="grid2">
+        <div><div class="k">Zones covered</div><div class="v" id="zones">0/0</div></div>
+        <div><div class="k">NVR channels</div><div class="v" id="ch">0/4</div></div>
+      </div>
+      <div class="meter" id="meter" data-state="idle">
+        <div class="mrow"><div><div class="k">Your cost</div><div class="mcost">$0</div></div><div class="mtgt">Target cost<br><b class="mtarget">$0</b></div></div>
+        <div class="mbar"><div class="mfill"></div><div class="mtick" title="Target cost: what a good installer would spend. At or under it = 3 stars."></div><div class="mbest" title="The cheapest plan that covers every zone"></div></div>
+        <div class="mnote">Nothing spent yet.</div>
+        <div class="mbestline">Best plan: <b class="mbestv">—</b></div>
+      </div>
+    </div>
+    <div class="box sheetinfo" id="sheetInfo"></div>
+    <div class="box"><div class="k">This site</div><div class="stars" id="stars">★★★</div><div class="note" id="note">Cover every red zone without going over the NVR's channel count.</div>
+      <div class="grid2 earned"><div><div class="k">Score earned</div><div class="v" id="score">$0</div></div><div><div class="k">Best</div><div class="v" id="best">$0</div></div></div>
+      <div class="breakdown" id="breakdown" hidden></div></div>
+    <div class="row">
+      <button type="button" id="how">How to play</button>
+      <button type="button" id="reset">Clear</button>
+      <button type="button" class="go" id="next" disabled>Sign off →</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>COVERAGE</h2>
+    <p>The customer wants eyes on every red zone. Hang cameras so every zone tile is in view, using the fewest dollars you can.</p>
+    <h3>Placing and removing cameras</h3>
+    <ul>
+      <li><b>Hang:</b> pick Dome, Bullet or 360°, then tap a spot on the plan.</li>
+      <li><b>Aim:</b> tap a camera to select it (you'll see exactly which tiles it covers). Tap it again to turn it 45°.</li>
+      <li><b>Move:</b> drag a camera to a new spot.</li>
+      <li><b>Remove a camera</b>, any of these ways:
+        <ul>
+          <li>Drag it off the edge of the plan and let go.</li>
+          <li>Press and hold it until a red ✕ appears, then tap the ✕.</li>
+          <li>On a computer: right-click it, or select it and press <b>Delete</b> or <b>Backspace</b>.</li>
+        </ul></li>
+      <li><b>Clear</b> takes every camera down at once.</li>
+    </ul>
+    <h3>Rules</h3>
+    <ul>
+      <li><b>Dome</b> cameras ($180) see 100° but only 4 tiles out. <b>Bullet</b> cameras ($240) see 45° and 8 tiles out.</li>
+      <li>Walls and shelving block the view. Doorways don't.</li>
+      <li>Every camera takes one NVR channel. You can't go over the recorder's channel count.</li>
+      <li>From site 3: <b>360° fisheye</b> ($300) sees all around, 3 tiles out. From site 4: the <b>gate needs plate reads</b>, so only a bullet camera counts there.</li>
+      <li>When every zone is green, sign off. The <b>target cost</b> is what a good installer would spend: come in at or under it for 3 stars.</li>
+    </ul>
+    <h3>Score bonuses — tap one to see how to earn it</h3>
+    <div id="bonusHow"></div>
+    <button type="button" class="go" id="howClose">Start the survey</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const cv = $('cv'), g = cv.getContext('2d');
+function $(id) { return document.getElementById(id); }
+const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
+const COLS = PORTRAIT ? 8 : 13, ROWS = PORTRAIT ? 12 : 8, T = 60;
+cv.width = COLS * T; cv.height = ROWS * T;
+const LENS = { wide: { fov: 100, range: 4, cost: 180, lvl: 1 }, tele: { fov: 45, range: 8, cost: 240, lvl: 1 }, fish: { fov: 360, range: 3, cost: 300, lvl: 3 } };
+// Each camera gets its own color so you can see exactly which tiles it covers.
+const CAMCOL = ['#1f6fd1', '#d97a00', '#8a3fd1', '#c2185b', '#1f8a4c', '#0f8a8a', '#7a5230', '#b8860b'];
+const INK = '#1d2a3a', PAPER = '#fbfaf6';
+let focus = null;
+const FLOOR = 0, WALL = 1, SHELF = 2;
+const ZNAMES = ['GATE', 'ENTRY', 'REGISTER', 'SAFE', 'DOCK', 'GATE', 'OFFICE', 'STOCK'];
+let areas = [], lot = new Set(), plan = null, lastBreak = null;
+let map, zones, cams, tool = 'wide', level = 1, chLimit = 4, par = 0, done = false, total = 0, best = 0, t = 0;
+try { best = +localStorage.getItem('coverage:best') || 0; } catch {}
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const inb = (x, y) => x >= 0 && y >= 0 && x < COLS && y < ROWS;
+const solid = (x, y) => !inb(x, y) || map[y][x] !== FLOOR;
+
+// Line of sight between tile centres, sampled finely; walls and shelving block.
+function los(ax, ay, bx, by) {
+  const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 6);
+  for (let i = 1; i < n; i++) {
+    const x = ax + (bx - ax) * i / n, y = ay + (by - ay) * i / n;
+    const tx = Math.floor(x), ty = Math.floor(y);
+    if ((tx !== Math.floor(bx) || ty !== Math.floor(by)) && solid(tx, ty)) return false;
+  }
+  return true;
+}
+function seen(c) {
+  const L = LENS[c.lens], out = new Set(), ang = c.dir * Math.PI / 4;
+  const cx = c.x + .5, cy = c.y + .5;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (map[y][x] !== FLOOR) continue;
+    const dx = x + .5 - cx, dy = y + .5 - cy, d = Math.hypot(dx, dy);
+    if (d === 0) { out.add(y * COLS + x); continue; }
+    if (d > L.range + .3) continue;
+    // Angle between the aim and the tile, wrapped into 0..π (the old math let cameras aimed
+    // down-left, up or up-left see tiles behind them).
+    const da = Math.abs(((Math.atan2(dy, dx) - ang) % (2 * Math.PI) + 3 * Math.PI) % (2 * Math.PI) - Math.PI);
+    if (L.fov < 360 && da > L.fov / 2 * Math.PI / 180 + .02) continue;
+    if (los(cx, cy, x + .5, y + .5)) out.add(y * COLS + x);
+  }
+  return out;
+}
+function build() {
+  for (let attempt = 0; attempt < 300; attempt++) {
+    map = Array.from({ length: ROWS }, () => Array(COLS).fill(FLOOR));
+    areas = []; lot = new Set();
+    // Lay out along the long side (u) and the short side (v); portrait turns it, and every site is mirrored at random.
+    const long = PORTRAIT ? ROWS : COLS, short = PORTRAIT ? COLS : ROWS, fU = rnd(0, 1), fV = rnd(0, 1);
+    const XY = (u, v) => { const uu = fU ? long - 1 - u : u, vv = fV ? short - 1 - v : v; return PORTRAIT ? [vv, uu] : [uu, vv]; };
+    const set = (u, v, val) => { if (u < 0 || v < 0 || u >= long || v >= short) return; const [x, y] = XY(u, v); map[y][x] = val; };
+    const get = (u, v) => { if (u < 0 || v < 0 || u >= long || v >= short) return -1; const [x, y] = XY(u, v); return map[y][x]; };
+    const area = (name, u0, v0, u1, v1) => { const a = XY(u0, v0), b = XY(u1, v1); areas.push({ name, x0: Math.min(a[0], b[0]), y0: Math.min(a[1], b[1]), x1: Math.max(a[0], b[0]), y1: Math.max(a[1], b[1]) }); };
+    const spots = {};                                   // where each kind of zone can go, in (u, v)
+    const add = (k, u, v) => (spots[k] = spots[k] || []).push([u, v]);
+    // Parking lot / yard along the front, the front wall, and the building behind it.
+    const lotD = 2, fw = lotD;
+    for (let u = 0; u < long; u++) for (let v = 0; v < lotD; v++) { const [x, y] = XY(u, v); lot.add(y * COLS + x); }
+    for (let u = 0; u < long; u++) set(u, fw, WALL);
+    const gateU = rnd(0, 1) ? 0 : long - 1; add('GATE', gateU, 0); add('GATE', gateU, 1);
+    const kind = rnd(0, 2) ? 'store' : 'warehouse';
+    if (kind === 'store') {
+      area('PARKING', 0, 0, long - 1, lotD - 1);
+      // Entry: a double door in the front wall, near the middle.
+      const eu = rnd(2, long - 8); set(eu, fw, FLOOR); set(eu + 1, fw, FLOOR); add('ENTRY', eu, fw); add('ENTRY', eu + 1, fw);
+      // Back of house at the far end: stockroom + office, split by a wall, each with a door.
+      const bw = long - rnd(4, 5), split = rnd(fw + 2, short - 3);
+      for (let v = fw + 1; v < short; v++) set(bw, v, WALL);
+      set(bw, rnd(split + 1, short - 1), FLOOR);                          // door into the stockroom
+      for (let u = bw + 1; u < long; u++) set(u, split, WALL);
+      set(rnd(bw + 1, long - 2), split, FLOOR);                            // office door from the stockroom
+      area('OFFICE', bw + 1, fw + 1, long - 1, split - 1); area('STOCKROOM', bw + 1, split + 1, long - 1, short - 1);
+      for (let u = bw + 1; u < long; u++) for (let v = fw + 1; v < split; v++) { add('SAFE', u, v); add('OFFICE', u, v); }
+      for (let u = bw + 1; u < long - 1; u++) for (let v = split + 1; v < short; v++) add('STOCK', u, v);
+      for (let v = split + 1; v < short; v++) add('DOCK', long - 1, v);
+      // Sales floor: gondola aisles running along u, a cross aisle, the register by the entry.
+      area('SALES FLOOR', 0, fw + 1, bw - 1, short - 1);
+      const crossU = rnd(3, bw - 4);
+      const rowsS = []; for (let v = fw + 3; v < short - 1; v += 2) rowsS.push(v);
+      rowsS.sort(() => Math.random() - .5).slice(0, Math.min(rowsS.length, 1 + Math.floor(level / 2))).forEach(v => { for (let u = 1; u < bw - 1; u++) if (u !== crossU) set(u, v, SHELF); });
+      for (let u = Math.max(0, eu - 2); u <= Math.min(bw - 1, eu + 3); u++) add('REGISTER', u, fw + 1);
+    } else {
+      area('YARD', 0, 0, long - 1, lotD - 1);
+      // Front wall: a personnel door and a two-wide dock door.
+      const pu = rnd(1, 3); set(pu, fw, FLOOR); add('ENTRY', pu, fw);
+      const du = rnd(6, long - 3); set(du, fw, FLOOR); set(du + 1, fw, FLOOR); add('DOCK', du, fw); add('DOCK', du + 1, fw);
+      // Office in the corner behind the entry.
+      const ow = rnd(3, 4), od = fw + rnd(2, 3);
+      for (let v = fw + 1; v <= od; v++) set(ow, v, WALL);
+      for (let u = 0; u <= ow; u++) set(u, od + 1, WALL);
+      set(rnd(0, ow - 1), od + 1, FLOOR);
+      area('OFFICE', 0, fw + 1, ow - 1, od);
+      for (let u = 0; u < ow; u++) for (let v = fw + 1; v <= od; v++) { add('SAFE', u, v); add('OFFICE', u, v); add('REGISTER', u, v); }
+      // Warehouse: storage racks in rows with aisles; stock lives in the aisles.
+      area('WAREHOUSE', ow + 1, fw + 1, long - 1, short - 1);
+      const crossU = rnd(ow + 3, long - 3);
+      const rowsW = []; for (let v = fw + 2; v < short - 1; v += 2) rowsW.push(v);
+      rowsW.sort(() => Math.random() - .5).slice(0, Math.min(rowsW.length, 1 + Math.floor(level / 2))).forEach(v => { for (let u = ow + 2; u < long - 1; u++) if (u !== crossU) set(u, v, SHELF); });
+      for (let u = ow + 1; u < long; u++) for (let v = fw + 1; v < short; v++) add('STOCK', u, v);
+    }
+    // Zones, in a sensible order for the site; from site 4 the gate needs a license-plate read (tele only).
+    const nz = Math.min(6, 2 + Math.ceil(level / 1.5));
+    const order = (level >= 4 ? ['GATE'] : []).concat(['ENTRY', 'REGISTER', 'SAFE', 'DOCK', 'STOCK', 'OFFICE', 'GATE'].sort(() => Math.random() - .5));
+    zones = []; const taken = new Set();
+    for (const name of order) {
+      if (zones.length >= nz) break;
+      if (zones.some(z => z.base === name)) continue;
+      const opts = (spots[name] || []).filter(([u, v]) => get(u, v) === FLOOR).sort(() => Math.random() - .5);
+      const pick = opts.find(([u, v]) => { const [x, y] = XY(u, v); return !zones.some(z => z.tiles.some(([a, b]) => Math.abs(a - x) + Math.abs(b - y) < 3)); });
+      if (!pick) continue;
+      const [u, v] = pick, tiles = [XY(u, v)];
+      // Entry and dock doors are two wide; others sometimes take a neighbouring tile.
+      const mate = (spots[name] || []).find(([a, b]) => Math.abs(a - u) + Math.abs(b - v) === 1 && get(a, b) === FLOOR);
+      if (mate && (name === 'ENTRY' || name === 'DOCK' || Math.random() < .4)) tiles.push(XY(...mate));
+      const lpr = level >= 4 && name === 'GATE' && zones.length === 0;
+      zones.push({ base: name, name: lpr ? 'GATE · LPR' : name, tiles, lpr });
+    }
+    if (zones.length < nz) continue;
+    chLimit = Math.max(3, Math.min(8, nz + (level < 3 ? 1 : 0)));
+    const p = greedyPar();
+    if (p === null) continue;
+    par = p; plan = bestPlan(); cams = []; focus = null; done = false; roomOf = null; sync(); return;
+  }
+}
+const need = () => new Set(zones.flatMap(z => z.tiles.map(([x, y]) => y * COLS + x)));
+const lprTiles = () => new Set(zones.filter(z => z.lpr).flatMap(z => z.tiles.map(([x, y]) => y * COLS + x)));
+// A tile counts as covered by a camera only if that camera can do the job there.
+const counts = (c, k, lp) => !lp.has(k) || c.lens === 'tele';
+// A greedy installer's plan, used as par: keep hanging the camera that covers the most open zone tiles per dollar.
+function greedyPar() {
+  const left = need(), cands = [], lp = lprTiles();
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (map[y][x] === FLOOR) for (let dir = 0; dir < 8; dir++) for (const lens of Object.keys(LENS).filter(l => LENS[l].lvl <= level)) {
+    if (lens === 'fish' && dir) continue;
+    const s = seen({ x, y, dir, lens }); const hit = [...s].filter(k => left.has(k) && counts({ lens }, k, lp));
+    if (hit.length) cands.push({ lens, hit });
+  }
+  let cost = 0, n = 0;
+  while (left.size) {
+    let bestC = null, bestV = 0;
+    for (const c of cands) { const v = c.hit.filter(k => left.has(k)).length / LENS[c.lens].cost; if (v > bestV) { bestV = v; bestC = c; } }
+    if (!bestC) return null;
+    bestC.hit.forEach(k => left.delete(k)); cost += LENS[bestC.lens].cost; n++;
+    if (n > chLimit) return null;
+  }
+  return cost;
+}
+// The cheapest set of cameras that covers every zone tile without going over the channel count.
+// Zones cover at most ~12 tiles, so this is exact: each candidate camera spot/aim/lens becomes a bit mask of
+// the zone tiles it would count for, dominated masks are dropped, and a DP over masks finds the minimum.
+function bestPlan() {
+  const tiles = [...need()], idx = new Map(tiles.map((k, i) => [k, i])), FULL = (1 << tiles.length) - 1, lp = lprTiles();
+  if (tiles.length > 16) return null;
+  const byMask = new Map();
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (map[y][x] === FLOOR) for (const lens of Object.keys(LENS).filter(l => LENS[l].lvl <= level)) for (let dir = 0; dir < (lens === 'fish' ? 1 : 8); dir++) {
+    let m = 0; seen({ x, y, dir, lens }).forEach(k => { if (idx.has(k) && counts({ lens }, k, lp)) m |= 1 << idx.get(k); });
+    if (m && (!byMask.has(m) || byMask.get(m) > LENS[lens].cost)) byMask.set(m, LENS[lens].cost);
+  }
+  let cand = [...byMask].map(([m, c]) => ({ m, c }));
+  cand = cand.filter(a => !cand.some(b => b !== a && (a.m & b.m) === a.m && b.c <= a.c && (b.m !== a.m || b.c < a.c)));
+  let layer = new Map([[0, 0]]), best = null, bestN = null, minN = null;
+  for (let n = 1; n <= chLimit && layer.size; n++) {
+    const next = new Map();
+    layer.forEach((c0, m0) => {
+      const low = ~m0 & FULL & -(~m0 & FULL);                       // lowest zone tile not covered yet
+      cand.forEach(({ m, c }) => { if (!(m & low)) return; const m1 = m0 | m, c1 = c0 + c; if (!next.has(m1) || next.get(m1) > c1) next.set(m1, c1); });
+    });
+    if (next.has(FULL)) { if (minN === null) minN = n; if (best === null || next.get(FULL) < best) { best = next.get(FULL); bestN = n; } }
+    layer = next;
+  }
+  return best === null ? null : { cost: best, cams: bestN, minCams: minN };
+}
+function covered() { const s = new Set(), lp = lprTiles(); cams.forEach(c => c.seen.forEach(k => { if (counts(c, k, lp)) s.add(k); })); return s; }
+
+// Cost meter: the bar fills with your cost; the tick marks the target (at 2/3 of the bar).
+function costMeter(cost, target, el) {
+  const bt = el.querySelector('.mbest'), bc = plan && plan.cost;
+  bt.style.display = bc ? 'block' : 'none'; if (bc) bt.style.left = Math.min(100, bc / target / 1.5 * 100) + '%';
+  el.querySelector('.mbestv').textContent = bc ? '$' + bc.toLocaleString() : '—';
+  const ratio = target ? cost / target : 0, over = cost - target;
+  const state = cost === 0 ? 'idle' : ratio <= 1.0001 ? 'good' : ratio <= 1.12 ? 'near' : 'bad';
+  el.dataset.state = state;
+  el.querySelector('.mfill').style.width = Math.min(100, ratio / 1.5 * 100) + '%';
+  el.querySelector('.mcost').textContent = '$' + Math.round(cost).toLocaleString();
+  el.querySelector('.mtarget').textContent = '$' + Math.round(target).toLocaleString();
+  el.querySelector('.mnote').textContent = cost === 0 ? 'Nothing spent yet.'
+    : over <= 0 ? (over > -1 ? 'Right on target.' : `$${Math.round(-over).toLocaleString()} under target.`)
+    : `$${Math.round(over).toLocaleString()} over target.`;
+}
+function sync() {
+  const cov = covered(), all = need();
+  const zoneOK = zones.filter(z => z.tiles.every(([x, y]) => cov.has(y * COLS + x))).length;
+  const cost = cams.reduce((a, c) => a + LENS[c.lens].cost, 0);
+  $('zones').textContent = `${zoneOK}/${zones.length}`; $('ch').textContent = `${cams.length}/${chLimit}`;
+  costMeter(cost, par, $('meter'));
+  $('fishBtn').hidden = level < 3; if (level < 3 && tool === 'fish') tool = 'wide';
+  $('site').textContent = `Site survey · level ${level}`; $('rec').textContent = `● SITE ${level}`;
+  const ok = [...all].every(k => cov.has(k));
+  const st = ok ? (cost <= par ? 3 : cost <= par * 1.25 ? 2 : 1) : 0;
+  $('stars').innerHTML = '<b>' + '★'.repeat(st) + '</b>' + '★'.repeat(3 - st);
+  $('next').disabled = !ok;
+  $('note').textContent = ok ? (cost < par ? `Under target by $${par - cost}. Sign off.` : cost === par ? 'Right on target. Sign off.' : `All covered, $${cost - par} over target. Sign off or tighten it up.`)
+    : `Cover every red zone. ${chLimit - cams.length} NVR channel${chLimit - cams.length === 1 ? '' : 's'} left.`;
+  $('score').textContent = '$' + total.toLocaleString(); $('best').textContent = '$' + Math.max(best, total).toLocaleString();
+  // Bonuses this site allows (names only), and the last site's score lines.
+  const can = ['Site signed off'];
+  if (plan) { can.push('Best plan'); if (plan.cost < par) can.push('Under target'); can.push('Fewest cameras'); if (plan.minCams < chLimit) can.push('Spare NVR channels'); }
+  $('sheetInfo').innerHTML = '<div class="k">Bonuses you can earn here</div>' + can.map(n => `<div class="srow"><i>✓</i><span>${n}</span></div>`).join('');
+  const bd = $('breakdown'); bd.hidden = !lastBreak;
+  if (lastBreak) bd.innerHTML = `<div class="k">Site ${lastBreak.level} breakdown</div>` + lastBreak.lines.map(([l, v]) => `<div><span>${l}</span><span class="${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString()}</span></div>`).join('') + `<div class="sum"><span>Site score</span><span>$${lastBreak.got.toLocaleString()}</span></div>`;
+}
+document.querySelectorAll('.tools button').forEach(b => b.onclick = () => { tool = b.dataset.t; document.querySelectorAll('.tools button').forEach(x => x.classList.toggle('on', x === b)); });
+let flashMsg = null;
+// ── Pointer: tap empty floor to hang, tap a camera to select / turn it, drag it to move it,
+//    drag it off the plan (or tap its ✕, or right-click it) to take it down. ──
+let cdrag = null, xFor = null;   // xFor: the camera showing its ✕ (after a press-and-hold)
+const cellAt = e => { const r = cv.getBoundingClientRect(); const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height; return { x: Math.floor(fx * COLS), y: Math.floor(fy * ROWS), px: fx * cv.width, py: fy * cv.height, out: fx < 0 || fy < 0 || fx > 1 || fy > 1 }; };
+// The ✕ badge on the selected camera.
+const xBadge = c => ({ x: c.x * T + T / 2 + 17, y: c.y * T + T / 2 - 17, r: 11 });
+function removeCam(c) { cams = cams.filter(k => k !== c); if (focus === c) focus = null; if (xFor === c) xFor = null; flashMsg = { text: 'Camera taken down.', t: 1 }; sync(); }
+function place(x, y) {
+  if (map[y][x] !== FLOOR) { flashMsg = { text: 'Can’t hang a camera on a wall or shelf.', t: 1.4 }; return; }
+  if (cams.length >= chLimit) { flashMsg = { text: `NVR is full: ${chLimit} channels. Drag one off to free a channel.`, t: 1.8 }; return; }
+  // Aim it at the nearest uncovered zone to start.
+  const cov = covered(); let dir = 0, bd = 1e9;
+  zones.forEach(z => z.tiles.forEach(([zx, zy]) => { if (cov.has(zy * COLS + zx)) return; const d = Math.hypot(zx - x, zy - y); if (d && d < bd) { bd = d; dir = (Math.round(Math.atan2(zy - y, zx - x) / (Math.PI / 4)) + 8) % 8; } }));
+  const nc = { x, y, dir, lens: tool, col: CAMCOL.find(cl => !cams.some(k => k.col === cl)) || CAMCOL[0] }; nc.seen = seen(nc); cams.push(nc); focus = nc;
+  sync();
+}
+// On a computer: Delete or Backspace takes down the selected camera.
+addEventListener('keydown', e => {
+  if ((e.key === 'Delete' || e.key === 'Backspace') && focus && $('howModal').hidden && !/INPUT|TEXTAREA/.test(document.activeElement?.tagName || '')) { e.preventDefault(); removeCam(focus); }
+});
+cv.addEventListener('contextmenu', e => { e.preventDefault(); const p = cellAt(e), c = cams.find(c => c.x === p.x && c.y === p.y); if (c) removeCam(c); });
+cv.addEventListener('pointerdown', e => {
+  if (e.button === 2) return;
+  const p = cellAt(e);
+  if (xFor) { const bx = xBadge(xFor); if (Math.hypot(p.px - bx.x, p.py - bx.y) <= bx.r + 6) { removeCam(xFor); return; } }
+  if (!inb(p.x, p.y)) return;
+  const c = cams.find(c => c.x === p.x && c.y === p.y);
+  if (c !== xFor) xFor = null;   // touching anything else hides the ✕
+  cv.setPointerCapture(e.pointerId);
+  cdrag = { c, sx: p.px, sy: p.py, moved: false, held: false, ox: c ? c.x : 0, oy: c ? c.y : 0 };
+  // Press and hold a camera (without moving) to show its ✕.
+  if (c) { const d = cdrag; d.timer = setTimeout(() => { if (cdrag === d && !d.moved) { d.held = true; xFor = c; focus = c; } }, 450); }
+});
+cv.addEventListener('pointermove', e => {
+  if (!cdrag || !cdrag.c) return;
+  const p = cellAt(e);
+  if (!cdrag.moved && Math.hypot(p.px - cdrag.sx, p.py - cdrag.sy) > 10) { cdrag.moved = true; focus = cdrag.c; clearTimeout(cdrag.timer); if (!cdrag.held) xFor = null; }
+  if (!cdrag.moved) return;
+  cdrag.out = p.out; cdrag.px = p.px; cdrag.py = p.py;
+  // Follow the pointer tile by tile, onto open floor only.
+  if (!p.out && inb(p.x, p.y) && map[p.y][p.x] === FLOOR && !cams.some(k => k !== cdrag.c && k.x === p.x && k.y === p.y) && (cdrag.c.x !== p.x || cdrag.c.y !== p.y)) {
+    cdrag.c.x = p.x; cdrag.c.y = p.y; cdrag.c.seen = seen(cdrag.c); sync();
+  }
+});
+const endDrag = e => {
+  if (!cdrag) return; const d = cdrag; cdrag = null; clearTimeout(d.timer);
+  if (d.c && d.moved) { if (d.out) removeCam(d.c); return; }
+  if (d.held) return;   // a hold just shows the ✕; it doesn't turn the camera
+  if (d.c) { if (focus !== d.c) focus = d.c; else if (d.c.lens !== 'fish') { d.c.dir = (d.c.dir + 1) % 8; d.c.seen = seen(d.c); } sync(); return; }
+  const p = cellAt(e); if (inb(p.x, p.y)) place(p.x, p.y);
+};
+cv.addEventListener('pointerup', endDrag); cv.addEventListener('pointercancel', () => { if (cdrag) clearTimeout(cdrag.timer); cdrag = null; });
+$('reset').onclick = () => { if (!done) { cams = []; focus = null; sync(); } };
+$('next').onclick = () => {
+  const cost = cams.reduce((a, c) => a + LENS[c.lens].cost, 0), lines = [];
+  const add = (l, v) => { if (v) lines.push([l, Math.round(v)]); };
+  add(`Site ${level} signed off`, 300 + level * 100);
+  if (cost !== par) add(cost < par ? 'Under target' : 'Over target', Math.max(-200, (par - cost) * 2));
+  if (plan && cost <= plan.cost) add(cost < plan.cost ? 'Beat the best plan' : 'Best plan', 400);
+  if (plan && cams.length <= plan.minCams) add('Fewest cameras', 150);
+  add('Spare NVR channels', (chLimit - cams.length) * 50);
+  const got = lines.reduce((a, l) => a + l[1], 0); total += got; lastBreak = { level, lines, got };
+  if (total > best) { best = total; try { localStorage.setItem('coverage:best', best); } catch {} }
+try { if (parent !== window) parent.postMessage({ arcade: 'coverage', score: total }, '*'); } catch (e) {} 
+  level++; build();
+};
+$('how').onclick = () => { $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; try { localStorage.setItem('coverage:seen', '1'); } catch {} };
+try { if (localStorage.getItem('coverage:seen')) $('howModal').hidden = true; } catch {}
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+// ── The plan key and the bonus pills ──
+const SV = b => `<svg viewBox="0 0 30 20" aria-hidden="true">${b}</svg>`;
+const KEYI = {
+  wall: SV(`<rect x="1" y="5" width="28" height="10" fill="#e9e6dd" stroke="#1d2a3a" stroke-width="1.6"/><path d="M4 15 L12 5 M10 15 L18 5 M16 15 L24 5 M22 15 L29 7" stroke="#1d2a3a" stroke-width=".8"/>`),
+  door: SV(`<rect x="0" y="16" width="5" height="3" fill="#1d2a3a"/><rect x="25" y="16" width="5" height="3" fill="#1d2a3a"/><path d="M5 17 V5 A12 12 0 0 1 17 17" fill="none" stroke="#1d2a3a" stroke-width="1.1"/>`),
+  shelf: SV(`<rect x="1" y="6" width="28" height="9" fill="#e9e6dd" stroke="#1d2a3a" stroke-width="1.4"/><path d="M1 10.5 H29" stroke="#1d2a3a" stroke-width=".7"/>`),
+  lot: SV(`<rect width="30" height="20" fill="#efede6"/><path d="M6 3 V17 M15 3 V17 M24 3 V17" stroke="rgba(29,42,58,.55)" stroke-width="1.4"/>`),
+  zone: SV(`<rect x="2" y="2" width="26" height="16" fill="rgba(192,57,43,.1)" stroke="#c0392b" stroke-width="1.6" stroke-dasharray="4 3"/>`),
+  zoneok: SV(`<rect x="2" y="2" width="26" height="16" fill="rgba(31,138,76,.14)" stroke="#1f8a4c" stroke-width="1.6"/>`),
+  lpr: SV(`<rect x="2" y="5" width="26" height="10" rx="3" fill="#f2c230"/><text x="15" y="13" font-size="6.5" font-weight="700" text-anchor="middle" fill="#1d2a3a">TELE</text>`),
+  dome: SV(`<circle cx="15" cy="10" r="7.5" fill="#fff" stroke="#1f6fd1" stroke-width="2.4"/><circle cx="17" cy="10" r="3.4" fill="#1d2a3a"/>`),
+  bullet: SV(`<rect x="6" y="6" width="17" height="8" rx="2.5" fill="#fff" stroke="#d97a00" stroke-width="2.2"/><rect x="21" y="7.5" width="3" height="5" fill="#1d2a3a"/>`),
+  fish: SV(`<circle cx="15" cy="10" r="7.5" fill="#fff" stroke="#8a3fd1" stroke-width="2.4"/><circle cx="15" cy="10" r="4" fill="#1d2a3a"/>`),
+  cone: SV(`<path d="M4 10 L28 2 A20 20 0 0 1 28 18 Z" fill="rgba(31,111,209,.25)"/><circle cx="4" cy="10" r="2.5" fill="#1d2a3a"/>`),
+};
+const KEY = [
+  ['Site', [['wall', 'Wall — blocks the view'], ['shelf', 'Shelving or racks — blocks the view'], ['door', 'Doorway — cameras see through'], ['lot', 'Parking / yard']]],
+  ['Zones', [['zone', 'Zone to cover'], ['zoneok', 'Zone covered'], ['lpr', 'Gate · LPR — only a bullet counts']]],
+  ['Cameras', [['dome', 'Dome — 100°, 4 tiles, $180'], ['bullet', 'Bullet — 45°, 8 tiles, $240'], ['fish', '360° — all round, 3 tiles, $300 (site 3+)'], ['cone', 'View — tap a camera to see its tiles']]],
+];
+$('key').innerHTML = KEY.map(([g2, items]) => `<div class="kgroup"><b>${g2}</b><div>${items.map(([k, n]) => `<span>${KEYI[k]}${n}</span>`).join('')}</div></div>`).join('');
+const BONUS = [
+  ['Site signed off', 'Cover every zone and sign off: $300, plus $100 per site level.'],
+  ['Under target', 'Spend less than the target cost: +$2 for every dollar under. Going over costs $2 a dollar, up to −$200.'],
+  ['Best plan', 'Spend no more than the cheapest plan that covers every zone (the gold BEST mark on your cost bar): +$400.'],
+  ['Fewest cameras', 'Cover everything with the fewest cameras it can be done with: +$150.'],
+  ['Spare NVR channels', 'Every NVR channel you leave free: +$50.'],
+];
+const pillsHTML = id => `<div class="pills">${BONUS.map(([n], i) => `<button type="button" class="pill" data-b="${i}">${n}</button>`).join('')}</div><p class="binfo" id="${id}" hidden></p>`;
+$('bonusHow').innerHTML = pillsHTML('bh'); $('bonusKey').innerHTML = pillsHTML('bk');
+document.addEventListener('click', e => {
+  const b = e.target.closest('.pill'); if (!b) return;
+  const box = b.closest('.pills').nextElementSibling, open = b.classList.contains('on');
+  b.closest('.pills').querySelectorAll('.pill').forEach(x => x.classList.remove('on'));
+  if (open) { box.hidden = true; return; }
+  b.classList.add('on'); const [n, d] = BONUS[+b.dataset.b]; box.innerHTML = `<b>${n}:</b> ${d}`; box.hidden = false;
+});
+// Rooms (for floor tint) and doorways, worked out once per site.
+let roomOf = null, doors = [];
+function survey() {
+  roomOf = Array.from({ length: ROWS }, () => Array(COLS).fill(-1)); let n = 0;
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (map[y][x] !== FLOOR || roomOf[y][x] >= 0) continue;
+    const q = [[x, y]]; roomOf[y][x] = n;
+    while (q.length) { const [a, b] = q.pop(); [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => { const X = a + dx, Y = b + dy; if (inb(X, Y) && map[Y][X] === FLOOR && roomOf[Y][X] < 0) {
+      // A doorway tile joins rooms visually but we still flood through it.
+      roomOf[Y][X] = n; q.push([X, Y]); } }); }
+    n++;
+  }
+  // Doorways: floor tiles with wall on both sides along one axis.
+  doors = [];
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (map[y][x] !== FLOOR) continue;
+    const W = (X, Y) => inb(X, Y) && map[Y][X] === WALL;
+    if (W(x - 1, y) && !W(x + 1, y) && (W(x - 1, y - 1) || W(x - 1, y + 1)) === false) {}
+    // A real doorway: wall on both sides of it, open floor in front and behind.
+    const F2 = (X, Y) => inb(X, Y) && map[Y][X] !== WALL;
+    if (W(x, y - 1) && W(x, y + 1) && F2(x - 1, y) && F2(x + 1, y)) doors.push({ x, y, v: true });
+    // Two-wide openings get a pair of doors.
+    else if (W(x - 1, y) && F2(x + 1, y) && map[y][x + 1] !== WALL && W(x + 2, y) && F2(x, y - 1) && F2(x, y + 1) && F2(x + 1, y - 1) && F2(x + 1, y + 1)) doors.push({ x, y, dbl: 'h' });
+    else if (W(x, y - 1) && inb(x, y + 1) && map[y + 1][x] !== WALL && W(x, y + 2) && F2(x - 1, y) && F2(x + 1, y) && F2(x - 1, y + 1) && F2(x + 1, y + 1)) doors.push({ x, y, dbl: 'v' });
+    else if (W(x - 1, y) && W(x + 1, y) && F2(x, y - 1) && F2(x, y + 1)) doors.push({ x, y, v: false });
+  }
+}
+// Zone icons in ink linework, like plan symbols.
+const ZICON = {
+  ENTRY(x, y, s) { g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(x - s * .26, y - s * .34, s * .52, s * .7); g.beginPath(); g.arc(x + s * .12, y + s * .02, s * .04, 0, 7); g.fillStyle = INK; g.fill(); },
+  REGISTER(x, y, s) { g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(x - s * .34, y - s * .02, s * .68, s * .3); g.strokeRect(x - s * .22, y - s * .32, s * .44, s * .24); g.font = `700 ${s * .2}px "JetBrains Mono", monospace`; g.textAlign = 'center'; g.fillStyle = INK; g.fillText('POS', x, y + s * .2); },
+  SAFE(x, y, s) { g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(x - s * .32, y - s * .32, s * .64, s * .64); g.beginPath(); g.arc(x, y, s * .15, 0, 7); g.moveTo(x, y); g.lineTo(x + s * .11, y - s * .09); g.stroke(); },
+  GATE(x, y, s) { g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(x - s * .4, y + s * .06, s * .12, s * .26); g.fillStyle = '#f2c230'; g.fillRect(x - s * .28, y + s * .02, s * .68, s * .09); g.strokeRect(x - s * .28, y + s * .02, s * .68, s * .09); g.fillStyle = '#c0392b'; for (let i = 0; i < 3; i++) g.fillRect(x - s * .16 + i * s * .2, y + s * .02, s * .07, s * .09); },
+  DOCK(x, y, s) { g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(x - s * .36, y - s * .3, s * .72, s * .6); g.lineWidth = 1; for (let i = 1; i < 5; i++) { g.beginPath(); g.moveTo(x - s * .36, y - s * .3 + i * s * .12); g.lineTo(x + s * .36, y - s * .3 + i * s * .12); g.stroke(); } },
+  OFFICE(x, y, s) { g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(x - s * .36, y - s * .04, s * .72, s * .2); g.beginPath(); g.arc(x, y + s * .32, s * .1, 0, 7); g.stroke(); g.strokeRect(x - s * .14, y - s * .3, s * .28, s * .2); },
+  STOCK(x, y, s) { g.strokeStyle = INK; g.lineWidth = 1.4; g.fillStyle = '#e2c79a'; [[-.34, -.02, .34, .32], [.02, -.02, .32, .32], [-.16, -.34, .32, .3]].forEach(([a, b, w, h]) => { g.fillRect(x + s * a, y + s * b, s * w, s * h); g.strokeRect(x + s * a, y + s * b, s * w, s * h); }); },
+};
+function chip(x, y, text, bg, fg) {
+  g.font = '700 12px "Archivo Narrow", sans-serif'; const w = g.measureText(text).width + 12; x = Math.max(8, Math.min(cv.width - 8 - w, x));
+  g.fillStyle = bg; g.beginPath(); g.roundRect(x, y, w, 18, 4); g.fill(); g.fillStyle = fg; g.textAlign = 'left'; g.fillText(text, x + 6, y + 13); return w;
+}
+function draw() {
+  if (!roomOf || roomOf.length !== ROWS) survey();
+  // Floor: tiles, tinted per room.
+  g.fillStyle = PAPER; g.fillRect(0, 0, cv.width, cv.height);
+  lot.forEach(k => { const x = k % COLS, y = (k - x) / COLS; g.fillStyle = '#efede6'; g.fillRect(x * T, y * T, T, T); });
+  g.strokeStyle = '#e7e4dc'; g.lineWidth = 1;
+  for (let x = 0; x <= COLS; x++) { g.beginPath(); g.moveTo(x * T + .5, 0); g.lineTo(x * T + .5, cv.height); g.stroke(); }
+  for (let y = 0; y <= ROWS; y++) { g.beginPath(); g.moveTo(0, y * T + .5); g.lineTo(cv.width, y * T + .5); g.stroke(); }
+  g.strokeStyle = 'rgba(29,42,58,.035)'; for (let x = 0; x < cv.width; x += T / 4) { g.beginPath(); g.moveTo(x + .5, 0); g.lineTo(x + .5, cv.height); g.stroke(); } for (let y = 0; y < cv.height; y += T / 4) { g.beginPath(); g.moveTo(0, y + .5); g.lineTo(cv.width, y + .5); g.stroke(); }
+  // Parking stall lines and area names, like a site plan.
+  if (lot.size) {
+    g.strokeStyle = 'rgba(29,42,58,.45)'; g.lineWidth = 1.5;
+    lot.forEach(k => { const x = k % COLS, y = (k - x) / COLS; if (zones.some(z => z.tiles.some(([a, b]) => a === x && b === y))) return;
+      const horizLot = !PORTRAIT; g.beginPath(); if (horizLot) { g.moveTo(x * T + 4, y * T + 8); g.lineTo(x * T + 4, y * T + T - 8); } else { g.moveTo(x * T + 8, y * T + 4); g.lineTo(x * T + T - 8, y * T + 4); } g.stroke(); });
+  }
+  areas.forEach(a => { g.font = '700 12px "Archivo Narrow", sans-serif'; g.textAlign = 'left'; g.fillStyle = 'rgba(29,42,58,.5)'; g.fillText(a.name, a.x0 * T + 8, a.y1 * T + T - 8); });
+  const cov = covered(), lp = lprTiles();
+  // Soft view cones, lit only where each camera really sees.
+  cams.forEach(c => {
+    const L = LENS[c.lens], a = c.dir * Math.PI / 4, h = L.fov / 2 * Math.PI / 180, cx = c.x * T + T / 2, cy = c.y * T + T / 2, R = L.range * T + T / 2;
+    g.save(); g.beginPath(); c.seen.forEach(k => { const x = k % COLS, y = (k - x) / COLS; g.rect(x * T, y * T, T, T); }); g.clip();
+    const gr = g.createRadialGradient(cx, cy, 6, cx, cy, R); gr.addColorStop(0, c.col + (c === focus ? '55' : '38')); gr.addColorStop(1, c.col + '0a');
+    g.fillStyle = gr; g.beginPath(); if (L.fov >= 360) g.arc(cx, cy, R, 0, 7); else { g.moveTo(cx, cy); g.arc(cx, cy, R, a - h, a + h); g.closePath(); } g.fill();
+    g.restore();
+    // The selected camera's view gets a crisp outline around exactly the tiles it sees.
+    if (c === focus) {
+      const has = k => c.seen.has(k); g.strokeStyle = c.col; g.lineWidth = 2; g.globalAlpha = .9; g.beginPath();
+      c.seen.forEach(k => { const x = k % COLS, y = (k - x) / COLS, X = x * T, Y = y * T;
+        if (y === 0 || !has(k - COLS)) { g.moveTo(X, Y); g.lineTo(X + T, Y); } if (y === ROWS - 1 || !has(k + COLS)) { g.moveTo(X, Y + T); g.lineTo(X + T, Y + T); }
+        if (x === 0 || !has(k - 1)) { g.moveTo(X, Y); g.lineTo(X, Y + T); } if (x === COLS - 1 || !has(k + 1)) { g.moveTo(X + T, Y); g.lineTo(X + T, Y + T); } });
+      g.stroke(); g.globalAlpha = 1;
+    }
+  });
+  // Shelving in plan: a gondola run is a long rectangle with a centre divider, joined to its neighbours.
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    if (map[y][x] !== SHELF) continue;
+    const X = x * T, Y = y * T, S = (a, b) => inb(a, b) && map[b][a] === SHELF;
+    const horiz = S(x - 1, y) || S(x + 1, y) || !(S(x, y - 1) || S(x, y + 1)), m = 13;
+    g.fillStyle = '#e9e6dd'; g.strokeStyle = INK; g.lineWidth = 1.6;
+    if (horiz) {
+      const x0 = S(x - 1, y) ? X : X + 4, x1 = S(x + 1, y) ? X + T : X + T - 4;
+      g.fillRect(x0, Y + m, x1 - x0, T - 2 * m);
+      g.beginPath(); g.moveTo(x0, Y + m); g.lineTo(x1, Y + m); g.moveTo(x0, Y + T - m); g.lineTo(x1, Y + T - m);
+      if (!S(x - 1, y)) { g.moveTo(x0, Y + m); g.lineTo(x0, Y + T - m); } if (!S(x + 1, y)) { g.moveTo(x1, Y + m); g.lineTo(x1, Y + T - m); }
+      g.stroke(); g.lineWidth = .8; g.beginPath(); g.moveTo(x0, Y + T / 2); g.lineTo(x1, Y + T / 2); g.stroke();
+      g.strokeStyle = 'rgba(29,42,58,.25)'; for (let i = X + 10; i < X + T; i += 15) { g.beginPath(); g.moveTo(i, Y + m); g.lineTo(i, Y + T - m); g.stroke(); }
+    } else {
+      const y0 = S(x, y - 1) ? Y : Y + 4, y1 = S(x, y + 1) ? Y + T : Y + T - 4;
+      g.fillRect(X + m, y0, T - 2 * m, y1 - y0);
+      g.beginPath(); g.moveTo(X + m, y0); g.lineTo(X + m, y1); g.moveTo(X + T - m, y0); g.lineTo(X + T - m, y1);
+      if (!S(x, y - 1)) { g.moveTo(X + m, y0); g.lineTo(X + T - m, y0); } if (!S(x, y + 1)) { g.moveTo(X + m, y1); g.lineTo(X + T - m, y1); }
+      g.stroke(); g.lineWidth = .8; g.beginPath(); g.moveTo(X + T / 2, y0); g.lineTo(X + T / 2, y1); g.stroke();
+    }
+  }
+  // Walls in plan: a hatched band with a heavy outline, joined to neighbours and to the sheet edge.
+  const isWall = (a, b) => !inb(a, b) ? false : map[b][a] === WALL;
+  const wallRects = (x, y) => {
+    const X = x * T, Y = y * T, th = T * .46, o = (T - th) / 2, r = [[X + o, Y + o, th, th]];
+    const edge = (a, b) => !inb(a, b);
+    if (isWall(x + 1, y) || (edge(x + 1, y) && isWall(x - 1, y))) r.push([X + o, Y + o, T - o, th]);
+    if (isWall(x - 1, y) || (edge(x - 1, y) && isWall(x + 1, y))) r.push([X, Y + o, o + th, th]);
+    if (isWall(x, y + 1) || (edge(x, y + 1) && isWall(x, y - 1))) r.push([X + o, Y + o, th, T - o]);
+    if (isWall(x, y - 1) || (edge(x, y - 1) && isWall(x, y + 1))) r.push([X + o, Y, th, o + th]);
+    return r;
+  };
+  const wallTiles = []; for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) if (map[y][x] === WALL) wallTiles.push([x, y]);
+  g.fillStyle = INK; wallTiles.forEach(([x, y]) => wallRects(x, y).forEach(([a, b, w, h]) => g.fillRect(a - 1.5, b - 1.5, w + 3, h + 3)));
+  g.save(); g.beginPath(); wallTiles.forEach(([x, y]) => wallRects(x, y).forEach(([a, b, w, h]) => g.rect(a, b, w, h))); g.clip();
+  g.fillStyle = '#e9e6dd'; g.fillRect(0, 0, cv.width, cv.height);
+  g.strokeStyle = 'rgba(29,42,58,.55)'; g.lineWidth = 1; for (let i = -cv.height; i < cv.width; i += 7) { g.beginPath(); g.moveTo(i, cv.height); g.lineTo(i + cv.height, 0); g.stroke(); }
+  g.restore();
+  doors.forEach(d => {
+    const X = d.x * T, Y = d.y * T; g.strokeStyle = 'rgba(29,42,58,.6)'; g.lineWidth = 1.2;
+    g.beginPath();
+    const yc = Y + T / 2 - T * .18, xc = X + T / 2 - T * .18;
+    if (d.dbl === 'h') { g.moveTo(X, yc); g.lineTo(X + T * .9, yc); g.arc(X, yc, T * .9, 0, Math.PI / 2); g.moveTo(X + 2 * T, yc); g.lineTo(X + 2 * T - T * .9, yc); g.arc(X + 2 * T, yc, T * .9, Math.PI, Math.PI / 2, true); }
+    else if (d.dbl === 'v') { g.moveTo(xc, Y); g.lineTo(xc, Y + T * .9); g.arc(xc, Y, T * .9, Math.PI / 2, 0, true); g.moveTo(xc, Y + 2 * T); g.lineTo(xc, Y + 2 * T - T * .9); g.arc(xc, Y + 2 * T, T * .9, -Math.PI / 2, 0); }
+    else if (d.v) { g.moveTo(X + T / 2 - T * .18, Y); g.lineTo(X + T / 2 - T * .18, Y + T * .9); g.arc(X + T / 2 - T * .18, Y, T * .9, Math.PI / 2, 0, true); }
+    else { g.moveTo(X, Y + T / 2 - T * .18); g.lineTo(X + T * .9, Y + T / 2 - T * .18); g.arc(X, Y + T / 2 - T * .18, T * .9, 0, Math.PI / 2); }
+    g.stroke();
+  });
+  // Zones: outlined areas with an icon and a label chip; green check when covered.
+  const pulse = reduce ? .5 : .5 + .5 * Math.sin(t * 4);
+  zones.forEach(z => {
+    const ok = z.tiles.every(([x, y]) => cov.has(y * COLS + x));
+    z.tiles.forEach(([x, y]) => {
+      const tok = cov.has(y * COLS + x);
+      g.fillStyle = tok ? 'rgba(31,138,76,.12)' : `rgba(192,57,43,${.06 + pulse * .08})`; g.fillRect(x * T + 3, y * T + 3, T - 6, T - 6);
+      g.strokeStyle = tok ? '#1f8a4c' : '#c0392b'; g.lineWidth = 2; g.setLineDash(tok ? [] : [6, 4]); g.strokeRect(x * T + 3, y * T + 3, T - 6, T - 6); g.setLineDash([]);
+      cams.filter(c => c.seen.has(y * COLS + x) && counts(c, y * COLS + x, lp)).forEach((c, i) => { g.fillStyle = c.col; g.beginPath(); g.arc(x * T + T - 11 - i * 10, y * T + T - 11, 4, 0, 7); g.fill(); g.strokeStyle = PAPER; g.lineWidth = 1.5; g.stroke(); });
+    });
+    const [x0, y0] = z.tiles[0], key = z.name.split(' ')[0];
+    // Two-tile entries and docks get one wide symbol centred across both tiles.
+    const two = z.tiles.length === 2 && (key === 'ENTRY' || key === 'DOCK'), [x1, y1] = z.tiles[1] || z.tiles[0];
+    const horiz = y1 === y0, mx = (x0 + x1 + 1) / 2 * T, my = (y0 + y1 + 1) / 2 * T + 4, s = T * .62;
+    if (two && key === 'ENTRY') {
+      // Double doors: two leaves meeting in the middle, a handle on each.
+      g.strokeStyle = INK; g.lineWidth = 1.6; g.fillStyle = INK;
+      if (horiz) { g.strokeRect(mx - s * .62, my - s * .34, s * .6, s * .7); g.strokeRect(mx + s * .02, my - s * .34, s * .6, s * .7); g.beginPath(); g.arc(mx - s * .1, my, s * .04, 0, 7); g.arc(mx + s * .1, my, s * .04, 0, 7); g.fill(); }
+      else { g.strokeRect(mx - s * .35, my - s * .62, s * .7, s * .6); g.strokeRect(mx - s * .35, my + s * .02, s * .7, s * .6); g.beginPath(); g.arc(mx, my - s * .1, s * .04, 0, 7); g.arc(mx, my + s * .1, s * .04, 0, 7); g.fill(); }
+    } else if (two && key === 'DOCK') {
+      // A wide roll-up door across both tiles.
+      const w = horiz ? s * 1.5 : s * .72, h = horiz ? s * .6 : s * 1.5;
+      g.strokeStyle = INK; g.lineWidth = 1.6; g.strokeRect(mx - w / 2, my - h / 2, w, h); g.lineWidth = 1;
+      for (let i = 1; i < 6; i++) { g.beginPath(); if (horiz) { g.moveTo(mx - w / 2, my - h / 2 + i * h / 6); g.lineTo(mx + w / 2, my - h / 2 + i * h / 6); } else { g.moveTo(mx - w / 2 + i * w / 6, my - h / 2); g.lineTo(mx - w / 2 + i * w / 6, my + h / 2); } g.stroke(); }
+    } else (ZICON[key] || ZICON.STOCK)(x0 * T + T / 2, y0 * T + T / 2 + 4, s);
+    const w = chip(x0 * T + 4, y0 * T + 4, ok ? z.name + ' ✓' : z.name, ok ? '#1f8a4c' : '#c0392b', '#fff');
+    if (z.lpr) chip(x0 * T + 4, y0 * T + T - 22, 'TELE ONLY', '#f2c230', INK);
+  });
+  // Cameras: dome (wide), bullet (tele), flat disc (360°). Each wears its own color.
+  cams.forEach(c => {
+    const cx = c.x * T + T / 2, cy = c.y * T + T / 2, a = c.dir * Math.PI / 4;
+    g.save(); g.translate(cx, cy);
+    g.fillStyle = 'rgba(29,42,58,.18)'; g.beginPath(); g.arc(2, 3, 15, 0, 7); g.fill();
+    if (c.lens === 'fish') {
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 15, 0, 7); g.fill(); g.strokeStyle = c.col; g.lineWidth = 3.5; g.stroke();
+      g.fillStyle = INK; g.beginPath(); g.arc(0, 0, 8, 0, 7); g.fill(); g.fillStyle = c.col; g.beginPath(); g.arc(-2, -2, 3, 0, 7); g.fill();
+    } else if (c.lens === 'tele') {
+      g.rotate(a);
+      g.fillStyle = '#d5dbe0'; g.beginPath(); g.arc(-8, 0, 6, 0, 7); g.fill(); g.strokeStyle = INK; g.lineWidth = 1.2; g.stroke();
+      g.fillStyle = '#fff'; g.beginPath(); g.roundRect(-8, -7, 24, 14, 4); g.fill(); g.strokeStyle = c.col; g.lineWidth = 3; g.stroke();
+      g.fillStyle = INK; g.beginPath(); g.roundRect(13, -5, 5, 10, 2); g.fill(); g.fillStyle = c.col; g.fillRect(14, -2, 3, 4);
+    } else {
+      g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 14, 0, 7); g.fill(); g.strokeStyle = c.col; g.lineWidth = 3.5; g.stroke();
+      g.rotate(a); g.fillStyle = INK; g.beginPath(); g.arc(4, 0, 6.5, 0, 7); g.fill(); g.fillStyle = c.col; g.beginPath(); g.arc(5.5, -1.5, 2.2, 0, 7); g.fill();
+    }
+    g.restore();
+    if (c === focus) {
+      g.strokeStyle = c.col; g.lineWidth = 2; g.setLineDash([4, 3]); g.beginPath(); g.arc(cx, cy, 22, 0, 7); g.stroke(); g.setLineDash([]);
+    }
+    if (c === xFor) {
+      const bx = xBadge(c); g.fillStyle = '#c0392b'; g.beginPath(); g.arc(bx.x, bx.y, bx.r, 0, 7); g.fill(); g.strokeStyle = PAPER; g.lineWidth = 2; g.stroke();
+      g.strokeStyle = '#fff'; g.lineWidth = 2.5; g.beginPath(); g.moveTo(bx.x - 4, bx.y - 4); g.lineTo(bx.x + 4, bx.y + 4); g.moveTo(bx.x + 4, bx.y - 4); g.lineTo(bx.x - 4, bx.y + 4); g.stroke();
+    }
+    if (reduce || Math.floor(t * 2) % 2) { g.fillStyle = '#ff3b3b'; g.beginPath(); g.arc(cx + 11, cy - 11, 2.6, 0, 7); g.fill(); }
+  });
+  if (cdrag && cdrag.moved && cdrag.out) { flashMsg = { text: 'Let go to take this camera down.', t: .3 }; }
+  // Recording overlay: corner brackets and timestamp, like a live NVR view.
+  g.strokeStyle = INK; g.lineWidth = 3; g.strokeRect(1.5, 1.5, cv.width - 3, cv.height - 3); g.lineWidth = 1; g.strokeRect(6.5, 6.5, cv.width - 13, cv.height - 13);
+  if (flashMsg) {
+    flashMsg.t -= 1 / 60; g.globalAlpha = Math.max(0, Math.min(1, flashMsg.t * 2));
+    g.font = '20px "Architects Daughter", cursive'; const w = g.measureText(flashMsg.text).width + 30;
+    g.fillStyle = '#fff8d6'; g.strokeStyle = INK; g.lineWidth = 1.5; g.fillRect(cv.width / 2 - w / 2, cv.height - 56, w, 38); g.strokeRect(cv.width / 2 - w / 2, cv.height - 56, w, 38);
+    g.fillStyle = INK; g.textAlign = 'center'; g.fillText(flashMsg.text, cv.width / 2, cv.height - 30);
+    g.globalAlpha = 1; if (flashMsg.t <= 0) flashMsg = null;
+  }
+}
+function loop() { t += 1 / 60; draw(); requestAnimationFrame(loop); }
+build(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

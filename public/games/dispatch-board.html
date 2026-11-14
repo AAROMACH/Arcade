@@ -1,0 +1,919 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Dispatch Board</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;800&family=Red+Hat+Mono:wght@400;600&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: an ops wall. Road map of Metro Detroit across the top, ticket queue and tech roster side by side under it (stacked on phones). Single dark ops-room look. */
+:root {
+  color-scheme: dark;
+  --bg: #101318;
+  --panel: #181d24;
+  --line: #2a323d;
+  --fg: #e8ecf1;
+  --muted: #8892a0;
+  --go: #4cc38a;
+  --late: #ff6a55;
+  --due: #f5b942;
+  --sel: #5aa9ff;
+  --display: "Archivo", "Arial Narrow", sans-serif;
+  --mono: "Red Hat Mono", ui-monospace, Consolas, monospace;
+}
+html, body { min-height: 100%; }
+body { background: radial-gradient(ellipse at 50% 0%, #1e252e, var(--bg) 60%) fixed, var(--bg); color: var(--fg); font-family: var(--display); padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; box-sizing: border-box; }
+.app { width: 100%; max-width: 1180px; display: grid; gap: 10px; }
+.top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+h1 { margin: 0; font-weight: 800; font-size: 28px; letter-spacing: .01em; line-height: 1; }
+.head { display: grid; gap: 10px; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.gauges { display: grid; grid-template-columns: 1fr 1.25fr 1.15fr 1.15fr 1fr; gap: 10px; font-variant-numeric: tabular-nums; }
+.gauge { position: relative; background: linear-gradient(180deg, #1d232c, #171c23); border: 1px solid var(--line); border-left: 4px solid var(--gc, var(--muted)); border-radius: 10px; padding: 9px 12px 10px; display: grid; gap: 4px; align-content: start; min-width: 0; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.gauge .gk { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--gc, var(--muted)); font-weight: 800; }
+.gauge b { font-family: var(--mono); font-size: 30px; font-weight: 600; line-height: 1; color: var(--fg); }
+.gauge small { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.gbar { height: 8px; border-radius: 4px; background: #2a323d; overflow: hidden; }
+.gbar i { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--gc); transition: width .4s, background .3s; }
+.g-clock { --gc: #8fb8e8; } .g-money { --gc: #f5b942; } .g-money b { color: #ffd479; } .g-trust { --gc: #5aa9ff; } .g-crew { --gc: #4cc38a; } .g-bad { --gc: #ff6a55; }
+.gauge.low { border-color: rgba(255,106,85,.6); } .gauge.low b { color: var(--late); }
+.gd { position: absolute; right: 10px; top: 8px; font-style: normal; font-family: var(--mono); font-weight: 700; font-size: 15px; opacity: 0; pointer-events: none; }
+.gd.up { color: var(--go); } .gd.dn { color: var(--late); }
+.gd.show { animation: gpop 1.8s ease-out; }
+@keyframes gpop { 0% { opacity: 0; transform: translateY(6px); } 12% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-8px); } }
+@media (max-width: 900px) { .gauges { grid-template-columns: repeat(2, 1fr); } .g-money { grid-column: 1 / -1; order: 3; } .g-clock { order: 1; } .g-bad { order: 2; } .g-trust { order: 4; } .g-crew { order: 5; } .gauge b { font-size: 24px; } }
+.stats { display: flex; gap: 16px; flex-wrap: wrap; font-variant-numeric: tabular-nums; align-items: center; }
+.stat { display: grid; } .stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.stat b { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 7; max-width: 100%; background: var(--panel); border-radius: 10px; }
+/* Wide screens: map and schedule on the left, tickets and techs in a column on the right. */
+@media (min-width: 1100px) {
+  .app { max-width: 1500px; grid-template-columns: minmax(0, 1fr) 400px; grid-template-areas: "top top" "map side" "tl side" "log side"; grid-template-rows: auto auto auto 1fr; align-items: start; }
+  .head { grid-area: top; } .mapwrap { grid-area: map; } .tl { grid-area: tl; } .log { grid-area: log; }
+  .app .cols { grid-area: side; grid-template-columns: 1fr; max-height: calc(100vh - 90px); overflow-y: auto; }
+}
+/* Pop-ups over the map */
+.mapwrap { position: relative; min-width: 0; }
+.mapwrap canvas { cursor: pointer; }
+.toasts { position: absolute; top: 8px; right: 8px; width: min(300px, 62%); display: grid; gap: 6px; pointer-events: none; z-index: 3; }
+.toast { pointer-events: auto; background: rgba(16,19,24,.94); border: 1px solid var(--line); border-left: 4px solid #8892a0; border-radius: 8px; padding: 7px 10px; font-size: 13px; line-height: 1.35; box-shadow: 0 6px 18px rgba(0,0,0,.45); animation: tin .25s ease-out; cursor: default; }
+.toast:not([data-id]) { pointer-events: none; }   /* plain notices let taps reach the map underneath */
+.toast[data-id] { cursor: pointer; }
+.toast.good { border-left-color: var(--go); } .toast.bad { border-left-color: var(--late); } .toast.warn { border-left-color: var(--due); } .toast.info { border-left-color: var(--sel); }
+.toast b { font-weight: 800; } .toast .amt { font-family: var(--mono); font-weight: 700; }
+.toast.good .amt { color: var(--go); } .toast.bad .amt { color: var(--late); }
+.toast.out { opacity: 0; transform: translateX(14px); transition: opacity .35s, transform .35s; }
+@keyframes tin { from { opacity: 0; transform: translateX(16px); } to { opacity: 1; transform: none; } }
+.pop { position: absolute; z-index: 4; width: 230px; background: #12161c; border: 1.5px solid var(--sel); border-radius: 10px; padding: 9px 11px; font-size: 13px; line-height: 1.4; box-shadow: 0 8px 24px rgba(0,0,0,.55); display: grid; gap: 3px; }
+.pop .h { font-weight: 800; font-size: 15px; display: flex; justify-content: space-between; gap: 8px; }
+.pop .m { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.pop .cta { color: var(--sel); font-weight: 700; margin-top: 2px; }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } .toast.out { transition: none; } }
+/* The call card: pops up over the map and pauses the board. */
+.callbox { position: absolute; z-index: 6; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(560px, calc(100% - 24px)); max-height: calc(100% - 16px); overflow-y: auto;
+  background: #12161c; border: 1.5px solid var(--sel); border-radius: 12px; padding: 14px 16px; display: grid; gap: 8px; box-shadow: 0 16px 40px rgba(0,0,0,.65); animation: cin .25s ease-out; }
+@keyframes cin { from { opacity: 0; transform: translate(-50%, -46%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+.callbox .ch { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.callbox .tag { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; border: 1.5px solid currentColor; }
+.callbox .tm { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+.callbox h3 { margin: 0; font-size: 21px; font-weight: 800; line-height: 1.15; }
+.callbox .who { margin: -4px 0 0; color: var(--muted); font-size: 13px; }
+.callbox .sit { margin: 0; font-size: 15px; line-height: 1.45; font-weight: 500; }
+.callbox .opts { display: grid; gap: 6px; }
+.callbox .opt { font: inherit; color: inherit; text-align: left; background: #1f252e; border: 1.5px solid var(--line); border-radius: 8px; padding: 9px 11px; cursor: pointer; display: grid; grid-template-columns: 24px 1fr; gap: 8px; font-size: 15px; font-weight: 600; line-height: 1.3; }
+.callbox .opt:hover, .callbox .opt:focus-visible { border-color: var(--sel); outline: none; }
+.callbox .opt b { font-family: var(--mono); color: var(--sel); border: 1.5px solid var(--sel); border-radius: 5px; text-align: center; height: 22px; line-height: 20px; }
+.callbox .opt em { display: block; font-style: normal; font-family: var(--mono); font-size: 11px; color: var(--due); font-weight: 600; margin-top: 2px; }
+.callbox .res { border-left: 4px solid var(--sel); background: #181d24; border-radius: 8px; padding: 8px 10px; display: grid; gap: 6px; }
+.callbox .res.good { border-left-color: var(--go); } .callbox .res.bad { border-left-color: var(--late); } .callbox .res.mixed { border-left-color: var(--due); }
+.callbox .res p { margin: 0; font-size: 14px; line-height: 1.4; }
+.callbox .luck { font-family: var(--mono); font-size: 11px; color: var(--due); }
+.callbox .dchip { font-family: var(--mono); font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 5px; background: #2a323d; margin-right: 5px; }
+.callbox .dchip.up { color: var(--go); } .callbox .dchip.dn { color: var(--late); }
+.callbox .btn { justify-self: start; }
+.info { font: inherit; background: none; border: 0; color: var(--muted); cursor: pointer; padding: 0 2px; font-size: 14px; }
+.tech.out { opacity: .45; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.col { background: var(--panel); border-radius: 10px; padding: 10px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.k { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; }
+.list { display: grid; gap: 6px; }
+.tk, .tech { font: inherit; color: inherit; text-align: left; background: #1f252e; border: 1.5px solid var(--line); border-radius: 8px; padding: 8px 10px; cursor: pointer; display: grid; gap: 3px; touch-action: manipulation; width: 100%; }
+.tk.sel { border-color: var(--sel); box-shadow: 0 0 0 1px var(--sel) inset; }
+.tk .r1, .tech .r1 { display: flex; justify-content: space-between; gap: 8px; font-weight: 800; font-size: 15px; }
+.tk .r2, .tech .r2 { font-family: var(--mono); font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.chip { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 4px; background: #2a323d; color: var(--fg); border: 1.5px solid transparent; }
+.tk.hot { border-left: 4px solid var(--late); } .tk.warm { border-left: 4px solid var(--due); }
+.tech.busy { opacity: .45; cursor: not-allowed; }
+.tech .q { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.empty { font-size: 13px; color: var(--muted); padding: 6px 2px; }
+button.btn { font-family: var(--display); font-weight: 800; font-size: 13px; letter-spacing: .05em; text-transform: uppercase; color: var(--fg); background: #2a323d; border: 0; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
+button.btn.on { background: var(--sel); color: #08121f; }
+button:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+.tl { background: var(--panel); border-radius: 10px; padding: 10px; display: grid; gap: 6px; }
+#tl { aspect-ratio: auto; width: 100%; height: auto; background: transparent; border-radius: 0; cursor: pointer; touch-action: manipulation; }
+.due { display: grid; gap: 4px; }
+.due .tx { display: flex; justify-content: space-between; font-family: var(--mono); font-size: 12px; }
+.due .tx b { font-weight: 600; }
+.drain { height: 6px; border-radius: 3px; background: #2a323d; overflow: hidden; }
+.drain i { display: block; height: 100%; border-radius: 3px; }
+.pv { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 3px 6px; border-radius: 4px; justify-self: start; }
+.pv.ok { background: rgba(76,195,138,.15); color: var(--go); } .pv.bad { background: rgba(255,106,85,.15); color: var(--late); }
+.risk { color: var(--late); font-weight: 600; }
+.log { font-family: var(--mono); font-size: 12px; color: var(--muted); min-height: 1.4em; }
+@media (max-width: 760px) { .cols { grid-template-columns: 1fr; } canvas { aspect-ratio: 4 / 3; } .stat b { font-size: 16px; } h1 { font-size: 22px; } }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(8,10,13,.8);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; max-width: 500px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-size: 28px; font-weight: 800; }
+.card h3 { margin: 4px 0 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; font-weight: 500; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+</style>
+
+<div class="app">
+  <div class="head">
+    <div class="top">
+      <h1>DISPATCH BOARD</h1>
+      <div class="btns"><button type="button" class="btn" id="speed">Speed ×1</button><button type="button" class="btn" id="pause">Pause</button><button type="button" class="btn" id="how">How to play</button></div>
+    </div>
+    <div class="gauges">
+      <div class="gauge g-clock"><span class="gk">Clock</span><b id="clock">7:00a</b><div class="gbar"><i id="dayBar"></i></div><small id="dayLeft">11h left in the day</small></div>
+      <div class="gauge g-money"><span class="gk">Billed</span><b id="billed">$0</b><small id="dayScore">Day score $0</small><em class="gd" id="dMoney"></em></div>
+      <div class="gauge g-trust"><span class="gk">Customer trust</span><b id="trust">60</b><div class="gbar"><i id="trustBar"></i></div><em class="gd" id="dTrust"></em></div>
+      <div class="gauge g-crew"><span class="gk">Crew morale</span><b id="crew">60</b><div class="gbar"><i id="crewBar"></i></div><em class="gd" id="dCrew"></em></div>
+      <div class="gauge g-bad"><span class="gk">Late / missed</span><b id="bad">0 / 0</b><small id="best">Best day $0</small></div>
+    </div>
+  </div>
+  <div class="mapwrap"><canvas id="map" width="1120" height="490" aria-label="Town map with jobs, sites and techs' vans. Tap a ticket pin or a van for details."></canvas>
+    <div class="toasts" id="toasts" aria-live="polite"></div><div class="pop" id="pop" hidden></div><div class="callbox" id="callBox" hidden></div></div>
+  <div class="tl">
+    <div class="k"><span>Schedule · next 5 hours</span><span id="tlhint">Tap a queued job to pull it back off a tech.</span></div>
+    <canvas id="tl" width="1120" height="250" aria-label="Each tech's schedule: drive time, work time and due times"></canvas>
+  </div>
+  <div class="log" id="log">Tickets will start coming in at 7:30.</div>
+  <div class="cols">
+    <div class="col"><div class="k"><span>Open tickets</span><span>tap one, then a tech</span></div><div class="list" id="tickets"></div></div>
+    <div class="col"><div class="k"><span>Techs</span><span id="hint"></span></div><div class="list" id="techs"></div></div>
+  </div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>DISPATCH BOARD</h2>
+    <p>One day, 7:00 to 6:00. Tickets come in from all over Brookfield. Get the right tech to each job before it's due, and handle the calls that come in along the way.</p>
+    <h3>Calls</h3>
+    <ul>
+      <li>A few times a day the phone rings: a customer, the crew, a supplier, an inspector. The board pauses while you pick an answer (tap it, or press 1–3).</li>
+      <li>Answers can bill money, add a ticket you'll need to dispatch, send a tech home, or hold a van up. Some are a gamble.</li>
+      <li><b style="color:#5aa9ff">Trust</b> (customers) and <b style="color:#4cc38a">Crew</b> (morale) start at 60. At the end of the day, every point above 60 adds $10 to your day score; every point below takes $10 off.</li>
+      <li>People remember. How you treat Gus, Bev and the others can come back on a later day. Ray, the owner, leaves you a note each morning.</li>
+      <li>Tap ⓘ next to a tech's name to learn about them.</li>
+    </ul>
+    <h3>How it works</h3>
+    <ul>
+      <li>Tap a ticket, then tap a tech (in the list or their row on the schedule). Nobody tells you who's right: check the ticket's skill against each tech's skill chips, and their schedule against the due time.</li>
+      <li>A tech who's booked solid past the due time can't take it. Anyone else can, even if it'll run late.</li>
+      <li><b>Late</b> jobs pay half. <b>Wrong skill</b> jobs take 1.5× as long, pay 40%, and cost a $75 mis-dispatch charge. Right tech, on time = full pay.</li>
+      <li>The schedule shows each tech's next 5 hours: hatched = driving, solid = on site, the white tick = when that job is due. Red outline = late, dark stripes = wrong skill. Tap a queued job to pull it back.</li>
+      <li>Each open ticket shows how long until it goes unanswered, and roughly how long you have to send someone.</li>
+      <li>A tech can take a queue of jobs. They drive to each one in order, work it, then go on to the next.</li>
+      <li>Drive time depends on distance. A job across town eats the clock.</li>
+      <li>On time pays the full ticket. Late pays half. A ticket nobody takes before it's due costs $150 in goodwill.</li>
+      <li>At 6:00 the day ends. Anything still unfinished doesn't bill.</li>
+    </ul>
+    <button type="button" class="btn on" id="howClose">Start the day</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const cv = $('map'), g = cv.getContext('2d');
+// Rough positions (fraction of the map); 1.0 of width ≈ 34 miles.
+const MILES = 34, MIN_PER_MILE = 2.1;
+const SK = { CAB: 'Cabling', CAM: 'Cameras', AV: 'AV', FIB: 'Fiber', NET: 'Network', PLC: 'PLC' };
+// Every skill has its own colour, used on ticket cards, tech cards and the map pins.
+const SKCOL = { CAB: '#4f9dff', CAM: '#c48bff', AV: '#ff8fb1', FIB: '#3fd0c9', NET: '#7ddc6f', PLC: '#f5a742' };
+const chipOf = s => `<span class="chip" style="color:${SKCOL[s]};border-color:${SKCOL[s]};background:${SKCOL[s]}22">${s}</span>`;
+// ── A made-up town: avenues (x) and streets (y) on a grid, a highway, a river with bridges ──
+const AVE = [.05, .19, .33, .5, .65, .8, .95], ST = [.1, .3, .5, .7, .9], HWY = 2;     // street index 2 is the highway
+const AVE_N = ['1ST AVE', 'OAK AVE', 'ELM AVE', 'MAIN ST', 'PARK AVE', 'MILL AVE', 'LAKE AVE'];
+const ST_N = ['NORTH RD', 'CEDAR ST', 'ROUTE 9', 'RIVER RD', 'SOUTH RD'];
+const node = (i, j) => j * AVE.length + i, NXY = k => [AVE[k % AVE.length], ST[Math.floor(k / AVE.length)]];
+// Road segments; the river runs between avenues 2 and 3, so only some streets bridge it.
+const NO_EDGE = new Set(['h2,0', 'h2,4', 'v0,3', 'h5,0']);
+const EDGES = [];
+for (let j = 0; j < ST.length; j++) for (let i = 0; i + 1 < AVE.length; i++) if (!NO_EDGE.has(`h${i},${j}`)) EDGES.push({ a: node(i, j), b: node(i + 1, j), hwy: j === HWY });
+for (let i = 0; i < AVE.length; i++) for (let j = 0; j + 1 < ST.length; j++) if (!NO_EDGE.has(`v${i},${j}`)) EDGES.push({ a: node(i, j), b: node(i, j + 1), hwy: false });
+const segMiles = e => { const [x1, y1] = NXY(e.a), [x2, y2] = NXY(e.b); return Math.hypot(x2 - x1, (y2 - y1) * 7 / 16) * MILES; };
+EDGES.forEach(e => { e.min = segMiles(e) * MIN_PER_MILE / (e.hwy ? 2 : 1); });
+const ADJ = Array.from({ length: AVE.length * ST.length }, () => []);
+EDGES.forEach(e => { ADJ[e.a].push([e.b, e.min]); ADJ[e.b].push([e.a, e.min]); });
+// Customer sites (made-up names) sit at street corners; the shop is one of them.
+const SITE = { 'Shop': node(1, 1), 'Maple Clinic': node(0, 0), 'Northgate School': node(2, 0), 'Union Bank': node(4, 0), 'Pine Hotel': node(6, 0),
+  'City Hall': node(3, 1), 'Harbor Mall': node(5, 1), 'Lakeview Apts': node(0, 3), 'Riverside Plant': node(2, 3), 'Cedar Dental': node(4, 3),
+  'Depot Warehouse': node(6, 3), 'Oak Library': node(1, 4), 'Elm St Offices': node(3, 4), 'Summit Gym': node(5, 4) };
+const CITY = Object.fromEntries(Object.entries(SITE).map(([n, k]) => [n, NXY(k)]));
+// Shortest drive between any two corners (Dijkstra), with the path for the vans to follow.
+const ROUTE = {};
+function routeFrom(src) {
+  const N = ADJ.length, d = new Array(N).fill(Infinity), prev = new Array(N).fill(-1), done = new Array(N).fill(false); d[src] = 0;
+  for (;;) { let u = -1; for (let i = 0; i < N; i++) if (!done[i] && (u < 0 || d[i] < d[u])) u = i; if (u < 0 || d[u] === Infinity) break; done[u] = true; ADJ[u].forEach(([v, w]) => { if (d[u] + w < d[v]) { d[v] = d[u] + w; prev[v] = u; } }); }
+  return { d, prev };
+}
+Object.values(SITE).forEach(k => { ROUTE[k] = routeFrom(k); });
+const pathNodes = (a, b) => { const out = [b]; let k = b; while (k !== a && k >= 0) { k = ROUTE[a].prev[k]; out.unshift(k); } return out; };
+const drive = (a, b) => a === b ? 5 : Math.round(8 + ROUTE[SITE[a]].d[SITE[b]]);
+// A polyline (with time weights) for driving a → b.
+function routePoly(a, b) {
+  const ns = pathNodes(SITE[a], SITE[b]), pts = ns.map(NXY), w = [];
+  for (let i = 1; i < ns.length; i++) { const e = EDGES.find(e => (e.a === ns[i - 1] && e.b === ns[i]) || (e.b === ns[i - 1] && e.a === ns[i])); w.push(e ? e.min : 1); }
+  return { pts, w, total: w.reduce((s, x) => s + x, 0) };
+}
+// Where along a route a van is at fraction f of the drive time, and which way it faces.
+function alongRoute(r, f) {
+  if (!r || r.pts.length < 2) return { p: r ? r.pts[0] : [0, 0], ang: 0 };
+  let tgt = f * r.total;
+  for (let i = 0; i < r.w.length; i++) {
+    if (tgt <= r.w[i] || i === r.w.length - 1) { const k = Math.max(0, Math.min(1, tgt / r.w[i])), a = r.pts[i], b = r.pts[i + 1]; return { p: [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k], ang: Math.atan2((b[1] - a[1]) * 7, (b[0] - a[0]) * 16) }; }
+    tgt -= r.w[i];
+  }
+  return { p: r.pts[r.pts.length - 1], ang: 0 };
+}
+
+const JOBS = { CAB: ['Pull 6 drops', 'Move a desk drop', 'Patch panel cleanup'], CAM: ['Add 2 cameras', 'Dead camera', 'NVR swap'], AV: ['Conference room TV', 'Projector won’t sync'], FIB: ['Fiber splice', 'Fiber link down'], NET: ['Rack a new switch', 'Wi-Fi dead zone'], PLC: ['Line 3 sensor fault', 'HMI won’t boot'] };
+const TECH0 = [
+  { name: 'Marcus', skills: ['CAB', 'CAM'], color: '#5aa9ff' },
+  { name: 'Dana', skills: ['FIB', 'CAB', 'NET'], color: '#c48bff' },
+  { name: 'Luis', skills: ['AV', 'CAM'], color: '#4cc38a' },
+  { name: 'Priya', skills: ['NET', 'PLC'], color: '#f5b942' },
+];
+const START = 7 * 60, END = 18 * 60, LAST_TICKET = 15 * 60 + 30;
+let best = 0; try { best = +localStorage.getItem('dispatch:best') || 0; } catch {}
+let wrong = 0;
+let clock, tickets, techs, sel, billed, late, missed, nextAt, speed = 1, paused = true, over = false, seq, log;
+// Event pop-ups: slide in over the map, fade after a few seconds; at most four at a time.
+function toast(kind, html, ticketId) {
+  const box = $('toasts'), el = document.createElement('div');
+  el.className = `toast ${kind}`; el.innerHTML = html; if (ticketId) el.dataset.id = ticketId;
+  box.prepend(el); while (box.children.length > 4) box.lastElementChild.remove();
+  setTimeout(() => { el.classList.add('out'); setTimeout(() => el.remove(), 400); }, kind === 'bad' || kind === 'warn' ? 6500 : 5000);
+}
+const money = v => `${v >= 0 ? '+' : '−'}$${Math.abs(v).toLocaleString()}`;
+const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = a => a[rnd(0, a.length - 1)];
+const fmt = m => { const h = Math.floor(m / 60), mm = Math.floor(m % 60); return `${h > 12 ? h - 12 : h}:${String(mm).padStart(2, '0')}${h >= 12 ? 'p' : 'a'}`; };
+
+// ── Calls: every so often the phone rings. The board pauses, you pick an answer, and it plays out on the board. ──
+// Lore that carries from day to day (saved on this device): Ray's notes, who remembers what you did.
+let mem = { day: 0 }; try { mem = Object.assign(mem, JSON.parse(localStorage.getItem('dispatch:lore') || '{}')); } catch {}
+const saveMem = () => { try { localStorage.setItem('dispatch:lore', JSON.stringify(mem)); } catch {} };
+let trust = 60, crew = 60, callOpen = false, nextCallAt = 0, callsToday = 0, usedCalls = new Set(), curCall = null;
+const BIO = {
+  Marcus: { role: 'Senior tech', years: 21, bio: 'Pulled his first Cat3 in 2004 and has the knees to prove it. Knows every drop ceiling in Brookfield. Won\'t use cable lube he didn\'t buy himself.', line: '"Measure twice, pull once."' },
+  Dana: { role: 'Fiber lead', years: 9, bio: 'The only splicer on the crew. Keeps her fusion splicer cleaner than her van. Customers ask for her by name, which she pretends to hate.', line: '"0.02 dB. You\'re welcome."' },
+  Luis: { role: 'AV tech', years: 4, bio: 'Came over from a home-theater company. Sings in the van, labels everything, and can hang a 98-inch TV level by eye.', line: '"It\'s not crooked. The wall is."' },
+  Priya: { role: 'Network & controls', years: 6, bio: 'Started on a plant floor programming PLCs before moving into networks. Speaks fluent Modbus. Plant managers trust her more than their own engineers.', line: '"I read the manual. Somebody had to."' },
+};
+const BRIEF = [
+  'Welcome aboard. Our last dispatcher lasted three weeks, so no pressure. The crew\'s good, the customers mostly pay, and the phone never stops. Keep the vans moving.',
+  'Day two. Gus over at Harbor Mall says you sound "reasonable on the phone," which is the nicest thing he\'s said about anyone. Don\'t let it go to your head.',
+  'Winter\'s coming, and so are the service calls. Luis wants the radio fixed in van 3. Marcus says it isn\'t broken, Luis just sings too loud.',
+  'Big week. A couple of GCs are watching how we handle the small stuff before they hand us anything big. Treat every call like it\'s the one that matters.',
+  'You\'ve got the hang of this. The crew\'s started calling you "the voice." I\'m pretty sure it\'s a compliment.',
+];
+const anyTech = (f = () => true) => { const ok = techs.filter(t => !t.out && f(t)); return ok.length ? pick(ok) : null; };
+const busyTech = () => anyTech(t => t.cur);
+// Board effects
+function sendHome(tech, why) {
+  tech.out = why;
+  const back = [...tech.queue, ...(tech.cur ? [tech.cur.t] : [])];
+  back.forEach(t => { t.tech = null; if (t.baseDur) { t.dur = t.baseDur; t.wrong = false; } });
+  tech.queue = []; tech.cur = null; tech.at = 'Shop';
+  if (back.length) toast('warn', `<b>${tech.name}'s jobs are back on the board</b><br>${back.map(t => `#${t.id} ${t.city}`).join(', ')} need a new tech.`);
+}
+function holdUp(tech, mins) { if (tech && tech.cur) { tech.cur.left += mins; tech.cur.total += mins; } }
+function addTicket(city, skill, job, pay, dueIn, durMins = 60) {
+  const t = { id: ++seq, city, skill, job, dur: durMins, born: clock, due: clock + dueIn, pay, tech: null, call: true };
+  tickets.push(t); toast('info', `<b>New ticket #${t.id}</b> · ${city}<br>${chipOf(skill)} ${job} · <span class="amt">$${pay}</span> · due ${fmt(t.due)}`, t.id); return t;
+}
+const KIND = { customer: ['Customer call', '#5aa9ff'], crew: ['Crew', '#4cc38a'], supply: ['Supplier', '#f5b942'], site: ['Job site', '#ff8fb1'], office: ['Office', '#c48bff'] };
+const CALLS = [
+  { id: 'sick', kind: 'crew', title: 'A tech goes home sick', when: () => techs.filter(t => !t.out).length >= 3,
+    prep: c => { c.tech = anyTech(); }, who: c => `${c.tech.name}, sounding rough`,
+    sit: c => `${c.tech.name} is running a fever and wants to go home.${c.tech.queue.length || c.tech.cur ? ' Their jobs would go back on the board.' : ''}`,
+    ch: c => [
+      { txt: `Send ${c.tech.name} home and reshuffle the board`, fx: { t: -4, c: 6 }, res: 'They thank you. Now you\'ve got jobs to hand out.', act: () => sendHome(c.tech, 'Out sick') },
+      { txt: 'Ask them to push through today', fx: { t: 0, c: -14 }, res: `${c.tech.name} grinds it out. By Friday half the crew has it.` },
+    ] },
+  { id: 'van', kind: 'crew', title: 'Van won\'t start', when: () => techs.some(t => !t.out && t.cur),
+    prep: c => { c.tech = busyTech(); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `${c.tech.name}'s van won't start after their job at ${c.tech.cur.t.city}. All their gear is in it.`,
+    ch: c => [
+      { txt: 'Call for a jump and a battery', fx: { m: -150 }, res: 'Running again 30 minutes later.', act: () => holdUp(c.tech, 30) },
+      { txt: 'Send another tech to give them a ride', fx: { c: -4 }, res: 'Slow, but they keep working. An hour lost.', act: () => holdUp(c.tech, 60) },
+      { txt: 'Have it towed and send them home', fx: { m: -220, c: 4, t: -6 }, res: 'The van goes to the shop. So do their jobs: back on the board.', act: () => sendHome(c.tech, 'No van today') },
+    ] },
+  { id: 'bev-late', kind: 'customer', title: '"Your tech was an hour late."', who: () => 'Bev, office manager at Cedar Dental',
+    sit: () => 'Traffic on Route 9 made your tech an hour late, and Bev had patients waiting on the Wi-Fi to check in.',
+    ch: () => [
+      { txt: 'Apologize and knock 10% off', fx: { m: -90, t: 10 }, res: 'Bev appreciates it. Cheap way to keep a good account.', mem: { bev: 'happy' } },
+      { txt: 'Apologize and explain the traffic', gamble: { p: .55, win: { t: 2, res: 'She sighs. "These things happen."' }, lose: { t: -10, res: '"That\'s not my problem." She asks for someone else next time.', mem: { bev: 'cold' } } } },
+      { txt: 'Have Ray call her personally', fx: { t: 12, c: -2 }, res: 'A call from the owner goes a long way.', mem: { bev: 'happy' } },
+    ] },
+  { id: 'gus-drops', kind: 'site', title: 'Gus wants six more drops', who: () => 'Gus, site super at Harbor Mall',
+    sit: () => '"While your guy\'s here, add six drops in the back office." There\'s no change order.',
+    ch: () => [
+      { txt: 'Do it on a signed change order', fx: { t: 2 }, res: 'Gus signs on the hood of the van. It\'s on the board now.', act: () => addTicket('Harbor Mall', 'CAB', '6 extra drops (change order)', 780, 240, 120) },
+      { txt: 'Do it free to keep him happy', fx: { t: 10, c: -6 }, res: 'Gus loves you. Your crew\'s grumbling about working for free.', mem: { gus: 'owes' }, act: () => addTicket('Harbor Mall', 'CAB', '6 drops, no charge', 0, 240, 120) },
+      { txt: 'Write it up for next week', fx: { t: -4 }, res: 'Gus shrugs. "Fine."' },
+    ] },
+  { id: 'backorder', kind: 'supply', title: 'Cameras on backorder', who: () => 'Benny at the supply house',
+    sit: () => 'The domes for Pine Hotel\'s install are backordered two weeks. Their grand reopening is Saturday.',
+    ch: () => [
+      { txt: 'Buy them retail at a markup', fx: { m: -420, t: 6 }, res: 'The install stays on schedule. The margin doesn\'t.' },
+      { txt: 'Offer a comparable model', gamble: { p: .7, win: { m: 120, t: 4, res: 'Mr. Okafor approves the swap.' }, lose: { t: -10, res: 'Their consultant rejects it. A day lost going back and forth.' } } },
+      { txt: 'Push the install until they arrive', fx: { t: -14 }, res: 'They reopen without cameras. Mr. Okafor is not happy.' },
+    ] },
+  { id: 'lift', kind: 'site', title: 'No lift on site', when: () => techs.some(t => !t.out && t.cur),
+    prep: c => { c.tech = busyTech(); }, who: c => `${c.tech.name}, at ${c.tech.cur.t.city}`,
+    sit: c => `The work's on a 24-foot ceiling. The GC promised a scissor lift. There isn't one.`,
+    ch: c => [
+      { txt: 'Rent a lift', fx: { m: -260, c: 2 }, res: 'The rental arrives in 40 minutes.', act: () => holdUp(c.tech, 40) },
+      { txt: 'Work it off an extension ladder', gamble: { p: .55, win: { c: -6, res: 'Done, barely. They say never again.' }, lose: { m: -900, t: -10, c: -25, res: 'The ladder kicks out. They\'re bruised and shaken, and done for the day.', act: () => sendHome(c.tech, 'Hurt on site') } } },
+    ] },
+  { id: 'early', kind: 'crew', title: '"Can I leave at 2?"', when: () => clock < 13 * 60 && techs.filter(t => !t.out).length >= 3,
+    prep: c => { c.tech = anyTech(); }, who: c => c.tech.name,
+    sit: c => `${c.tech.name}'s kid has a school concert at 2:30.`,
+    ch: c => [
+      { txt: 'Of course, go', fx: { c: 12 }, res: 'They\'re grateful. Their afternoon goes back on the board.', act: () => { c.tech.leaveAt = 14 * 60; } },
+      { txt: 'Sorry, the board\'s too full', fx: { c: -14 }, res: 'They work the afternoon in silence.' },
+    ] },
+  { id: 'school', kind: 'customer', title: 'After-hours AV job tonight', who: () => 'Coach Delgado, facilities at Northgate School',
+    sit: () => 'The school wants the gym AV done tonight, after the kids leave, at overtime rates.',
+    ch: () => [
+      { txt: 'Take it and assign it', fx: { m: 900, c: -10, t: 4 }, res: 'Big ticket. The crew\'s tired tomorrow.' },
+      { txt: 'Take it, ask for volunteers, pay a bonus', fx: { m: 650, c: 4, t: 4 }, res: 'Luis jumps at it. Less profit, happier crew.' },
+      { txt: 'Offer next Saturday instead', fx: { t: -6 }, res: 'Coach says he\'ll think about it.' },
+    ] },
+  { id: 'outlet', kind: 'site', title: '"Can you move this outlet too?"', who: () => 'Sandra, property manager at Lakeview Apts',
+    sit: () => 'She wants your tech to move a 120-volt outlet while they\'re there. You\'re a low-voltage company.',
+    ch: () => [
+      { txt: 'Politely decline', fx: { t: -2 }, res: 'She\'s mildly annoyed but understands.' },
+      { txt: 'Refer the electrician you partner with', fx: { m: 50, t: 6 }, res: 'The electrician sends a referral fee. Sandra appreciates the help.' },
+      { txt: 'Just do it, it\'s five minutes', gamble: { p: .7, win: { m: 80, t: 4, res: 'Nothing goes wrong. This time.' }, lose: { m: -1500, t: -10, res: 'Shared circuit. Half a floor goes dark, with your company name on the incident report.' } } },
+    ] },
+  { id: 'firestop', kind: 'site', title: 'Failed inspection: firestopping', who: () => 'Inspector Halloran, Elm St Offices',
+    sit: () => 'Three penetrations through the rated corridor wall failed. The drywall crew can\'t close up until they\'re fixed.',
+    ch: () => [
+      { txt: 'Send a tech back today', fx: { t: 8 }, res: 'It\'s on the board. Fix it before the drywall crew leaves.', act: () => addTicket('Elm St Offices', 'CAB', 'Redo 3 firestops', 0, 150, 45) },
+      { txt: 'Schedule it next week', fx: { m: -200, t: -12 }, res: 'The GC backcharges you a day of drywall labor.' },
+    ] },
+  { id: 'nvr', kind: 'customer', title: 'Cameras down overnight', who: () => 'Overnight voicemail from the Depot Warehouse',
+    sit: () => 'The warehouse NVR went offline at 9:30 last night and it\'s still down. They had a break-in last month.',
+    ch: () => [
+      { txt: 'Make it the next priority job', fx: { t: 8 }, res: 'Urgent ticket on the board.', act: () => addTicket('Depot Warehouse', 'CAM', 'NVR offline (urgent)', 480, 100, 45) },
+      { txt: 'Walk them through a remote reboot', gamble: { p: .5, win: { m: 120, t: 8, res: 'Back up after a reboot. Easy.' }, lose: { t: -6, res: 'Didn\'t work. Now it\'s a job, and they\'ve waited longer.', act: () => addTicket('Depot Warehouse', 'CAM', 'NVR offline', 400, 140, 45) } } },
+    ] },
+  { id: 'dana', kind: 'customer', title: '"Can you send Dana?"', when: () => techs.some(t => t.name === 'Dana' && !t.out), who: () => 'Ken, IT lead at City Hall',
+    sit: () => 'City Hall wants a switch replaced this afternoon, and Ken asks for Dana by name.',
+    ch: () => [
+      { txt: 'Book it, and promise Dana', fx: { t: 8 }, res: 'Ken\'s happy. Make sure it\'s Dana who goes.', act: () => { const t = addTicket('City Hall', 'NET', 'Replace switch (asked for Dana)', 520, 260, 60); t.wants = 'Dana'; } },
+      { txt: 'Book it, whoever\'s free', fx: { t: -2 }, res: 'Ken says fine, a little flatly.', act: () => addTicket('City Hall', 'NET', 'Replace switch', 520, 260, 60) },
+    ] },
+  { id: 'tyler', kind: 'crew', title: 'The apprentice wants to lead', who: () => 'Tyler, your apprentice',
+    sit: () => 'Tyler\'s been shadowing Marcus for six months. He asks to run a small two-drop job at Maple Clinic alone.',
+    ch: () => [
+      { txt: 'Let him run it', gamble: { p: .65, win: { m: 220, c: 12, res: 'Clean work. He\'s walking on air.', mem: { tyler: 'won' } }, lose: { t: -8, c: 4, res: 'He mislabels the patch panel. Fixable, and a learning moment.', mem: { tyler: 'lost' } } } },
+      { txt: 'Keep him shadowing', fx: { c: -6 }, res: 'Safe. He\'s a little deflated.' },
+    ] },
+  { id: 'loto', kind: 'site', title: 'Lockout skipped on a PLC panel', when: () => techs.some(t => t.name === 'Priya' && !t.out), who: () => 'Joanne, plant engineer at Riverside Plant',
+    sit: () => 'Joanne reports that Priya opened a live control panel without locking it out.',
+    ch: () => [
+      { txt: 'Formal write-up and a refresher', fx: { m: -100, t: 6, c: -6 }, res: 'Taken seriously. Joanne notes it.' },
+      { txt: 'Talk to Priya one-on-one', fx: { c: 2 }, res: 'She\'s embarrassed and won\'t do it again.' },
+      { txt: 'Let it slide', gamble: { p: .7, win: { t: -4, res: 'Nothing comes of it.' }, lose: { m: -2000, t: -20, c: -15, res: 'It happens again, and this time someone gets hurt.', mem: { safety: 'hurt' } } } },
+    ] },
+  { id: 'gus-back', kind: 'customer', title: 'Gus has a big one', when: () => mem.gus === 'owes' && mem.day > (mem.gusDay || 0), who: () => 'Gus, site super, Harbor Mall', priority: true,
+    sit: () => '"Remember those six drops you threw in for free? I do." He\'s got a 60-drop tenant build-out and wants your crew on it.',
+    ch: () => [
+      { txt: 'Take it, and thank him', fx: { m: 2400, t: 10 }, res: 'Being decent pays. Gus tells two other supers about you.', mem: { gus: 'paid' } },
+      { txt: 'Take it, but bump the price', fx: { m: 3000, t: -10 }, res: '"Guess we\'re square," he says. The warmth\'s gone.', mem: { gus: 'square' } },
+    ] },
+  { id: 'bev-back', kind: 'customer', title: 'Cookies from Cedar Dental', when: () => mem.bev === 'happy' && mem.day > (mem.bevDay || 0), who: () => 'Bev, office manager at Cedar Dental', priority: true,
+    sit: () => 'Bev drops off cookies for "the nice dispatcher," plus a referral: the orthodontist next door wants their office wired.',
+    ch: () => [
+      { txt: 'Book the walkthrough', fx: { m: 900, t: 6, c: 6 }, res: 'The crew eats the cookies. The orthodontist books the job.', mem: { bev: 'done' } },
+    ] },
+  { id: 'pizza', kind: 'crew', title: 'Long day for the crew', when: () => clock >= 16 * 60, who: () => 'Back at the shop', last: true,
+    sit: () => 'Everyone ran late today. Someone suggests pizza.',
+    ch: () => [
+      { txt: 'Buy the pizza', fx: { m: -90, c: 10 }, res: 'Cheapest morale boost there is.' },
+      { txt: 'Thank everyone and send them home', fx: { c: 2 }, res: 'They appreciate it. They also wanted pizza.' },
+    ] },
+];
+function pickCall() {
+  const ok = CALLS.filter(c => !usedCalls.has(c.id) && (!c.when || c.when()));
+  const late = clock >= 16 * 60, pri = ok.filter(c => c.priority), last = ok.filter(c => c.last);
+  if (pri.length) return pri[0];
+  if (late && last.length) return last[0];
+  const pool = ok.filter(c => !c.last && !c.priority); return pool.length ? pick(pool) : null;
+}
+function openCall(c) {
+  if (!c) return; usedCalls.add(c.id); callsToday++; c.prep && c.prep(c);
+  curCall = { c, who: c.who(c), sit: c.sit(c), ch: c.ch(c), done: null }; callOpen = true; drawCall();
+}
+function chooseCall(i) {
+  const cur = curCall; if (!cur || cur.done) return; const ch = cur.ch[i];
+  let o = ch, luck = '';
+  if (ch.gamble) { const ok = Math.random() < ch.gamble.p; o = ok ? ch.gamble.win : ch.gamble.lose; luck = ok ? 'The gamble paid off.' : 'The gamble didn\'t pay off.'; }
+  const fx = o.fx || o, d = { m: fx.m || 0, t: 0, c: 0 };
+  billed += d.m;
+  const t0 = trust, c0 = crew; trust = Math.max(0, Math.min(100, trust + (fx.t || 0))); crew = Math.max(0, Math.min(100, crew + (fx.c || 0))); d.t = trust - t0; d.c = crew - c0;
+  (o.act || ch.act) && (o.act || ch.act)();
+  const m2 = o.mem || ch.mem; if (m2) { Object.assign(mem, m2); if (m2.gus) mem.gusDay = mem.day; if (m2.bev) mem.bevDay = mem.day; saveMem(); }
+  log = `${cur.c.title}: ${ch.txt}.`;
+  cur.done = { res: o.res || ch.res, luck, d }; drawCall(); render();
+}
+function closeCall() { callOpen = false; curCall = null; $('callBox').hidden = true; nextCallAt = clock + rnd(70, 110); }
+function drawCall() {
+  const box = $('callBox'), cur = curCall; box.hidden = false;
+  if (cur.brief) {
+    box.innerHTML = `<div class="ch"><span class="tag" style="color:var(--sel)">Morning briefing · Day ${mem.day}</span><span class="tm">7:00a</span></div>
+      <h3>A note from Ray, the owner</h3><p class="sit"><i>${cur.brief}</i></p>
+      ${cur.news.length ? `<div class="res mixed">${cur.news.map(n => `<p>${n}</p>`).join('')}</div>` : ''}
+      <p class="who">Tip: tap ⓘ next to a tech's name to learn about them.</p>
+      <button type="button" class="btn go" id="callGo">Open the phones →</button>`;
+    $('callGo').onclick = () => { closeCall(); nextCallAt = START + rnd(70, 100); paused = false; $('pause').textContent = 'Pause'; };
+    return;
+  }
+  if (cur.bio) {
+    const t = TECH0.find(x => x.name === cur.bio), b = BIO[cur.bio];
+    box.innerHTML = `<div class="ch"><span class="tag" style="color:${t.color}">Crew</span></div><h3 style="color:${t.color}">${t.name}</h3>
+      <p class="who">${b.role} · ${b.years} years with the company</p><div>${t.skills.map(chipOf).join(' ')}</div><p class="sit">${b.bio}</p><p class="who"><i>${b.line}</i></p>
+      <button type="button" class="btn go" id="callGo">Back to the board</button>`;
+    $('callGo').onclick = () => { $('callBox').hidden = true; curCall = cur.prev || null; callOpen = !!cur.prev; if (cur.prev) drawCall(); };
+    return;
+  }
+  const [kn, kc] = KIND[cur.c.kind], d = cur.done && cur.done.d;
+  const chips = d ? [['Billed', d.m, true], ['Trust', d.t], ['Crew', d.c]].filter(x => x[1]).map(([n, v, money]) => `<span class="dchip ${v > 0 ? 'up' : 'dn'}">${n} ${v > 0 ? '+' : '−'}${money ? '$' : ''}${Math.abs(v)}</span>`).join('') : '';
+  box.innerHTML = `<div class="ch"><span class="tag" style="color:${kc}">${kn}</span><span class="tm">${fmt(clock)} · board paused</span></div>
+    <h3>${cur.c.title}</h3><p class="who">${cur.who}</p><p class="sit">${cur.sit}</p>
+    ${cur.done ? `<div class="res ${d.m + d.t * 20 + d.c * 20 > 60 ? 'good' : d.m + d.t * 20 + d.c * 20 < -60 ? 'bad' : 'mixed'}">${cur.done.luck ? `<span class="luck">${cur.done.luck}</span>` : ''}<p>${cur.done.res}</p><div>${chips || '<span class="dchip">No change</span>'}</div></div>
+      <button type="button" class="btn go" id="callGo">Back to the board →</button>`
+    : `<div class="opts">${cur.ch.map((o, i) => `<button type="button" class="opt" data-i="${i}"><b>${i + 1}</b><span>${o.txt}${o.gamble ? '<em>A gamble: could go either way</em>' : ''}</span></button>`).join('')}</div>`}`;
+  if (cur.done) $('callGo').onclick = closeCall;
+}
+function morning() {
+  mem.day = (mem.day || 0) + 1; saveMem();
+  const news = [];
+  if (mem.tyler === 'won') { news.push('Tyler hasn\'t stopped talking about "his" job at Maple Clinic.'); mem.tyler = 'told'; }
+  if (mem.tyler === 'lost') { news.push('Tyler relabeled that patch panel on his own time. Kid\'s all right.'); mem.tyler = 'told'; }
+  if (mem.safety === 'hurt') { news.push('After the incident, the whole crew sits through a lockout/tagout refresher this morning.'); mem.safety = 'told'; crew = Math.max(0, crew - 5); }
+  if (mem.gus === 'square') { news.push('Gus hasn\'t called since you bumped the price.'); mem.gus = 'cold'; }
+  if (mem.bev === 'cold') { news.push('Cedar Dental called another company for their last service visit.'); mem.bev = 'gone'; }
+  saveMem();
+  curCall = { brief: BRIEF[mem.day - 1] || 'Phones are already ringing. Same crew, same town, new problems. Go get \'em.', news }; callOpen = true; paused = true; drawCall();
+}
+
+function reset() {
+  clock = START; tickets = []; sel = null; billed = 0; late = 0; missed = 0; wrong = 0; nextAt = START + 30; seq = 100; over = false;
+  techs = TECH0.map(t => ({ ...t, at: 'Shop', queue: [], cur: null, out: false }));
+  trust = 60; crew = 60; callsToday = 0; for (const k in lastVal) delete lastVal[k]; usedCalls = new Set(); callOpen = false; curCall = null; $('callBox').hidden = true; nextCallAt = START + 80;
+  log = 'Tickets will start coming in at 7:30.'; $('toasts').innerHTML = ''; $('pop').hidden = true; render();
+}
+function spawn() {
+  const skill = pick(Object.keys(SK)), city = pick(Object.keys(CITY).filter(c => c !== 'Shop'));
+  const dur = rnd(3, 10) * 15;
+  tickets.push({ id: ++seq, city, skill, job: pick(JOBS[skill]), dur, born: clock, due: clock + rnd(170, 330), pay: Math.round((dur * 3.2 + rnd(40, 160)) / 5) * 5, tech: null });
+  log = `New ticket: ${city}, ${SK[skill]}.`;
+  const nt = tickets[tickets.length - 1];
+  toast('info', `<b>New ticket #${nt.id}</b> · ${city}<br>${chipOf(skill)} ${nt.job} · <span class="amt">$${nt.pay}</span> · due ${fmt(nt.due)}`, nt.id);
+}
+// A tech is unavailable only if they couldn't even get to this job before it's due.
+function bookedPast(tech, t) { const j = schedule(tech, t).pop(); return j.start > t.due; }
+function assign(t, tech) {
+  if (tech.out) { log = `${tech.name} is off the board today (${tech.out.toLowerCase()}).`; return; }
+  if (bookedPast(tech, t)) { log = `${tech.name} is booked until ${fmt(etaFor(tech))}. They can't get to #${t.id} before it's due.`; return; }
+  t.baseDur = t.baseDur || t.dur;
+  t.wrong = !tech.skills.includes(t.skill);
+  t.dur = t.wrong ? Math.round(t.baseDur * 1.5) : t.baseDur;
+  t.tech = tech.name; tech.queue.push(t); sel = null;
+  if (t.wants && t.wants !== tech.name) { trust = Math.max(0, trust - 6); toast('warn', `<b>Ken asked for ${t.wants}</b><br>Sending ${tech.name} instead: Trust −6`); t.wants = null; }
+  log = `${tech.name} → #${t.id} ${t.city}.${t.wrong ? ` ${tech.name} isn't certified for ${SK[t.skill]}: it'll take longer and pay less.` : ''}`;
+  if (t.wrong) toast('warn', `<b>${tech.name} isn't certified for ${SK[t.skill]}</b><br>#${t.id} will take longer and pay less.`);
+}
+// Each job on a tech's plate: when they arrive, start and finish. Pass `extra` to preview adding a ticket.
+function schedule(tech, extra) {
+  const out = []; let m = clock, p = tech.at;
+  if (tech.cur) {
+    const t = tech.cur.t;
+    if (tech.cur.phase === 'drive') out.push({ t, leave: clock - (tech.cur.total - tech.cur.left), start: clock + tech.cur.left, end: clock + tech.cur.left + t.dur });
+    else out.push({ t, leave: clock - (tech.cur.total - tech.cur.left), start: clock - (tech.cur.total - tech.cur.left), end: clock + tech.cur.left });
+    m = out[0].end; p = t.city;
+  }
+  (extra ? [...tech.queue, extra] : tech.queue).forEach(t => { const d = drive(p, t.city); out.push({ t, leave: m, start: m + d, end: m + d + t.dur, preview: t === extra }); m += d + t.dur; p = t.city; });
+  return out;
+}
+const hm = m => { m = Math.round(m); const h = Math.floor(Math.abs(m) / 60), mm = Math.abs(m) % 60; return h ? `${h}h ${String(mm).padStart(2, '0')}m` : `${mm}m`; };
+// When will this tech finish everything in their queue?
+function etaFor(tech) {
+  let m = clock, p = tech.at;
+  if (tech.cur) { m += tech.cur.left; p = tech.cur.t.city; if (tech.cur.phase === 'drive') m += tech.cur.t.dur; }
+  tech.queue.forEach(t => { m += drive(p, t.city) + t.dur; p = t.city; });
+  return m;
+}
+function step(dm) {
+  clock += dm;
+  techs.forEach(t => { if (t.leaveAt && clock >= t.leaveAt && !t.out) { t.leaveAt = 0; sendHome(t, 'Left early'); } });
+  if (!callOpen && clock >= nextCallAt && clock < END - 20 && callsToday < 6) { const c = pickCall(); if (c) { openCall(c); return; } nextCallAt = clock + 60; }
+  if (clock >= nextAt && clock <= LAST_TICKET) { spawn(); nextAt = clock + rnd(18, 42); }
+  techs.forEach(tech => {
+    if (tech.out) return;
+    let left = dm;
+    while (left > 0) {
+      if (!tech.cur) {
+        const t = tech.queue.shift(); if (!t) break;
+        const d = drive(tech.at, t.city);
+        tech.cur = { t, phase: 'drive', left: d, total: d, route: routePoly(tech.at, t.city) };
+      }
+      const c = tech.cur, use = Math.min(left, c.left);
+      c.left -= use; left -= use;
+      if (c.phase === 'drive') {
+        if (c.left <= 0) { tech.cur = { t: c.t, phase: 'work', left: c.t.dur, total: c.t.dur }; tech.at = c.t.city; }
+      } else if (c.left <= 0) {
+        const t = c.t, onTime = clock - left <= t.due;
+        let pay = onTime ? t.pay : Math.round(t.pay / 2);
+        if (t.wrong) { pay = Math.round(pay * .4) - 75; wrong++; }
+        billed += pay; if (!onTime) late++;
+        tickets = tickets.filter(x => x !== t); tech.cur = null;
+        log = `${tech.name} closed #${t.id} in ${t.city}${onTime ? '' : ' late'}${t.wrong ? ', wrong skill' : ''}: ${pay >= 0 ? '+' : '−'}$${Math.abs(pay)}.`;
+        toast(onTime && !t.wrong ? 'good' : 'bad', `<b style="color:${tech.color}">${tech.name}</b> closed #${t.id} · ${t.city}<br><span class="amt">${money(pay)}</span>${onTime ? '' : ' · late'}${t.wrong ? ' · wrong skill' : ''}`);
+      }
+    }
+  });
+  tickets.filter(t => !t.tech && clock > t.due).forEach(t => { missed++; billed -= 150; log = `#${t.id} in ${t.city} went unanswered: −$150.`; toast('bad', `<b>#${t.id} went unanswered</b> · ${t.city}<br><span class="amt">−$150</span>`); });
+  tickets.filter(t => !t.tech && !t.warned && t.due - clock <= 45).forEach(t => { t.warned = true; toast('warn', `<b>#${t.id} needs a tech</b> · ${t.city}<br>${chipOf(t.skill)} unanswered in ${hm(t.due - clock)}`, t.id); });
+  tickets = tickets.filter(t => t.tech || clock <= t.due);
+  if (clock >= END) endDay();
+}
+function endDay() {
+  const bonus = (trust - 60) * 10 + (crew - 60) * 10, day = billed + bonus;
+  try { if (parent !== window) parent.postMessage({ arcade: 'dispatch-board', score: day }, '*'); } catch (e) {}   over = true; paused = true; clock = END;
+  if (day > best) { best = day; try { localStorage.setItem('dispatch:best', best); } catch {} }
+  log = `Day over. Billed $${billed.toLocaleString()} · Trust ${trust} · Crew ${crew} → day score $${day.toLocaleString()} · ${late} late · ${missed} missed. ${day >= best && day > 0 ? 'New best day!' : ''} Tap "New day" to go again.`;
+  $('pause').textContent = 'New day';
+  toast(day >= 0 ? 'good' : 'bad', `<b>Day over</b><br>Billed $${billed.toLocaleString()}, trust & crew ${bonus >= 0 ? '+' : '−'}$${Math.abs(bonus).toLocaleString()} → <span class="amt">$${day.toLocaleString()}</span>`);
+}
+// Gauge helpers: bar width/colour and a +/− flash when a value changes.
+function gaugeBar(id, v) { const el = $(id); el.style.width = v + '%'; el.style.background = v < 30 ? 'var(--late)' : v < 45 ? 'var(--due)' : ''; }
+const lastVal = {};
+function flashDelta(id, v, k, money) {
+  if (lastVal[k] === undefined || over && k === 'm' && v === lastVal[k]) { lastVal[k] = v; return; }
+  const d = v - lastVal[k]; lastVal[k] = v; if (!d) return;
+  const el = $(id); el.textContent = `${d > 0 ? '+' : '−'}${money ? '$' : ''}${Math.abs(d).toLocaleString()}`; el.className = `gd ${d > 0 ? 'up' : 'dn'}`; void el.offsetWidth; el.classList.add('show');
+}
+// Only touch the DOM when a list changes, so taps aren't lost to a rebuild.
+const setHTML = (id, h) => { const el = $(id); if (el._h !== h) { el._h = h; el.innerHTML = h; } };
+function render() {
+  $('clock').textContent = fmt(clock); $('billed').textContent = (billed < 0 ? '−$' : '$') + Math.abs(billed).toLocaleString();
+  $('bad').textContent = `${late} / ${missed}`; $('trust').textContent = trust; $('crew').textContent = crew;
+  gaugeBar('trustBar', trust); gaugeBar('crewBar', crew);
+  $('trust').closest('.gauge').classList.toggle('low', trust < 30); $('crew').closest('.gauge').classList.toggle('low', crew < 30);
+  const dayF = Math.max(0, Math.min(1, (clock - START) / (END - START))); $('dayBar').style.width = dayF * 100 + '%';
+  $('dayLeft').textContent = over ? 'Day over' : `${hm(END - clock)} left in the day`;
+  $('dayScore').textContent = `Day score $${(billed + (trust - 60) * 10 + (crew - 60) * 10).toLocaleString()}`;
+  flashDelta('dMoney', billed, 'm', true); flashDelta('dTrust', trust, 't'); flashDelta('dCrew', crew, 'c'); $('best').textContent = 'Best day $' + best.toLocaleString(); $('log').textContent = log;
+  const open = tickets.filter(t => !t.tech).sort((a, b) => a.due - b.due);
+  setHTML('tickets', open.length ? open.map(t => {
+    const left = t.due - clock, win = t.due - t.born, cls = left < 60 ? 'hot' : left < 120 ? 'warm' : '';
+    const col = left < 60 ? 'var(--late)' : left < 120 ? 'var(--due)' : 'var(--go)';
+    // Rough latest moment to dispatch and still make it: due minus the job and a typical drive.
+    const lastCall = left - t.dur - 25;
+    return `<button type="button" class="tk ${cls} ${sel === t.id ? 'sel' : ''}" data-id="${t.id}"><div class="r1"><span>${t.city}</span><span>$${t.pay}</span></div>
+      <div class="r2"><span>${chipOf(t.skill)} ${t.job} · ${hm(t.dur)} on site</span><span>due ${fmt(t.due)}</span></div>
+      <div class="due"><div class="drain"><i style="width:${Math.max(0, Math.min(100, left / win * 100))}%;background:${col}"></i></div>
+      <div class="tx"><b style="color:${col}">Unanswered in ${hm(left)}</b><span>${lastCall > 0 ? `send within ~${hm(lastCall)}` : '<span class="risk">already tight</span>'}</span></div></div></button>`;
+  }).join('') : `<div class="empty">${over ? 'Day over.' : 'No open tickets.'}</div>`);
+  const st = tickets.find(t => t.id === sel);
+  $('hint').innerHTML = st ? `#${st.id} needs ${chipOf(st.skill)} ${SK[st.skill]}` : '';
+  setHTML('techs', techs.map(tech => {
+    const busy = tech.out || (st && bookedPast(tech, st));
+    const c = tech.cur, doing = tech.out ? tech.out : c ? `${c.phase === 'drive' ? 'Driving to' : 'On site at'} ${c.t.city} · ${hm(c.left)} left` : 'Idle at ' + tech.at;
+    const sch = schedule(tech), risky = sch.filter(j => j.end > j.t.due);
+    const pv = tech.out ? '' : busy ? `<span class="pv bad">Booked until ${fmt(etaFor(tech))}: can't make it</span>` : '';
+    return `<button type="button" class="tech ${busy ? 'busy' : ''} ${tech.out ? 'out' : ''}" data-n="${tech.name}" ${busy ? 'aria-disabled="true"' : ''}><div class="r1"><span style="color:${tech.color}">● ${tech.name} <span class="info" data-bio="${tech.name}" title="About ${tech.name}">ⓘ</span></span><span>${tech.skills.map(chipOf).join(' ')}</span></div>
+      <div class="r2"><span>${doing}</span><span>${tech.queue.length ? `+${tech.queue.length} queued · ` : ''}${c || tech.queue.length ? `free ${fmt(etaFor(tech))}` : 'free now'}</span></div>
+      ${risky.length ? `<div class="r2"><span class="risk">⚠ ${risky.map(j => `#${j.t.id} ${j.t.city} late by ${hm(j.end - j.t.due)}`).join(' · ')}</span></div>` : ''}
+      ${pv}</button>`;
+  }).join(''));
+}
+$('tickets').addEventListener('pointerdown', e => { const b = e.target.closest('.tk'); if (!b) return; sel = sel === +b.dataset.id ? null : +b.dataset.id; render(); });
+$('callBox').addEventListener('click', e => { const o = e.target.closest('.opt'); if (o) chooseCall(+o.dataset.i); });
+addEventListener('keydown', e => { if (!callOpen || !curCall || curCall.brief || curCall.bio) return; if (!curCall.done && /^[1-3]$/.test(e.key) && curCall.ch[+e.key - 1]) chooseCall(+e.key - 1); else if (curCall.done && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); closeCall(); } });
+$('techs').addEventListener('pointerdown', e => { const ib = e.target.closest('[data-bio]'); if (ib) { e.stopPropagation(); const prev = curCall && !curCall.bio ? curCall : null; curCall = { bio: ib.dataset.bio, prev }; drawCall(); return; } const b = e.target.closest('.tech'); if (!b) return; const t = tickets.find(x => x.id === sel); if (!t) { log = 'Pick a ticket first.'; render(); return; } assign(t, techs.find(x => x.name === b.dataset.n)); render(); });
+$('speed').onclick = () => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; $('speed').textContent = `Speed ×${speed}`; };
+$('pause').onclick = () => { if (over) { reset(); morning(); $('pause').textContent = 'Pause'; return; } if (callOpen) return; paused = !paused; $('pause').textContent = paused ? 'Resume' : 'Pause'; };
+$('how').onclick = () => { paused = true; $('pause').textContent = over ? 'New day' : 'Resume'; $('howModal').hidden = false; };
+$('howClose').onclick = () => { $('howModal').hidden = true; if (!over && !callOpen) { paused = false; $('pause').textContent = 'Pause'; } };
+
+const tl = $('tl'), tg = tl.getContext('2d');
+const TL = { left: 120, span: 300, rowH: 46, top: 26 };
+let tlHits = [];
+function drawTimeline() {
+  const W = tl.width, H = TL.top + techs.length * TL.rowH + 8; if (tl.height !== H) tl.height = H;
+  const t0 = clock - 30, X = m => TL.left + (m - t0) / TL.span * (W - TL.left - 10);
+  tg.fillStyle = '#181d24'; tg.fillRect(0, 0, W, H);
+  // Hour grid
+  tg.font = '600 13px "Red Hat Mono", monospace'; tg.textAlign = 'center';
+  for (let h = Math.ceil(t0 / 60) * 60; h < t0 + TL.span; h += 60) { const x = X(h); tg.strokeStyle = '#2a323d'; tg.lineWidth = 1; tg.beginPath(); tg.moveTo(x, TL.top - 6); tg.lineTo(x, H); tg.stroke(); tg.fillStyle = '#8892a0'; tg.fillText(fmt(h), x, 16); }
+  const endX = X(END); if (endX < W) { tg.fillStyle = 'rgba(255,106,85,.08)'; tg.fillRect(endX, TL.top - 6, W - endX, H); }
+  const st = tickets.find(t => t.id === sel);
+  tlHits = [];
+  techs.forEach((tech, i) => {
+    const y = TL.top + i * TL.rowH;
+    tg.fillStyle = tech.color; tg.textAlign = 'left'; tg.font = '800 15px Archivo, sans-serif'; tg.fillText(tech.name, 10, y + 26);
+    const sch = schedule(tech, null);
+    sch.forEach(j => {
+      const late = j.end > j.t.due, a = X(j.leave), b = X(j.start), c = X(j.end), yy = y + 6, hh = TL.rowH - 16;
+      tg.globalAlpha = j.preview ? .55 : 1;
+      // Drive: hatched
+      tg.save(); tg.beginPath(); tg.rect(a, yy + 6, Math.max(0, b - a), hh - 12); tg.clip(); tg.strokeStyle = tech.color; tg.lineWidth = 2;
+      for (let k = a - hh; k < b; k += 7) { tg.beginPath(); tg.moveTo(k, yy + hh); tg.lineTo(k + hh, yy); tg.stroke(); } tg.restore();
+      // Work: solid block
+      tg.fillStyle = tech.color; tg.fillRect(b, yy, Math.max(2, c - b), hh);
+      if (late) { tg.strokeStyle = '#ff6a55'; tg.lineWidth = 3; tg.strokeRect(b, yy, Math.max(2, c - b), hh); }
+      if (j.t.wrong) { tg.save(); tg.beginPath(); tg.rect(b, yy, Math.max(2, c - b), hh); tg.clip(); tg.strokeStyle = 'rgba(16,19,24,.45)'; tg.lineWidth = 3; for (let k = b - hh; k < c; k += 9) { tg.beginPath(); tg.moveTo(k, yy + hh); tg.lineTo(k + hh, yy); tg.stroke(); } tg.restore(); }
+      if (j.preview) { tg.setLineDash([5, 4]); tg.strokeStyle = '#e8ecf1'; tg.lineWidth = 2; tg.strokeRect(b, yy, Math.max(2, c - b), hh); tg.setLineDash([]); }
+      tg.fillStyle = '#101318'; tg.font = '700 12px "Red Hat Mono", monospace'; tg.textAlign = 'left';
+      if (c - b > 60) tg.fillText(`#${j.t.id} ${j.t.city}`.slice(0, Math.floor((c - b - 8) / 7.4)), b + 5, yy + hh / 2 + 4);
+      // Due marker
+      const dx = X(j.t.due); tg.strokeStyle = late ? '#ff6a55' : '#e8ecf1'; tg.lineWidth = 2; tg.beginPath(); tg.moveTo(dx, yy - 3); tg.lineTo(dx, yy + hh + 3); tg.stroke();
+      tg.fillStyle = late ? '#ff6a55' : '#e8ecf1'; tg.beginPath(); tg.moveTo(dx - 5, yy - 4); tg.lineTo(dx + 5, yy - 4); tg.lineTo(dx, yy + 2); tg.fill();
+      tg.globalAlpha = 1;
+      if (!j.preview && tech.queue.includes(j.t)) tlHits.push({ x0: a, x1: c, y0: yy, y1: yy + hh, tech, t: j.t });
+    });
+    tlHits.push({ row: true, y0: y, y1: y + TL.rowH, tech });
+  });
+  // Now line
+  const nx = X(clock); tg.strokeStyle = '#5aa9ff'; tg.lineWidth = 2; tg.beginPath(); tg.moveTo(nx, TL.top - 8); tg.lineTo(nx, H); tg.stroke();
+  tg.fillStyle = '#5aa9ff'; tg.font = '700 12px "Red Hat Mono", monospace'; tg.textAlign = 'left'; tg.fillText('NOW', nx + 4, TL.top - 2);
+}
+tl.addEventListener('click', e => {
+  const r = tl.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * tl.width, y = (e.clientY - r.top) / r.height * tl.height;
+  const job = tlHits.find(h => !h.row && x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1);
+  if (job) { job.tech.queue = job.tech.queue.filter(t => t !== job.t); job.t.tech = null; if (job.t.baseDur) { job.t.dur = job.t.baseDur; job.t.wrong = false; } sel = job.t.id; log = `Pulled #${job.t.id} ${job.t.city} back off ${job.tech.name}. Pick someone else.`; render(); return; }
+  const row = tlHits.find(h => h.row && y >= h.y0 && y < h.y1); const t = tickets.find(x => x.id === sel);
+  if (row && t && !t.tech) { assign(t, row.tech); render(); }
+});
+// The static map (land, mile-road grid, water, freeways, shields, cities) is baked once per size.
+// The static town (land, blocks, buildings, parks, water, roads, names) is baked once per size.
+let mapBake = null, BLD = [];
+function bakeMap(W, H) {
+  if (mapBake && mapBake.width === W && mapBake.height === H) return mapBake;
+  mapBake = document.createElement('canvas'); mapBake.width = W; mapBake.height = H; BLD = [];
+  const m = mapBake.getContext('2d'), P = ([x, y]) => [x * W, y * H];
+  let seed = 9; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  m.fillStyle = '#1a2028'; m.fillRect(0, 0, W, H);
+  // City blocks between the roads: sidewalks, buildings with rooftop detail, a park and a lake.
+  const bx = [0, ...AVE, 1], by = [0, ...ST, 1];
+  const isPark = (i, j) => (i === 5 && j === 1) || (i === 1 && j === 4);
+  const isLake = (i, j) => i === 0 && j === 4;
+  for (let i = 0; i + 1 < bx.length; i++) for (let j = 0; j + 1 < by.length; j++) {
+    const x0 = bx[i] * W + 9, y0 = by[j] * H + 9, x1 = bx[i + 1] * W - 9, y1 = by[j + 1] * H - 9; if (x1 - x0 < 8 || y1 - y0 < 8) continue;
+    if (i === 3 && j !== 2) continue;                                  // the river runs through column 3 (drawn below)
+    m.fillStyle = '#232b35'; m.beginPath(); m.roundRect(x0, y0, x1 - x0, y1 - y0, 6); m.fill();
+    if (isLake(i, j)) { m.fillStyle = '#163552'; m.beginPath(); m.ellipse((x0 + x1) / 2, (y0 + y1) / 2, (x1 - x0) / 2 - 4, (y1 - y0) / 2 - 4, 0, 0, 7); m.fill(); m.strokeStyle = 'rgba(120,180,230,.35)'; m.lineWidth = 2; m.stroke(); continue; }
+    if (isPark(i, j)) {
+      m.fillStyle = '#1f3a2b'; m.beginPath(); m.roundRect(x0 + 3, y0 + 3, x1 - x0 - 6, y1 - y0 - 6, 5); m.fill();
+      m.strokeStyle = 'rgba(200,190,150,.25)'; m.lineWidth = 2; m.beginPath(); m.moveTo(x0 + 6, y1 - 8); m.quadraticCurveTo((x0 + x1) / 2, y0, x1 - 6, y1 - 12); m.stroke();
+      for (let k = 0; k < 14; k++) { const tx = x0 + 10 + r() * (x1 - x0 - 20), ty = y0 + 10 + r() * (y1 - y0 - 20); m.fillStyle = '#2b5a3c'; m.beginPath(); m.arc(tx, ty, 5 + r() * 4, 0, 7); m.fill(); m.fillStyle = 'rgba(255,255,255,.06)'; m.beginPath(); m.arc(tx - 2, ty - 2, 2.5, 0, 7); m.fill(); }
+      continue;
+    }
+    // Buildings: a few footprints per block, lit from the top-left, with rooftop units.
+    for (let k = 0; k < 6; k++) {
+      const w = 14 + r() * 26, h = 12 + r() * 20, x = x0 + 4 + r() * Math.max(1, x1 - x0 - w - 8), y = y0 + 4 + r() * Math.max(1, y1 - y0 - h - 8);
+      const shade = 46 + Math.floor(r() * 18);
+      m.fillStyle = 'rgba(0,0,0,.35)'; m.fillRect(x + 3, y + 3, w, h);
+      m.fillStyle = `rgb(${shade},${shade + 6},${shade + 14})`; m.fillRect(x, y, w, h);
+      m.fillStyle = 'rgba(255,255,255,.08)'; m.fillRect(x, y, w, 2); m.fillRect(x, y, 2, h);
+      if (w > 22 && h > 16) { m.fillStyle = 'rgba(0,0,0,.3)'; m.fillRect(x + w * .55, y + h * .3, 7, 6); m.fillRect(x + w * .2, y + h * .55, 5, 5); }
+      const win = []; for (let wy = y + 4; wy < y + h - 3; wy += 6) for (let wx = x + 4; wx < x + w - 3; wx += 6) if (r() < .45) win.push([wx, wy]); BLD.push(win);
+    }
+  }
+  // River: winds down column 3, between avenues 2 and 3.
+  const rx0 = (AVE[2] + .035) * W, rx1 = (AVE[3] - .035) * W;
+  m.fillStyle = '#163552'; m.beginPath(); m.moveTo(rx0, 0);
+  for (let y = 0; y <= H; y += 20) m.lineTo(rx0 + Math.sin(y * .02) * 8, y);
+  for (let y = H; y >= 0; y -= 20) m.lineTo(rx1 + Math.sin(y * .02 + 1) * 8, y); m.closePath(); m.fill();
+  m.strokeStyle = 'rgba(120,180,230,.3)'; m.lineWidth = 2; m.stroke();
+  m.strokeStyle = 'rgba(120,180,230,.1)'; m.lineWidth = 1; for (let y = 10; y < H; y += 14) { m.beginPath(); m.moveTo((rx0 + rx1) / 2 - 8, y); m.lineTo((rx0 + rx1) / 2 + 6, y + 4); m.stroke(); }
+  // Roads: dark curb, asphalt, then markings. The highway is wider with lane lines and a median.
+  const seg = e => [P(NXY(e.a)), P(NXY(e.b))];
+  m.lineCap = 'round';
+  EDGES.forEach(e => { const [a, b] = seg(e); m.strokeStyle = '#0d1116'; m.lineWidth = e.hwy ? 24 : 15; m.beginPath(); m.moveTo(...a); m.lineTo(...b); m.stroke(); });
+  EDGES.forEach(e => { const [a, b] = seg(e); m.strokeStyle = e.hwy ? '#454f5c' : '#39424e'; m.lineWidth = e.hwy ? 20 : 11; m.beginPath(); m.moveTo(...a); m.lineTo(...b); m.stroke(); });
+  m.lineCap = 'butt';
+  EDGES.forEach(e => {
+    const [a, b] = seg(e);
+    if (e.hwy) {
+      m.strokeStyle = '#d9b44a'; m.lineWidth = 1.5; m.setLineDash([]); [-1.5, 1.5].forEach(o => { m.beginPath(); m.moveTo(a[0], a[1] + o); m.lineTo(b[0], b[1] + o); m.stroke(); });
+      m.strokeStyle = 'rgba(255,255,255,.55)'; m.lineWidth = 1.2; m.setLineDash([10, 9]); [-6, 6].forEach(o => { m.beginPath(); m.moveTo(a[0], a[1] + o); m.lineTo(b[0], b[1] + o); m.stroke(); });
+    } else { m.strokeStyle = 'rgba(217,180,74,.55)'; m.lineWidth = 1; m.setLineDash([6, 7]); m.beginPath(); m.moveTo(...a); m.lineTo(...b); m.stroke(); }
+    m.setLineDash([]);
+  });
+  // Bridges over the river: rails along the deck.
+  EDGES.filter(e => { const [x1] = NXY(e.a), [x2] = NXY(e.b); return Math.min(x1, x2) === AVE[2] && Math.max(x1, x2) === AVE[3]; }).forEach(e => {
+    const [a, b] = seg(e), h = e.hwy ? 13 : 8; m.strokeStyle = '#8c96a3'; m.lineWidth = 2; [-h, h].forEach(o => { m.beginPath(); m.moveTo(rx0 - 10, a[1] + o); m.lineTo(rx1 + 10, a[1] + o); m.stroke(); });
+  });
+  // Crosswalks at the corners, intersections cleaned up.
+  for (let k = 0; k < ADJ.length; k++) { if (!ADJ[k].length) continue; const [x, y] = P(NXY(k)); m.fillStyle = '#39424e'; m.fillRect(x - 6, y - 6, 12, 12); m.fillStyle = 'rgba(255,255,255,.18)'; for (let i = -5; i <= 4; i += 3) { m.fillRect(x + i, y - 11, 1.5, 4); m.fillRect(x + i, y + 7, 1.5, 4); } }
+  // Street names.
+  m.font = '600 10px "Red Hat Mono", monospace'; m.fillStyle = 'rgba(200,210,222,.45)';
+  AVE.forEach((x, i) => { m.save(); m.translate(x * W + 10, ST[3] * H + 40); m.rotate(Math.PI / 2); m.textAlign = 'left'; m.fillText(AVE_N[i], 0, 0); m.restore(); });
+  ST.forEach((y, j) => { if (j === HWY) return; m.textAlign = 'left'; m.fillText(ST_N[j], AVE[3] * W + 18, y * H - 10); });
+  // Route 9 shields along the highway.
+  [.27, .73].forEach(fx => { const x = fx * W, y = ST[HWY] * H; m.fillStyle = '#f2f4f7'; m.beginPath(); m.roundRect(x - 13, y - 9, 26, 18, 4); m.fill(); m.strokeStyle = '#101318'; m.lineWidth = 1.5; m.stroke(); m.fillStyle = '#101318'; m.font = '800 11px Archivo, sans-serif'; m.textAlign = 'center'; m.fillText('9', x, y + 4); });
+  // Sites: a building marker and a label; the shop is orange.
+  Object.entries(CITY).forEach(([n, c]) => {
+    const [x, y] = P(c), shop = n === 'Shop', sx = x + 12, sy = y - 26;
+    m.fillStyle = 'rgba(0,0,0,.4)'; m.fillRect(sx + 2, sy + 2, 20, 16);
+    m.fillStyle = shop ? '#f59428' : '#6c7a8c'; m.fillRect(sx, sy, 20, 16);
+    m.fillStyle = shop ? '#ffd29a' : '#c9d3df'; m.fillRect(sx + 3, sy + 3, 5, 4); m.fillRect(sx + 12, sy + 3, 5, 4); m.fillRect(sx + 8, sy + 9, 4, 7);
+    const label = shop ? 'AAROMACH SHOP' : n; m.font = `${shop ? 800 : 600} 12px Archivo, sans-serif`; m.textAlign = 'left';
+    const tw = m.measureText(label).width, lx = sx + 24 + tw + 12 > W - 4 ? sx - tw - 14 : sx + 24;
+    m.fillStyle = 'rgba(16,19,24,.78)'; m.beginPath(); m.roundRect(lx, sy - 1, tw + 10, 18, 4); m.fill();
+    m.fillStyle = shop ? '#f5b25a' : '#d3dae3'; m.fillText(label, lx + 5, sy + 12);
+  });
+  // Compass and scale.
+  m.strokeStyle = 'rgba(232,236,241,.5)'; m.fillStyle = 'rgba(232,236,241,.6)'; m.lineWidth = 1.5;
+  m.beginPath(); m.moveTo(W - 24, H - 34); m.lineTo(W - 24, H - 58); m.stroke(); m.beginPath(); m.moveTo(W - 24, H - 62); m.lineTo(W - 29, H - 52); m.lineTo(W - 19, H - 52); m.closePath(); m.fill();
+  m.font = '700 11px Archivo, sans-serif'; m.textAlign = 'center'; m.fillText('N', W - 24, H - 66);
+  return mapBake;
+}
+// A service van seen from above, pointing along `ang`, in the tech's colour.
+let pinHits = [], vanHits = [];
+// Tap the map: a ticket pin selects it and opens its details; a van shows that tech's day.
+function showPop(x, y, html) {
+  const pop = $('pop'), r = cv.getBoundingClientRect(), k = r.width / cv.width;
+  pop.innerHTML = html; pop.hidden = false;
+  const px = Math.max(6, Math.min(r.width - 236, x * k - 115)), py = y * k > 160 ? y * k - pop.offsetHeight - 14 : y * k + 18;
+  pop.style.left = px + 'px'; pop.style.top = py + 'px';
+  clearTimeout(showPop.t); showPop.t = setTimeout(() => { pop.hidden = true; }, 7000);
+}
+cv.addEventListener('pointerdown', e => {
+  const r = cv.getBoundingClientRect(), x = (e.clientX - r.left) * cv.width / r.width, y = (e.clientY - r.top) * cv.height / r.height;
+  const near = (a, rad) => Math.hypot(a.x - x, a.y - y) <= rad;
+  const pin = pinHits.slice().reverse().find(h => near(h, 16)), vh = !pin && vanHits.find(h => near(h, 20));
+  if (pin) {
+    const t = pin.t, left = t.due - clock;
+    if (!t.tech) sel = t.id;
+    showPop(pin.x, pin.y, `<div class="h"><span>#${t.id} · ${t.city}</span><span class="amt">$${t.pay}</span></div>
+      <div>${chipOf(t.skill)} ${t.job}</div><div class="m">${hm(t.dur)} on site · due ${fmt(t.due)}</div>
+      ${t.tech ? `<div class="m">Assigned to ${t.tech}</div>` : `<div class="m" style="color:${left < 60 ? 'var(--late)' : left < 120 ? 'var(--due)' : 'var(--go)'}">Unanswered in ${hm(left)}</div><div class="cta">Now tap a tech →</div>`}`);
+    render();
+  } else if (vh) {
+    const tech = vh.tech, c = tech.cur, q = tech.queue;
+    showPop(vh.x, vh.y, `<div class="h"><span style="color:${tech.color}">${tech.name}</span><span>${tech.skills.map(chipOf).join(' ')}</span></div>
+      <div>${c ? `${c.phase === 'drive' ? 'Driving to' : 'On site at'} ${c.t.city}` : 'Idle at ' + tech.at}</div>
+      ${c ? `<div class="m">#${c.t.id} ${c.t.job} · ${hm(c.left)} left</div>` : ''}
+      <div class="m">${q.length ? 'Next: ' + q.map(t => `#${t.id} ${t.city}`).join(', ') : 'Nothing queued'} · free ${fmt(etaFor(tech))}</div>`);
+  } else $('pop').hidden = true;
+});
+// Tapping a "new ticket" or "needs a tech" pop-up selects that ticket.
+document.addEventListener('pointerdown', e => { const el = e.target.closest('.toast[data-id]'); if (!el) return; const t = tickets.find(x => x.id === +el.dataset.id); if (t && !t.tech) { sel = t.id; render(); el.classList.add('out'); setTimeout(() => el.remove(), 300); } });
+function van(x, y, ang, col, initial, moving) {
+  g.save(); g.translate(x, y); g.rotate(ang);
+  g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.roundRect(-14, -7, 30, 17, 4); g.fill();
+  if (moving) { g.fillStyle = 'rgba(255,240,180,.16)'; g.beginPath(); g.moveTo(15, -5); g.lineTo(34, -11); g.lineTo(34, 11); g.lineTo(15, 5); g.fill(); }
+  g.fillStyle = col; g.beginPath(); g.roundRect(-15, -8, 30, 16, 4); g.fill();
+  g.strokeStyle = 'rgba(0,0,0,.45)'; g.lineWidth = 1; g.stroke();
+  g.fillStyle = 'rgba(0,0,0,.18)'; g.fillRect(-12, -6, 18, 12);                                   // roof panel
+  g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 1.2; [-4, 0, 4].forEach(o => { g.beginPath(); g.moveTo(-11, o); g.lineTo(4, o); g.stroke(); });   // roof rack
+  g.fillStyle = 'rgba(190,225,255,.9)'; g.beginPath(); g.moveTo(8, -6); g.lineTo(12, -5); g.lineTo(12, 5); g.lineTo(8, 6); g.closePath(); g.fill();   // windshield
+  g.fillStyle = '#fff3b0'; g.fillRect(14, -7, 2, 3); g.fillRect(14, 4, 2, 3);                    // headlights
+  g.fillStyle = '#ff4d3d'; g.fillRect(-15, -7, 2, 3); g.fillRect(-15, 4, 2, 3);                   // tail lights
+  g.fillStyle = col; g.fillRect(7, -10, 3, 2); g.fillRect(7, 8, 3, 2);                            // mirrors
+  g.rotate(-ang); g.fillStyle = '#101318'; g.font = '800 9px Archivo, sans-serif'; g.textAlign = 'center'; g.fillText(initial, 0, 3);
+  g.restore();
+}
+function vanState(tech) {
+  const c = tech.cur;
+  if (c && c.phase === 'drive') { const a = alongRoute(c.route, 1 - c.left / c.total); return { p: a.p, ang: a.ang, moving: true }; }
+  return { p: CITY[tech.at], ang: 0, moving: false };
+}
+// Ambient traffic: little cars wandering the streets (just scenery).
+const CARC = ['#c9d2dc', '#e05a4f', '#3c7dd9', '#f2f2ee', '#f0b73a', '#5a636e', '#2e9a62'];
+let cars = [], lastDraw = performance.now();
+function initCars() {
+  cars = Array.from({ length: 16 }, () => { const e = EDGES[rnd(0, EDGES.length - 1)]; return { e, from: e.a, f: Math.random(), v: (e.hwy ? .5 : .28) * (.7 + Math.random() * .6), col: pick(CARC) }; });
+}
+function moveCars(dt) {
+  if (!cars.length) initCars();
+  cars.forEach(c => {
+    c.f += c.v * dt * (c.e.hwy ? 1 : 1) / Math.max(.4, c.e.min / 6);
+    while (c.f >= 1) {
+      const at = c.from === c.e.a ? c.e.b : c.e.a, opts = EDGES.filter(e => (e.a === at || e.b === at) && e !== c.e);
+      c.e = opts.length ? pick(opts) : c.e; c.from = at; c.f -= 1; c.v = (c.e.hwy ? .5 : .28) * (.7 + Math.random() * .6);
+    }
+  });
+}
+function drawCars(W, H) {
+  cars.forEach(c => {
+    const a = NXY(c.from), b = NXY(c.from === c.e.a ? c.e.b : c.e.a), x1 = a[0] * W, y1 = a[1] * H, x2 = b[0] * W, y2 = b[1] * H;
+    const ang = Math.atan2(y2 - y1, x2 - x1), off = c.e.hwy ? 5 : 3, x = x1 + (x2 - x1) * c.f - Math.sin(ang) * off, y = y1 + (y2 - y1) * c.f + Math.cos(ang) * off;
+    g.save(); g.translate(x, y); g.rotate(ang);
+    g.fillStyle = 'rgba(0,0,0,.35)'; g.fillRect(-4, -1.5, 10, 5);
+    g.fillStyle = c.col; g.beginPath(); g.roundRect(-5, -2.5, 10, 5, 1.5); g.fill();
+    g.fillStyle = 'rgba(20,30,40,.7)'; g.fillRect(1, -2, 2, 4);
+    g.fillStyle = 'rgba(255,240,180,.9)'; g.fillRect(4.5, -2, 1, 1.2); g.fillRect(4.5, .8, 1, 1.2);
+    g.restore();
+  });
+}
+// The river, traced again for its moving highlights.
+function riverPath(W, H) {
+  const rx0 = (AVE[2] + .035) * W, rx1 = (AVE[3] - .035) * W;
+  g.beginPath(); g.moveTo(rx0, 0);
+  for (let y = 0; y <= H; y += 20) g.lineTo(rx0 + Math.sin(y * .02) * 8, y);
+  for (let y = H; y >= 0; y -= 20) g.lineTo(rx1 + Math.sin(y * .02 + 1) * 8, y); g.closePath();
+  return [rx0, rx1];
+}
+// Daylight: warm morning, orange late afternoon, blue dusk with office windows lighting up.
+function daylight(W, H) {
+  const h = clock / 60; let tint = null, lit = 0;
+  if (h < 8.5) tint = `rgba(255,170,120,${.12 * (1 - (h - 7) / 1.5)})`;
+  else if (h >= 15.5 && h < 17) tint = `rgba(255,140,50,${.13 * (h - 15.5) / 1.5})`;
+  else if (h >= 17) { const k = Math.min(1, h - 17); tint = `rgba(18,28,70,${.15 + .3 * k})`; lit = k; }
+  if (tint) { g.fillStyle = tint; g.fillRect(0, 0, W, H); }
+  if (lit > 0) { g.fillStyle = `rgba(255,214,120,${.75 * lit})`; BLD.forEach(win => win.forEach(([x, y]) => g.fillRect(x, y, 2, 2))); }
+}
+function draw() {
+  const W = cv.width, H = cv.height, P = c => [c[0] * W, c[1] * H];
+  const now = performance.now(), fdt = Math.min(.1, (now - lastDraw) / 1000); lastDraw = now;
+  g.drawImage(bakeMap(W, H), 0, 0);
+  // Water shimmer
+  { g.save(); riverPath(W, H); g.clip(); g.strokeStyle = 'rgba(150,200,240,.16)'; g.lineWidth = 1.5; const o = (now / 60) % 28;
+    for (let y = -28 + o; y < H; y += 28) for (let k = 0; k < 2; k++) { const x = (AVE[2] + .07 + k * .06) * W + Math.sin(y * .05 + k) * 6; g.beginPath(); g.moveTo(x, y); g.lineTo(x + 10, y + 3); g.stroke(); }
+    g.restore(); }
+  if (!paused && !callOpen && !over) moveCars(fdt * speed); else if (!cars.length) initCars();
+  drawCars(W, H);
+  daylight(W, H);
+  // Planned routes: along the roads, dashed in each tech's colour.
+  techs.forEach(tech => {
+    const stops = (tech.cur ? [tech.cur.t] : []).concat(tech.queue); if (!stops.length) return;
+    g.strokeStyle = tech.color; g.globalAlpha = .6; g.lineWidth = 3; g.setLineDash([7, 6]); g.beginPath();
+    let from = tech.cur && tech.cur.phase === 'drive' ? null : tech.at;
+    if (tech.cur && tech.cur.phase === 'drive') { const v = vanState(tech), r = tech.cur.route, f = 1 - tech.cur.left / tech.cur.total; g.moveTo(...P(v.p)); let acc = 0; const tgt = f * r.total; r.w.forEach((w, i) => { acc += w; if (acc > tgt) g.lineTo(...P(r.pts[i + 1])); }); from = tech.cur.t.city; }
+    else g.moveTo(...P(CITY[from]));
+    (tech.cur && tech.cur.phase === 'drive' ? tech.queue : tech.cur ? tech.queue : stops).forEach(t => { pathNodes(SITE[from], SITE[t.city]).forEach(k => g.lineTo(...P(NXY(k)))); from = t.city; });
+    g.stroke(); g.setLineDash([]); g.globalAlpha = 1;
+  });
+  // Open tickets as pins on their site.
+  const byCity = {}; pinHits = []; vanHits = [];
+  tickets.forEach(t => { const k = t.city; byCity[k] = (byCity[k] || 0) + 1; const [x, y] = P(CITY[k]); const px = x - 18 - (byCity[k] - 1) * 30, py = y - 2;
+    const left = t.due - clock, urg = left < 60 ? '#ff6a55' : left < 120 ? '#f5b942' : '#4cc38a', open = !t.tech;
+    const R2 = 14, cy = py - 24, assigned = techs.find(x => x.name === t.tech);
+    g.save(); if (!open) g.globalAlpha = .55;
+    // Urgent: a pulsing ring.
+    if (open && left < 60) { const ph = (now / 900) % 1; g.strokeStyle = `rgba(255,106,85,${.8 * (1 - ph)})`; g.lineWidth = 3; g.beginPath(); g.arc(px, cy, R2 + 4 + ph * 16, 0, 7); g.stroke(); }
+    g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.ellipse(px, py, 9, 3.5, 0, 0, 7); g.fill();
+    g.fillStyle = open ? '#f5f7fa' : assigned ? assigned.color : '#5c6673';
+    g.beginPath(); g.moveTo(px, py); g.bezierCurveTo(px - 5, py - 9, px - R2, py - 14, px - R2, cy); g.arc(px, cy, R2, Math.PI, 0); g.bezierCurveTo(px + R2, py - 14, px + 5, py - 9, px, py); g.fill();
+    g.strokeStyle = open ? urg : 'rgba(0,0,0,.5)'; g.lineWidth = open ? 3 : 1.5; g.stroke();
+    g.fillStyle = SKCOL[t.skill]; g.beginPath(); g.arc(px, cy, R2 - 4, 0, 7); g.fill();
+    g.fillStyle = '#0d1116'; g.font = '800 9px "Red Hat Mono", monospace'; g.textAlign = 'center'; g.fillText(t.skill, px, cy + 3);
+    if (t.id === sel) { g.strokeStyle = '#5aa9ff'; g.lineWidth = 4; g.beginPath(); g.arc(px, cy, R2 + 7, 0, 7); g.stroke(); }
+    pinHits.push({ x: px, y: cy, t });
+    // Countdown tag (open tickets) or the assigned tech's name.
+    const label = open ? hm(left) : `→ ${t.tech}`;
+    g.font = '800 13px "Red Hat Mono", monospace'; const tw = g.measureText(label).width + 14, ty = cy - R2 - 26;
+    g.fillStyle = 'rgba(13,17,22,.92)'; g.beginPath(); g.roundRect(px - tw / 2, ty, tw, 20, 10); g.fill();
+    g.strokeStyle = open ? urg : 'rgba(255,255,255,.2)'; g.lineWidth = 2; g.stroke();
+    g.fillStyle = open ? urg : '#c9d1db'; g.fillText(label, px, ty + 14.5);
+    g.restore();
+  });
+  // Vans: driving along the roads, parked at a site while working (with a progress ring), or at the shop.
+  const parked = {};
+  techs.forEach(tech => {
+    const v = vanState(tech); let [x, y] = P(v.p);
+    if (tech.out) return;
+    if (!v.moving) { const k = tech.cur ? tech.cur.t.city : tech.at, n = parked[k] = (parked[k] || 0) + 1; x += -4; y += 18 + (n - 1) * 24; }
+    const glow = g.createRadialGradient(x, y, 4, x, y, 26); glow.addColorStop(0, tech.color + '66'); glow.addColorStop(1, tech.color + '00');
+    g.fillStyle = glow; g.beginPath(); g.arc(x, y, 26, 0, 7); g.fill();
+    g.save(); g.translate(x, y); g.scale(1.25, 1.25); van(0, 0, v.moving ? v.ang : 0, tech.color, tech.name[0], v.moving); g.restore(); vanHits.push({ x, y, tech });
+    if (tech.cur && tech.cur.phase === 'work') { g.strokeStyle = tech.color; g.lineWidth = 3; g.beginPath(); g.arc(x, y, 23, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * (1 - tech.cur.left / tech.cur.total)); g.stroke(); }
+  });
+}
+let last = performance.now(), acc = 0, rAcc = 0;
+function loop(now) {
+  const dt = Math.min(.1, (now - last) / 1000); last = now;
+  if (!paused && !over && !document.hidden && !callOpen) { acc += dt * 2 * speed; const whole = Math.floor(acc); if (whole) { acc -= whole; step(whole); } }
+  rAcc += dt; if (rAcc > .25) { rAcc = 0; render(); }
+  draw(); drawTimeline(); requestAnimationFrame(loop);
+}
+reset(); morning(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

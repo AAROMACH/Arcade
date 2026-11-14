@@ -1,0 +1,871 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Lift Panic</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap">
+<style>
+/* Layout: one screen — a hazard-striped cabinet frame around the game canvas, controls under it. Single dark arcade look. */
+:root {
+  color-scheme: dark;
+  --bg: #121417;        /* warehouse night */
+  --panel: #1c2026;
+  --steel: #3a414b;
+  --fg: #e9ecef;
+  --muted: #9aa3ad;
+  --safety: #ffc21a;    /* safety yellow */
+  --alarm: #ff4b3e;     /* camera LED / hits */
+  --display: "Bungee", "Impact", "Arial Black", sans-serif;
+  --body: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--body);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  box-sizing: border-box; overflow: hidden;
+}
+.cab {
+  width: 100%; max-width: 960px; padding: 8px; border-radius: 10px; box-sizing: border-box;
+  background: repeating-linear-gradient(-45deg, var(--safety) 0 14px, #111 14px 28px);
+}
+canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 4px; background: #0d0f12; touch-action: none; cursor: pointer; }
+.bar { width: 100%; max-width: 960px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.bar b { color: var(--fg); font-weight: 700; }
+.keys { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+kbd { font-family: var(--body); font-weight: 700; font-size: 11px; color: var(--bg); background: var(--safety); border-radius: 3px; padding: 1px 5px; }
+button { font-family: var(--display); font-size: 13px; letter-spacing: .04em; color: var(--bg); background: var(--safety); border: 0; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
+[hidden] { display: none !important; }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(13,15,18,.82);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--panel); border: 3px solid var(--safety); border-radius: 10px; padding: 18px; width: 100%; max-width: 460px; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 28px; color: var(--safety); }
+.card h3 { margin: 4px 0 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+@media (pointer: coarse), (max-width: 640px) {
+  .keys { display: none; }
+  .tip { display: block; }
+  .cab { padding: 5px; }
+  body { justify-content: flex-start; padding-block: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-bottom, 0px)); gap: 8px; }
+  .tip { display: none !important; }
+  .bar button { padding: 7px 12px; }
+  .liftpad { display: flex; align-items: center; }
+  .bar { order: 3; } .tip { order: 4; }
+}
+.liftpad { display: none; width: 100%; max-width: 960px; flex: 0 0 auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.liftpad .grp { display: grid; gap: 8px; grid-template-columns: 1fr; width: min(48%, 200px); }
+.liftpad.side .grp { grid-template-columns: 1fr 1fr; width: 100%; }
+.liftpad.side.left .grp, .liftpad.side.right .grp { width: min(100%, 300px); }
+.liftpad.left { justify-content: flex-start; } .liftpad.center { justify-content: center; } .liftpad.right { justify-content: flex-end; }
+.liftpad button { display: flex; align-items: center; justify-content: center; gap: 8px; height: 64px; padding: 0 8px; font-size: 18px; border-radius: 12px; touch-action: none; user-select: none; -webkit-user-select: none; box-shadow: 0 4px 0 #a77d00; }
+.liftpad button span { font-size: 26px; line-height: 1; }
+.liftpad button.on { transform: translateY(3px); box-shadow: 0 1px 0 #a77d00; filter: brightness(1.1); }
+.seg { display: flex; gap: 6px; }
+.seg button { flex: 1; background: #2a2f37; color: var(--fg); }
+.seg button.on { background: var(--safety); color: var(--bg); }
+.obs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.obs button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 3px; padding: 4px; border-radius: 6px; border: 2px solid #2a3038; background: #14181d; text-align: center; position: relative; }
+.obs button:hover, .obs button:focus-visible, .obs button.on { border-color: var(--safety); }
+.obs canvas { width: 100%; aspect-ratio: 36 / 29; display: block; border-radius: 3px; }
+.obs span { font-size: 11px; font-weight: 700; line-height: 1.15; color: var(--fg, #e9ecef); }
+.obs i { position: absolute; top: 6px; right: 6px; font-style: normal; font-size: 9px; font-weight: 800; letter-spacing: .04em; color: #111; background: var(--safety); border-radius: 3px; padding: 0 3px; }
+.obsInfo { border: 1px solid #2a3038; border-left: 4px solid var(--safety); border-radius: 6px; padding: 8px 10px; background: #14181d; min-height: 96px; }
+.obsInfo b { display: block; font-size: 15px; margin-bottom: 2px; color: var(--safety); }
+.obsInfo p { font-size: 13px; line-height: 1.45; }
+.obsInfo em { font-style: normal; font-weight: 700; color: var(--muted); }
+@media (max-width: 420px) { .obs { grid-template-columns: repeat(3, 1fr); } }
+.card .note { font-size: 12px; color: var(--muted); }
+.tip { display: none; width: 100%; max-width: 960px; font-size: 12px; color: var(--muted); }
+@media (pointer: coarse), (max-width: 640px) { .liftpad { display: flex; align-items: center; } }
+@media (max-aspect-ratio: 1/1) {
+  body { height: 100%; overflow: hidden; }
+  .cab { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  canvas { width: auto; height: 100%; max-width: 100%; max-height: 100%; }
+  .liftpad, .bar { flex: 0 0 auto; }
+}
+</style>
+
+<div class="cab"><canvas id="game" width="960" height="540" aria-label="Lift Panic game"></canvas></div>
+<div class="bar">
+  <div class="keys">
+    <span><kbd>↑</kbd>/<kbd>W</kbd> raise lift</span>
+    <span><kbd>↓</kbd>/<kbd>S</kbd> lower lift</span>
+    
+    <span><kbd>P</kbd> pause</span>
+  </div>
+  <div class="btns">
+    <button id="how" type="button">How to play</button>
+    <button id="setBtn" type="button">⚙ Settings</button>
+  </div>
+</div>
+<div class="liftpad" id="liftpad" aria-label="Lift controls">
+  <div class="grp">
+    <button type="button" data-dir="up" aria-label="Raise the lift"><span>▲</span>RAISE</button>
+    <button type="button" data-dir="down" aria-label="Lower the lift"><span>▼</span>LOWER</button>
+  </div>
+</div>
+<div class="modal" id="setModal" hidden>
+  <div class="card">
+    <h2>SETTINGS</h2>
+    <h3>Sound</h3>
+    <button id="sound" type="button" aria-pressed="false">Sound: off</button>
+    <h3>Raise / Lower buttons</h3>
+    <div class="seg" id="segPos" role="group" aria-label="Button position">
+      <button type="button" data-pos="left">Left</button><button type="button" data-pos="center">Center</button><button type="button" data-pos="right">Right</button>
+    </div>
+    <div class="seg" id="segDir" role="group" aria-label="Button arrangement">
+      <button type="button" data-dir2="stack">Stacked</button><button type="button" data-dir2="side">Side by side</button>
+    </div>
+    <p class="note">Saved on this device. The game resizes to fit around them. You can still hold the top or bottom half of the game to steer.</p>
+    <button id="setClose" type="button">Done</button>
+  </div>
+</div>
+
+<p class="tip">Tip: turn your phone sideways for a wider view of the warehouse.</p>
+
+<div class="modal" id="howModal" hidden>
+  <div class="card">
+    <h2>HOW TO PLAY</h2>
+    <h3>Goal</h3>
+    <p>You're on a scissor lift rolling through a warehouse. Hang as many cameras as you can before you take three hits.</p>
+    <h3>Rules</h3>
+    <ul>
+      <li><b>Mount cameras:</b> line the tech's hands up with each yellow <b>MOUNT</b> ring as it passes. Ceiling mounts are worth 100, column mounts 150.</li>
+      <li><b>Streaks:</b> mounts in a row multiply the points, up to ×5. Missing one resets the streak but doesn't cost a life.</li>
+      <li><b>Dodge</b> everything under <b>Obstacles</b> below. Only the tech counts as a hit (hard hat to boots), not the lift. Each hit costs a hard hat; three and the shift's over.</li>
+      <li>The lift is slow on purpose, so start moving early. The warehouse speeds up the longer you last.</li>
+      <li>Every camera can be reached — nothing ever blocks a mount point.</li>
+    </ul>
+    <h3>Obstacles</h3>
+    <p class="note">Hover or tap one to see how it moves. The green arrow is the way past it. Tagged ones show up later in a run.</p>
+    <div class="obs" id="obs"></div>
+    <div class="obsInfo" id="obsInfo" aria-live="polite"></div>
+    <h3>Controls</h3>
+    <ul>
+      <li><kbd>↑</kbd> / <kbd>W</kbd> raise · <kbd>↓</kbd> / <kbd>S</kbd> lower · <kbd>P</kbd> pause</li>
+      <li>Phone: hold <b>RAISE</b> or <b>LOWER</b> under the game (move them in ⚙ Settings), or hold the top / bottom half of the game.</li>
+    </ul>
+    <button id="howClose" type="button">Got it</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const cv = document.getElementById('game');
+let cx = cv.getContext('2d');
+// Portrait phones get a narrower warehouse (bigger on screen) and a slightly slower run.
+const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
+// Portrait: a taller warehouse (more of the phone used); vertical distances and lift speed scale with it.
+// Portrait: the warehouse is as tall as the phone allows (above the Raise/Lower buttons);
+// vertical distances and lift speed scale with it so it plays the same.
+const W = PORTRAIT ? 560 : 960, SPD = PORTRAIT ? .66 : 1;
+let H = 540, VS = 1, FLOOR = 470, MIN_DECK = 400, LIFT_RATE = 300;
+const CEIL = 70;
+function layoutWorld() {
+  if (PORTRAIT) {
+    const box = document.querySelector('.cab').getBoundingClientRect();
+    const w = box.width - 16, h = box.height - 16;
+    if (w > 50 && h > 50) H = Math.round(Math.max(540, Math.min(1300, W * h / w)));
+  }
+  VS = H / 540; FLOOR = H - 70; MIN_DECK = FLOOR - 70; LIFT_RATE = 300 * VS;
+  cv.width = W; cv.height = H; cv.style.aspectRatio = `${W} / ${H}`;
+}
+layoutWorld();
+// Re-fit when the screen changes size (browser bars, rotating, button layout) — between shifts only;
+// mid-shift the canvas just scales to fit, so nothing ever overlaps.
+let fitT = 0;
+addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => { if (state !== 'play') layoutWorld(); }, 150); });
+const PX = PORTRAIT ? 130 : 230;                              // player x (centre of platform)
+const PW = 84, TECH_H = 46;                  // platform width, tech height above deck
+const MAX_DECK = CEIL + TECH_H + 6; // highest deck; the lowest (MIN_DECK) follows the floor
+const C = { safety: '#ffc21a', alarm: '#ff4b3e', fg: '#e9ecef', muted: '#9aa3ad', steel: '#3a414b', dark: '#0d0f12' };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+let best = 0;
+try { best = +localStorage.getItem('liftpanic:best') || 0; } catch {}
+
+// ── Sound (off until the player turns it on) ──
+let ac = null, soundOn = false;
+const sndBtn = document.getElementById('sound');
+sndBtn.onclick = () => {
+  soundOn = !soundOn;
+  if (soundOn && !ac) { try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch {} }
+  sndBtn.textContent = `Sound: ${soundOn ? 'on' : 'off'}`; sndBtn.setAttribute('aria-pressed', soundOn);
+};
+const beep = (f, d = 0.08, type = 'square', v = 0.05) => {
+  if (!soundOn || !ac) return;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type; o.frequency.value = f; g.gain.value = v;
+  g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + d);
+  o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + d);
+};
+
+// ── Input ──
+const input = { up: false, down: false };
+const src = { key: { up: false, down: false }, ptr: { up: false, down: false }, pad: { up: false, down: false } };
+const mix = () => { input.up = src.key.up || src.ptr.up || src.pad.up; input.down = src.key.down || src.ptr.down || src.pad.down; };
+const keyMap = { ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down' };
+const howModal = document.getElementById('howModal');
+document.getElementById('how').onclick = () => { if (state === 'play') paused = true; howModal.hidden = false; };
+
+// ---- Obstacle guide: each tile replays the real in-game drawing on a small scene. ----
+const GF = 330;   // the guide scene's floor (ceiling is CEIL = 70)
+const OBS = [
+  { id: 'mount', name: 'Mount ring', when: 'All shift',
+    move: 'Fixed to the ceiling or a column. Doesn\'t move.',
+    pass: 'Not a hazard: raise or lower until the tech\'s hands line up with the ring as it goes by. Column mounts pay +50.',
+    lane: [[150, 'y']], o: () => ({ kind: 'bracket', x: 190, y: 150, onCeil: false }) },
+  { id: 'duct', name: 'Duct', when: 'All shift',
+    move: 'Hangs from the roof and stays put. Some hang deep.',
+    pass: 'Drop under the bottom flange.',
+    lane: [[270]], o: () => ({ kind: 'duct', x: 110, w: 170, depth: 110 }) },
+  { id: 'light', name: 'High-bay light', when: 'All shift',
+    move: 'Hangs on a solid pole and sways a little. Some hang low.',
+    pass: 'Go under the lamp. You can\'t slip past the pole.',
+    lane: [[285]], o: () => ({ kind: 'light', x: 180, w: 48, len: 120, ph: 0 }) },
+  { id: 'fork', name: 'Forklift', when: 'All shift',
+    move: 'Drives at you, faster than the warehouse scrolls. The pallet stays at one height.',
+    pass: 'Go over or under the pallet. Low pallets mean go over.',
+    lane: [[110], [270]], drive: 90, o: () => ({ kind: 'fork', x: 0, w: 120, band: 150 }) },
+  { id: 'bad', name: 'Bad-apple forklift', when: 'All shift, more later',
+    move: 'Pumps its forks up and down the whole way (striped mast, flashing beacon). The yellow band is how far the pallet travels.',
+    pass: 'Get above the top of the band, or time a gap.',
+    lane: [[105]], drive: 90, o: g => ({ kind: 'fork', x: 0, w: 120, osc: true, lo: 40, hi: 150, band: 40 + 110 * (.5 + .5 * Math.sin(g * 2.4)) }) },
+  { id: 'camp', name: 'Floor-sitter forklift', when: 'If you camp low',
+    move: 'Sit at the bottom for a couple of seconds and a fast forklift comes in with its pallet at your height.',
+    pass: 'Don\'t park on the floor. Get up over the pallet.',
+    lane: [[180]], drive: 150, o: () => ({ kind: 'fork', x: 0, w: 120, band: 72 }) },
+  { id: 'pigeon', name: 'Pigeon', when: 'All shift',
+    move: 'Flies at you while bobbing up and down in a wave.',
+    pass: 'Go well above or below the wave, or slip by while it\'s at the other end.',
+    lane: [[100], [275]], drive: 70, o: g => ({ kind: 'pigeon', x: 0, w: 30, baseY: 185, y: 185 + Math.sin(g * 3) * 40, ph: 0 }) },
+  { id: 'hoist', name: 'Overhead hoist', when: 'From 400 ft', tag: '400 FT',
+    move: 'A crate on a crane cable rides up and down. The cable above it blocks too.',
+    pass: 'Stay under the crate\'s lowest point (the bottom of the yellow band).',
+    lane: [[290]], o: g => ({ kind: 'hoist', x: 190, w: 56, lo: 120, hi: 210, hy: 120 + 90 * (.5 + .5 * Math.sin(g * 1.8)) }) },
+  { id: 'mezz', name: 'Mezzanine', when: 'From 800 ft', tag: '800 FT',
+    move: 'A raised walkway on posts. It doesn\'t move, but it\'s long.',
+    pass: 'Only way is over the guardrail. Get high early.',
+    lane: [[130]], o: () => ({ kind: 'mezz', x: 90, w: 230, top: 205 }) },
+  { id: 'dark', name: 'Lights out', when: 'At 1,200 ft, then every 1,000 ft', tag: '1,200 FT',
+    move: 'The warehouse goes dark for about 8 seconds. You only see what\'s near your work lights.',
+    pass: 'Ease off and watch the edge of the light for what\'s coming.',
+    lane: [] },
+  { id: 'reach', name: 'Reach truck', when: 'From 1,600 ft', tag: '1,600 FT',
+    move: 'Drives at you with its mast and pallet run almost to the ceiling. The whole mast is solid.',
+    pass: 'Go all the way up, near the ceiling.',
+    lane: [[92]], drive: 70, o: () => ({ kind: 'reach', x: 0, w: 120, mastTop: 116 }) },
+];
+let obsSel = 'duct', obsT0 = performance.now(), obsRaf = 0;
+const obsWrap = document.getElementById('obs'), obsInfo = document.getElementById('obsInfo');
+obsWrap.innerHTML = OBS.map(b => `<button type="button" data-id="${b.id}" aria-label="${b.name}"><canvas></canvas><span>${b.name}</span>${b.tag ? `<i>${b.tag}</i>` : ''}</button>`).join('');
+function obsShow(id) {
+  obsSel = id; const b = OBS.find(x => x.id === id);
+  obsWrap.querySelectorAll('button').forEach(el => el.classList.toggle('on', el.dataset.id === id));
+  obsInfo.innerHTML = `<b>${b.name}</b><p><em>Shows up:</em> ${b.when}</p><p><em>How it moves:</em> ${b.move}</p><p><em>Get past:</em> ${b.pass}</p>`;
+}
+obsWrap.addEventListener('pointerover', e => { const el = e.target.closest('button'); if (el) obsShow(el.dataset.id); });
+obsWrap.addEventListener('focusin', e => { const el = e.target.closest('button'); if (el) obsShow(el.dataset.id); });
+obsWrap.addEventListener('click', e => { const el = e.target.closest('button'); if (el) obsShow(el.dataset.id); });
+function laneArrow(c, y, col) {
+  c.strokeStyle = col; c.fillStyle = col; c.lineWidth = 4; c.setLineDash([10, 7]);
+  c.beginPath(); c.moveTo(14, y); c.lineTo(330, y); c.stroke(); c.setLineDash([]);
+  c.beginPath(); c.moveTo(346, y); c.lineTo(326, y - 11); c.lineTo(326, y + 11); c.closePath(); c.fill();
+}
+function drawObsTile(b, c, g) {
+  c.fillStyle = '#1b2027'; c.fillRect(0, 50, 360, 290);
+  c.fillStyle = '#2a3038'; c.fillRect(0, 50, 360, CEIL - 50);   // roof
+  c.fillStyle = '#3a414b'; c.fillRect(0, GF, 360, 10);           // floor
+  c.fillStyle = C.safety; for (let x = 0; x < 360; x += 24) c.fillRect(x, GF, 12, 3);
+  if (b.id === 'dark') {
+    const flick = reduce ? 1 : .85 + .15 * Math.sin(g * 9);
+    c.fillStyle = '#0b0d10'; c.fillRect(0, CEIL, 360, GF - CEIL);
+    const gr = c.createRadialGradient(110, 220, 10, 110, 220, 120 * flick);
+    gr.addColorStop(0, 'rgba(255,236,170,.45)'); gr.addColorStop(1, 'rgba(255,236,170,0)');
+    c.fillStyle = gr; c.fillRect(0, CEIL, 360, GF - CEIL);
+    c.fillStyle = 'rgba(160,170,180,.18)'; c.fillRect(220, CEIL, 110, 70);   // a duct you can barely see
+    c.fillStyle = C.safety; c.fillRect(96, 230, 28, 6); c.fillRect(104, 236, 4, 60); c.fillRect(112, 236, 4, 60);   // lift
+    c.fillStyle = '#ff8a1f'; c.fillRect(102, 200, 16, 28); c.fillStyle = '#f2f2ee'; c.beginPath(); c.arc(110, 194, 8, Math.PI, 0); c.fill();
+    return;
+  }
+  b.lane.forEach(([y, k]) => laneArrow(c, y, k === 'y' ? 'rgba(255,194,26,.55)' : 'rgba(76,208,122,.75)'));
+  const o = b.o(g);
+  if (b.drive) { const span = 520; o.x = 430 - ((g * b.drive) % span); }
+  const keep = { cx, FLOOR, t };
+  cx = c; FLOOR = GF; t = g;
+  try { drawThing(o); } finally { cx = keep.cx; FLOOR = keep.FLOOR; t = keep.t; }
+}
+function obsLoop(now) {
+  obsRaf = 0; if (howModal.hidden) return;
+  const g = (now - obsT0) / 1000, dpr = Math.min(2, devicePixelRatio || 1);
+  obsWrap.querySelectorAll('button').forEach((el, i) => {
+    const cvs = el.querySelector('canvas'), w = Math.max(1, Math.round(cvs.clientWidth * dpr)), h = Math.round(w * 29 / 36);
+    if (cvs.width !== w || cvs.height !== h) { cvs.width = w; cvs.height = h; }
+    const c = cvs.getContext('2d'); c.setTransform(w / 360, 0, 0, h / 290, 0, -50 * h / 290);
+    c.clearRect(0, 50, 360, 290); c.save(); c.beginPath(); c.rect(0, 50, 360, 290); c.clip();
+    drawObsTile(OBS[i], c, reduce ? 1.2 : g); c.restore();
+  });
+  if (!reduce) obsRaf = requestAnimationFrame(obsLoop);
+}
+const obsStart = () => { obsShow(obsSel); if (!obsRaf) obsRaf = requestAnimationFrame(obsLoop); };
+new MutationObserver(() => { if (!howModal.hidden) obsStart(); }).observe(howModal, { attributes: true, attributeFilter: ['hidden'] });
+if (!howModal.hidden) obsStart();
+document.getElementById('howClose').onclick = () => { howModal.hidden = true; };
+addEventListener('keydown', e => {
+  if (!howModal.hidden || !document.getElementById('setModal').hidden) { if (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space') { howModal.hidden = true; document.getElementById('setModal').hidden = true; e.preventDefault(); } return; }
+  if (keyMap[e.code]) { src.key[keyMap[e.code]] = true; mix(); e.preventDefault(); }
+  if (e.code === 'KeyP' && state === 'play') paused = !paused;
+  if ((e.code === 'Space' || e.code === 'Enter') && state !== 'play') { start(); e.preventDefault(); }
+});
+addEventListener('keyup', e => { if (keyMap[e.code]) { src.key[keyMap[e.code]] = false; mix(); } });
+const pointers = new Map();
+const readPointers = () => {
+  src.ptr.up = src.ptr.down = false;
+  const r = cv.getBoundingClientRect();
+  pointers.forEach(y => { if ((y - r.top) / r.height < 0.5) src.ptr.up = true; else src.ptr.down = true; });
+  mix();
+};
+cv.addEventListener('pointerdown', e => {
+  if (state !== 'play') { start(); return; }
+  cv.setPointerCapture(e.pointerId); pointers.set(e.pointerId, e.clientY); readPointers();
+});
+cv.addEventListener('pointermove', e => { if (pointers.has(e.pointerId)) { pointers.set(e.pointerId, e.clientY); readPointers(); } });
+const lift = e => { pointers.delete(e.pointerId); readPointers(); };
+cv.addEventListener('pointerup', lift); cv.addEventListener('pointercancel', lift);
+// Raise / Lower buttons: hold to move. Pressing one also starts a new shift from the title screen.
+document.querySelectorAll('#liftpad button').forEach(b => {
+  const d = b.dataset.dir;
+  const down = e => { e.preventDefault(); if (state !== 'play') { start(); } b.setPointerCapture?.(e.pointerId); src.pad[d] = true; b.classList.add('on'); mix(); };
+  const up = () => { src.pad[d] = false; b.classList.remove('on'); mix(); };
+  b.addEventListener('pointerdown', down); b.addEventListener('pointerup', up); b.addEventListener('pointercancel', up); b.addEventListener('lostpointercapture', up);
+  b.addEventListener('contextmenu', e => e.preventDefault());
+});
+// Settings: where the pad sits and how it's arranged (saved per device).
+const pad = document.getElementById('liftpad'), setModal = document.getElementById('setModal');
+let padPos = 'center', padDir = 'side';
+try { padPos = localStorage.getItem('liftpanic:padPos') || 'center'; padDir = localStorage.getItem('liftpanic:padDir') || 'side'; } catch {}
+const applyPad = () => {
+  pad.className = `liftpad ${padPos} ${padDir}`;
+  try { if (state !== 'play') requestAnimationFrame(layoutWorld); } catch { /* before the game starts */ }
+  document.querySelectorAll('#segPos button').forEach(x => x.classList.toggle('on', x.dataset.pos === padPos));
+  document.querySelectorAll('#segDir button').forEach(x => x.classList.toggle('on', x.dataset.dir2 === padDir));
+  try { localStorage.setItem('liftpanic:padPos', padPos); localStorage.setItem('liftpanic:padDir', padDir); } catch {}
+};
+document.querySelectorAll('#segPos button').forEach(x => x.onclick = () => { padPos = x.dataset.pos; applyPad(); });
+document.querySelectorAll('#segDir button').forEach(x => x.onclick = () => { padDir = x.dataset.dir2; applyPad(); });
+document.getElementById('setBtn').onclick = () => { if (state === 'play') paused = true; setModal.hidden = false; };
+document.getElementById('setClose').onclick = () => { setModal.hidden = true; };
+applyPad();
+
+// ── Game state ──
+let state = 'title', paused = false;
+let deck, deckV, speed, dist, score, lives, streak, mounted, things, spawnAt, hitFlash, invuln, shake, floaters, t, nextBracketAt;
+// How long the lift has sat at the bottom. Camp there and a forklift comes for you.
+let campT = 0;
+// Later in a run the warehouse changes up: new obstacles unlock by distance (feet = dist / 30).
+let announced = new Set(), dark = 0, nextDarkFt = 1200;
+const UNLOCK = { hoist: 400, mezz: 800, reach: 1600 };
+const NEWNAME = { hoist: 'NEW: OVERHEAD HOIST', mezz: 'NEW: MEZZANINE — GO OVER', reach: 'NEW: REACH TRUCK — GO HIGH' };
+
+function start() {
+  layoutWorld();
+  deck = MIN_DECK; deckV = 0; campT = 0; speed = 230 * SPD; dist = 0; score = 0; lives = 3; streak = 0; mounted = 0;
+  things = []; spawnAt = 300; hitFlash = 0; invuln = 0; shake = 0; floaters = []; t = 0; nextBracketAt = 200;
+  announced = new Set(); dark = 0; nextDarkFt = 1200;
+  state = 'play'; paused = false; beep(660, .1); beep(880, .12);
+}
+
+// Every camera must be reachable: a hazard is never placed where it would sit in
+// the lift's way at the moment a mount point passes the tech (lookahead using
+// each thing's own speed), and a mount point is never placed into one.
+function blocks(hz, br) {
+  const T = Math.max(0, (br.x - PX) / speed);
+  const hx = hz.x - (speed + (hz.vx || 0)) * T + speed * T; // relative to the bracket's frame
+  const at = { ...hz, x: hx - (br.x - PX) };
+  if (hz.kind === 'pigeon') at.y = hz.baseY; // whole flap range below
+  const deckAtMount = br.y + TECH_H + 4;
+  // Clear for the mount itself plus a short stretch either side, so there's time to get to and away from it.
+  const lead = speed * .4;
+  const zone = { x: PX - PW / 2 - 70 - lead, y: deckAtMount - TECH_H - 24, w: PW + 140 + lead * 2, h: TECH_H + 40 };
+  return boxesOf(at).some(b => {
+    const bb = hz.kind === 'pigeon' ? { x: b.x, y: hz.baseY - 52, w: b.w, h: 104 } : hz.osc ? { x: b.x, y: FLOOR - hz.hi - 34, w: b.w, h: hz.hi - hz.lo + 34 } : b;
+    return overlap(zone, bb);
+  });
+}
+// The lift needs time to change height between mounts: push a mount further back if the
+// one before it is at a different height than the lift could reach at today's speed.
+
+function spaceFromPrev(b) {
+  const prev = things.filter(o => o.kind === 'bracket' && !o.done).sort((a, c) => c.x - a.x)[0];
+  if (!prev) return b;
+  const need = Math.abs(prev.y - b.y) / LIFT_RATE * 1.35 + 0.25;      // seconds, with slack to settle
+  const minGap = need * Math.max(speed, 230) + 40;
+  if (b.x - prev.x < minGap) b.x = prev.x + minGap;
+  return b;
+}
+// When a hazard passes the lift, which heights does it block, and when?
+function window_(o) {
+  const vs = speed + (o.vx || 0);
+  const bs = boxesOf(o.kind === 'pigeon' ? { ...o, y: o.baseY } : o);
+  const left = Math.min(...bs.map(b => b.x)), right = Math.max(...bs.map(b => b.x + b.w));
+  const t1 = (left - (PX + PW / 2)) / vs, t2 = (right - (PX - PW / 2)) / vs;
+  const ys = o.kind === 'pigeon' ? [o.baseY - 52, o.baseY + 52] : o.kind === 'hoist' ? [CEIL, o.hi + 34] : o.osc ? [FLOOR - o.hi - 34, FLOOR - o.lo] : [Math.min(...bs.map(b => b.y)), Math.max(...bs.map(b => b.y + b.h))];
+  return { t1, t2, y1: ys[0], y2: ys[1] };
+}
+// Is there still a height the lift can sit at while this hazard and any others overlapping it in time go by?
+function leavesAGap(h) {
+  const wh = window_(h);
+  const iv = [[wh.y1, wh.y2]];
+  things.forEach(o => { if (o.kind === 'bracket') return; const w = window_(o); if (w.t1 < wh.t2 + 0.6 && w.t2 > wh.t1 - 0.6) iv.push([w.y1, w.y2]); });
+  // The worker spans [deck - TECH_H - 2, deck]; try every deck height (with a little margin).
+  for (let d = MAX_DECK; d <= MIN_DECK; d += 4) {
+    const top = d - TECH_H - 8, bot = d + 6;
+    if (iv.every(([a, b]) => bot <= a || top >= b)) return true;
+  }
+  return false;
+}
+const addBracket = b => { spaceFromPrev(b); if (!things.some(o => o.kind !== 'bracket' && blocks(o, b))) things.push(b); };
+const addHazard = h => { if (!things.some(o => o.kind === 'bracket' && !o.done && blocks(h, o)) && leavesAGap(h)) things.push(h); };
+
+// Obstacles and brackets scroll in from the right. Each has x (world→screen) and its own shape.
+function spawn() {
+  const level = Math.min(1, dist / 9000);       // 0 → 1 over the first stretch
+  const r = Math.random();
+  const x = W + 60;
+  // Mount points come at uneven gaps and heights: ceiling, high on a column, or low on a column.
+  if (dist > nextBracketAt) {
+    const spot = () => {
+      const p = Math.random();
+      if (p < 0.4) return { y: CEIL + 18, onCeil: true };
+      return { y: CEIL + 60 + Math.random() * (MIN_DECK - TECH_H - 40 - CEIL - 60), onCeil: false };
+    };
+    addBracket({ kind: 'bracket', x: x + Math.random() * 120, w: 26, done: false, ...spot() });
+    // Now and then a second one close behind at a different height.
+    if (Math.random() < 0.25 + level * 0.2) addBracket({ kind: 'bracket', x: x + 170 + Math.random() * 90, w: 26, done: false, ...spot() });
+    nextBracketAt = dist + 280 + Math.random() * (700 - level * 200);
+  }
+  // Sitting on the floor too long: the next hazard is a forklift with its pallet at your height.
+  if (campT > 2.5) {
+    const before = things.length;
+    addHazard({ kind: 'fork', x: x + 120, w: 120, band: (68 + Math.random() * 30) * VS, vx: 70 + Math.random() * 60 * (1 + level), camp: true });
+    if (things.length > before) { campT = 0; spawnAt = dist + 260 + Math.random() * (320 - level * 150); return; }
+  }
+  const ft = dist / 30, extra = Object.keys(UNLOCK).filter(k => ft >= UNLOCK[k]);
+  if (extra.length && Math.random() < .4) {
+    const kind = extra[Math.floor(Math.random() * extra.length)], before = things.length;
+    const room = MIN_DECK - TECH_H - CEIL;                                     // vertical space the tech can use
+    if (kind === 'hoist') {
+      // A crane hook with a load, riding up and down on its cable. The cable blocks above it: stay under the load.
+      const lo = CEIL + 50, hi = CEIL + Math.min(room - 70, 110 + Math.random() * room * .45);
+      addHazard({ kind: 'hoist', x: x + 120, w: 56, lo, hi, hy: lo, rate: 1.2 + Math.random() * 1.2, ph: Math.random() * 6 });
+    } else if (kind === 'mezz') {
+      // A raised walkway on posts: the only way past is over the top.
+      const top = CEIL + TECH_H + 50 + Math.random() * Math.max(10, room * .45 - 50), w = 240 + Math.random() * 160;
+      addHazard({ kind: 'mezz', x: x + 120, w, top });
+    } else {
+      // A reach truck with its mast way up: get up near the ceiling to clear it.
+      const mastTop = MAX_DECK + 26 + Math.random() * 30 * VS;
+      addHazard({ kind: 'reach', x: x + 140, w: 120, mastTop, vx: 30 + Math.random() * 50 });
+    }
+    if (things.length > before) {
+      if (!announced.has(kind)) { announced.add(kind); floaters.push({ x: W / 2, y: CEIL + 70 + floaters.filter(f => f.banner && f.life > 0).length * 26, txt: NEWNAME[kind], life: 2.4, banner: true }); }
+      spawnAt = dist + 300 + Math.random() * (320 - level * 150); return;
+    }
+  }
+  const r2 = Math.random();
+  if (r2 < 0.22) {
+    // High-bay light hanging on a chain: narrow, but it can hang low. Pass under it or beside the chain isn't an option — go under.
+    const len = Math.min(MIN_DECK - TECH_H - CEIL - 100, 70 + Math.random() * (110 + level * 120) * VS);
+    addHazard({ kind: 'light', x: x + 130, w: 48, len, ph: Math.random() * 6 });
+  } else if (r2 < 0.5) {
+    // Duct hanging from the ceiling: drop to clear it.
+    const depth = Math.min(MIN_DECK - TECH_H - CEIL - 24, 90 + Math.random() * (120 + level * 90));
+    addHazard({ kind: 'duct', x: x + 140, w: 120 + Math.random() * 120, depth });
+  } else if (r2 < 0.76) {
+    // Forklift with a pallet up: get over or under it. Pallets can ride low enough to hit you
+    // at the bottom, so sitting on the floor isn't safe.
+    const vx = 40 + Math.random() * 60 * (1 + level);
+    if (Math.random() < .25 + level * .35) {
+      // A bad apple: pumping the forks up and down the whole way. Its pallet sweeps from the
+      // floor up through the lower half, so you have to get above it (or time it).
+      const lo = 60 * VS, hi = lo + (150 + Math.random() * 110) * VS;
+      addHazard({ kind: 'fork', x: x + 120, w: 120, band: lo, lo, hi, osc: true, rate: 1.8 + Math.random() * 1.8, ph: Math.random() * 6, vx });
+    } else {
+      const band = (60 + Math.random() * 210) * VS;   // height of pallet above floor
+      addHazard({ kind: 'fork', x: x + 120, w: 120, band, vx });
+    }
+  } else {
+    // Pigeon: flaps on a sine path.
+    addHazard({ kind: 'pigeon', x: x + 100, w: 30, baseY: CEIL + 80 + Math.random() * 230 * VS, ph: Math.random() * 6, vx: 30 + Math.random() * 50 });
+  }
+  spawnAt = dist + 260 + Math.random() * (320 - level * 150);
+}
+
+// What gets hit: the worker only (hard hat to boots), not the lift platform or scissors.
+// Where the tech's hands (and the camera) are: ceiling-high when reaching up.
+const handsY = () => deck - TECH_H - 4;
+const playerBox = () => ({ x: PX - 12, y: deck - TECH_H - 2, w: 24, h: TECH_H + 2 });
+const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+function boxesOf(o) {
+  if (o.kind === 'duct') return [{ x: o.x, y: CEIL, w: o.w, h: o.depth }];
+  if (o.kind === 'fork') { const y = FLOOR - o.band; return [{ x: o.x - 70, y: y - 34, w: 80, h: 34 }]; }
+  if (o.kind === 'pigeon') return [{ x: o.x - 15, y: o.y - 10, w: 30, h: 20 }];
+  // Light: the chain and the lamp both hit.
+  if (o.kind === 'light') return [{ x: o.x - 3, y: CEIL, w: 6, h: o.len }, { x: o.x - 24, y: CEIL + o.len, w: 48, h: 26 }];
+  if (o.kind === 'hoist') return [{ x: o.x - 3, y: CEIL, w: 6, h: o.hy - CEIL }, { x: o.x - 26, y: o.hy, w: 52, h: 34 }];
+  if (o.kind === 'mezz') { const out = [{ x: o.x, y: o.top, w: o.w, h: 16 }]; for (let px = o.x + 6; px < o.x + o.w; px += 90) out.push({ x: px, y: o.top + 16, w: 8, h: FLOOR - o.top - 16 }); out.push({ x: o.x + o.w - 14, y: o.top + 16, w: 8, h: FLOOR - o.top - 16 }); return out; }
+  if (o.kind === 'reach') return [{ x: o.x - 72, y: o.mastTop, w: 90, h: FLOOR - o.mastTop }];
+  return [];
+}
+
+function hit() {
+  if (invuln > 0) return;
+  lives--; streak = 0; invuln = 1.4; hitFlash = 0.35; shake = reduce ? 0 : 10;
+  beep(140, .25, 'sawtooth', .07);
+  if (lives <= 0) {
+    state = 'over';
+try { if (parent !== window) parent.postMessage({ arcade: 'lift-panic', score: score }, '*'); } catch (e) {}     if (score > best) { best = score; try { localStorage.setItem('liftpanic:best', best); } catch {} }
+  }
+}
+
+function update(dt) {
+  t += dt;
+  // Scissor lifts are slow — the whole game is about committing early.
+  const rate = (300 + Math.min(120, dist / 120)) * VS;
+  const want = input.up && !input.down ? -1 : input.down && !input.up ? 1 : 0;
+  deckV += (want * rate - deckV) * Math.min(1, dt * 7);
+  deck = Math.max(MAX_DECK, Math.min(MIN_DECK, deck + deckV * dt));
+  if (deck > MIN_DECK - 30 * VS) campT += dt; else campT = 0;
+
+  speed = Math.min(560, 230 + dist / 45) * SPD;
+  const dx = speed * dt;
+  dist += dx;
+  if (dist > spawnAt) spawn();
+  // Lights out: every so often a stretch of the warehouse goes dark except your work lights.
+  if (dist / 30 >= nextDarkFt) { dark = 8; nextDarkFt += 1000; floaters.push({ x: W / 2, y: CEIL + 70 + floaters.filter(f => f.banner && f.life > 0).length * 26, txt: "LIGHTS OUT — WORK LIGHTS ON", life: 2.4, banner: true }); }
+  if (dark > 0) dark = Math.max(0, dark - dt);
+
+  const pb = playerBox();
+  for (const o of things) {
+    o.x -= dx + (o.vx || 0) * dt;
+    if (o.kind === 'pigeon') o.y = o.baseY + Math.sin(t * 3 + o.ph) * 40;
+    if (o.osc) o.band = o.lo + (o.hi - o.lo) * (.5 + .5 * Math.sin(t * o.rate + o.ph));
+    if (o.kind === 'hoist') o.hy = o.lo + (o.hi - o.lo) * (.5 + .5 * Math.sin(t * o.rate + o.ph));
+    if (o.kind === 'bracket' && !o.done && Math.abs(o.x - PX) < 34) {
+      // Mount when the tech's hands are at the bracket's height as it passes.
+      if (Math.abs(handsY() - o.y) < 24) {
+        o.done = true; streak++; mounted++;
+        const pts = (o.onCeil ? 100 : 150) * Math.min(5, streak);
+        score += pts; floaters.push({ x: o.x, y: o.y + 12, txt: `+$${pts}${streak > 1 ? ` ×${Math.min(5, streak)}` : ''}`, life: 1 });
+        beep(880 + streak * 60, .07); beep(1320, .05, 'triangle');
+      }
+    }
+    if (o.kind === 'bracket' && !o.done && o.x < PX - 40) { o.done = 'missed'; if (streak) floaters.push({ x: PX, y: CEIL + 40, txt: 'Missed', life: 1, bad: true }); streak = 0; }
+    for (const b of boxesOf(o)) if (overlap(pb, b)) hit();
+  }
+  things = things.filter(o => o.x > -320);
+  score += Math.floor(dx / 10) * 0 + 0; // score comes from mounts; distance shown separately
+  floaters.forEach(f => { f.life -= dt; f.y -= 30 * dt; });
+  floaters = floaters.filter(f => f.life > 0);
+  invuln = Math.max(0, invuln - dt); hitFlash = Math.max(0, hitFlash - dt); shake *= 0.85;
+}
+
+// ── Drawing ──
+// Repeatable "random" for scenery, so a rack bay always holds the same load.
+const hash = (i, k = 0) => { const v = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return v - Math.floor(v); };
+function rr(x, y, w, h, r) { cx.beginPath(); cx.roundRect(x, y, w, h, r); }
+// One pallet load sitting on a rack beam: boxes, shrink-wrap, or drums.
+function load(x, y, w, seed) {
+  const kind = Math.floor(hash(seed, 1) * 4);
+  cx.fillStyle = '#7a5530'; cx.fillRect(x, y - 5, w, 5); cx.fillStyle = '#5c3f22'; for (let i = 0; i < 3; i++) cx.fillRect(x + 4 + i * (w - 12) / 2, y - 5, 4, 5);
+  const h = 22 + hash(seed, 2) * 22;
+  if (kind === 0) {   // stacked cartons
+    const cols = 3, bw = (w - 4) / cols;
+    for (let c = 0; c < cols; c++) for (let r = 0; r < 2; r++) { const bh = h / 2; cx.fillStyle = r ? '#b8875a' : '#c89a68'; cx.fillRect(x + 2 + c * bw, y - 5 - bh * (r + 1), bw - 2, bh - 2); cx.fillStyle = '#e6d3a8'; cx.fillRect(x + 2 + c * bw + bw / 2 - 3, y - 5 - bh * (r + 1), 4, bh - 2); }
+  } else if (kind === 1) {   // shrink-wrapped stack
+    cx.fillStyle = '#9fb3c2'; rr(x + 2, y - 5 - h, w - 4, h, 3); cx.fill();
+    cx.strokeStyle = 'rgba(255,255,255,.35)'; cx.lineWidth = 1; for (let i = 0; i < 4; i++) { cx.beginPath(); cx.moveTo(x + 4, y - 8 - i * h / 4); cx.lineTo(x + w - 4, y - 12 - i * h / 4); cx.stroke(); }
+  } else if (kind === 2) {   // drums
+    for (let i = 0; i < 3; i++) { const dx = x + 3 + i * (w - 6) / 3; cx.fillStyle = ['#2f6fe0', '#2f9a46', '#c0392b'][Math.floor(hash(seed, 3) * 3)]; rr(dx, y - 5 - h, (w - 6) / 3 - 2, h, 3); cx.fill(); cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(dx, y - 5 - h * .66, (w - 6) / 3 - 2, 2); cx.fillRect(dx, y - 5 - h * .33, (w - 6) / 3 - 2, 2); }
+  } // kind 3: empty bay
+}
+function drawWarehouse() {
+  // Far wall: tilt-up concrete panels with high windows (slow parallax).
+  const g0 = cx.createLinearGradient(0, CEIL, 0, FLOOR); g0.addColorStop(0, '#1b2028'); g0.addColorStop(1, '#14181d');
+  cx.fillStyle = g0; cx.fillRect(0, 0, W, H);
+  const woff = (dist * .15) % 220;
+  for (let x = -woff; x < W + 220; x += 220) {
+    cx.strokeStyle = '#232932'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(x, CEIL); cx.lineTo(x, FLOOR); cx.stroke();
+    cx.fillStyle = 'rgba(150,180,210,.10)'; cx.fillRect(x + 40, CEIL + 14, 140, 18);
+    cx.fillStyle = 'rgba(150,180,210,.06)'; for (let i = 0; i < 4; i++) cx.fillRect(x + 44 + i * 35, CEIL + 16, 30, 14);
+  }
+  // Pallet racking: blue uprights, orange beams, loads on every level.
+  const BAY = 170, roff = (dist * 0.35) % BAY, first = Math.floor(dist * 0.35 / BAY);
+  const levels = [], rTop = CEIL + 44; for (let y = rTop + 62; y < FLOOR - 20; y += 64) levels.push(y);
+  for (let i = -1; (i * BAY) - roff < W + BAY; i++) {
+    const x = i * BAY - roff, id = first + i;
+    levels.forEach((y, li) => load(x + 12, y, BAY - 24, id * 7 + li));
+    cx.fillStyle = '#e07b1a'; levels.forEach(y => { cx.fillRect(x, y, BAY, 7); cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(x, y + 5, BAY, 2); cx.fillStyle = '#e07b1a'; });
+    [x, x + BAY - 9].forEach(ux => {
+      cx.fillStyle = '#2a5d9a'; cx.fillRect(ux, rTop, 9, FLOOR - rTop);
+      cx.fillStyle = '#1a3d68'; for (let hy = rTop + 6; hy < FLOOR; hy += 12) cx.fillRect(ux + 3, hy, 3, 5);
+      cx.fillStyle = '#5b6670'; cx.fillRect(ux - 3, FLOOR - 4, 15, 4);
+    });
+  }
+  // Depth haze: the racks sit back so hazards and mount points read clearly in front of them.
+  const hz = cx.createLinearGradient(0, CEIL, 0, FLOOR); hz.addColorStop(0, 'rgba(18,21,27,.62)'); hz.addColorStop(1, 'rgba(18,21,27,.5)');
+  cx.fillStyle = hz; cx.fillRect(0, CEIL, W, FLOOR - CEIL);
+  // Roof: corrugated deck, bar joists, a red sprinkler main with heads, and skylights now and then.
+  const roof = cx.createLinearGradient(0, 0, 0, CEIL); roof.addColorStop(0, '#262c34'); roof.addColorStop(1, '#1d2229');
+  cx.fillStyle = roof; cx.fillRect(0, 0, W, CEIL);
+  const coff = dist % 12; cx.fillStyle = 'rgba(255,255,255,.035)'; for (let x = -coff; x < W; x += 12) cx.fillRect(x, 0, 5, CEIL - 22);
+  const soff = (dist * .9) % 480;
+  for (let x = -soff; x < W + 480; x += 480) { const sg = cx.createLinearGradient(0, 0, 0, CEIL); sg.addColorStop(0, 'rgba(190,215,240,.35)'); sg.addColorStop(1, 'rgba(190,215,240,.04)'); cx.fillStyle = sg; cx.fillRect(x + 160, 0, 90, CEIL - 24); }
+  const toff = dist % 120;
+  cx.strokeStyle = '#3a424d'; cx.lineWidth = 2;
+  cx.beginPath(); cx.moveTo(0, CEIL - 22); cx.lineTo(W, CEIL - 22); cx.moveTo(0, CEIL - 6); cx.lineTo(W, CEIL - 6); cx.stroke();
+  cx.beginPath(); for (let x = -toff; x < W + 120; x += 30) { cx.moveTo(x, CEIL - 22); cx.lineTo(x + 15, CEIL - 6); cx.lineTo(x + 30, CEIL - 22); } cx.stroke();
+  cx.fillStyle = '#9b2c22'; cx.fillRect(0, CEIL - 3, W, 5);
+  cx.fillStyle = '#c9b25a'; const hoff = dist % 140; for (let x = -hoff; x < W; x += 140) { cx.fillRect(x + 70, CEIL + 2, 4, 6); cx.fillRect(x + 66, CEIL + 7, 12, 2); }
+  // Floor: sealed concrete with saw-cut joints, a light sheen, and painted aisle markings.
+  const fg = cx.createLinearGradient(0, FLOOR, 0, H); fg.addColorStop(0, '#2c3138'); fg.addColorStop(1, '#1f2328');
+  cx.fillStyle = fg; cx.fillRect(0, FLOOR, W, H - FLOOR);
+  const joff = dist % 160; cx.strokeStyle = 'rgba(0,0,0,.35)'; cx.lineWidth = 1.5;
+  for (let x = -joff; x < W + 160; x += 160) { cx.beginPath(); cx.moveTo(x, FLOOR); cx.lineTo(x - 40, H); cx.stroke(); }
+  cx.fillStyle = 'rgba(255,255,255,.04)'; cx.fillRect(0, FLOOR + 2, W, 6);
+  const foff = dist % 90;
+  cx.fillStyle = C.safety; for (let x = -foff; x < W + 90; x += 90) cx.fillRect(x, FLOOR + 32, 50, 5);
+  cx.fillStyle = 'rgba(255,194,26,.55)'; cx.fillRect(0, FLOOR + 10, W, 3);
+}
+
+function drawLift() {
+  const baseY = FLOOR - 24;
+  // Chassis: skirt, ladder, control box, and wheels with hubs.
+  rr(PX - 60, baseY, 120, 20, 3); const cg = cx.createLinearGradient(0, baseY, 0, baseY + 20); cg.addColorStop(0, '#f2b21a'); cg.addColorStop(1, '#c98a00'); cx.fillStyle = cg; cx.fill();
+  cx.fillStyle = '#1d2026'; cx.fillRect(PX - 60, baseY + 14, 120, 6);
+  cx.fillStyle = '#2b2f36'; cx.fillRect(PX + 34, baseY - 10, 20, 12); cx.fillStyle = '#e04848'; cx.beginPath(); cx.arc(PX + 44, baseY - 4, 3, 0, 7); cx.fill();
+  cx.fillStyle = '#ffd34d'; cx.fillRect(PX - 54, baseY + 5, 22, 3); cx.fillRect(PX - 54, baseY + 9, 22, 2);
+  [PX - 42, PX + 42].forEach(x => { cx.fillStyle = '#121418'; cx.beginPath(); cx.arc(x, FLOOR - 4, 11, 0, 7); cx.fill(); cx.fillStyle = '#5b6670'; cx.beginPath(); cx.arc(x, FLOOR - 4, 5, 0, 7); cx.fill(); cx.fillStyle = '#2b2f36'; cx.beginPath(); cx.arc(x, FLOOR - 4, 2, 0, 7); cx.fill(); });
+  // Scissor stack: thick arms with pins, and the lift cylinder.
+  const top = deck + 10, n = Math.max(1, Math.round((baseY - top) / 46)), seg = (baseY - top) / n;
+  cx.strokeStyle = '#8a8f96'; cx.lineWidth = 3; cx.beginPath(); cx.moveTo(PX - 6, baseY); cx.lineTo(PX + 18, top + seg * Math.max(0, n - 1) + seg * .2); cx.stroke();
+  for (let i = 0; i < n; i++) {
+    const y0 = top + i * seg, y1 = y0 + seg;
+    cx.lineCap = 'round';
+    cx.strokeStyle = '#a26c00'; cx.lineWidth = 8; cx.beginPath(); cx.moveTo(PX - 36, y0); cx.lineTo(PX + 36, y1); cx.moveTo(PX + 36, y0); cx.lineTo(PX - 36, y1); cx.stroke();
+    cx.strokeStyle = C.safety; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(PX - 36, y0); cx.lineTo(PX + 36, y1); cx.moveTo(PX + 36, y0); cx.lineTo(PX - 36, y1); cx.stroke();
+    cx.fillStyle = '#3b4148'; [[PX, (y0 + y1) / 2], [PX - 36, y0], [PX + 36, y0], [PX - 36, y1], [PX + 36, y1]].forEach(([a, b2]) => { cx.beginPath(); cx.arc(a, b2, 3, 0, 7); cx.fill(); });
+    cx.lineCap = 'butt';
+  }
+  // Deck, toe board, and guardrails with mid-rail.
+  rr(PX - PW / 2 - 4, deck, PW + 8, 10, 2); cx.fillStyle = '#c98a00'; cx.fill();
+  cx.fillStyle = '#ffc21a'; cx.fillRect(PX - PW / 2 - 4, deck, PW + 8, 4);
+  cx.strokeStyle = '#d99a00'; cx.lineWidth = 3;
+  cx.beginPath(); cx.moveTo(PX - PW / 2, deck); cx.lineTo(PX - PW / 2, deck - 30); cx.lineTo(PX + PW / 2, deck - 30); cx.lineTo(PX + PW / 2, deck);
+  cx.moveTo(PX - PW / 2, deck - 15); cx.lineTo(PX + PW / 2, deck - 15); cx.moveTo(PX - PW / 6, deck); cx.lineTo(PX - PW / 6, deck - 30); cx.moveTo(PX + PW / 6, deck); cx.lineTo(PX + PW / 6, deck - 30); cx.stroke();
+  // The tech: hard hat, face, hi-vis vest with reflective stripes, tool belt.
+  const blink = invuln > 0 && Math.floor(t * 12) % 2 === 0;
+  if (blink) return;
+  const head = deck - TECH_H + 8, reaching = things.some(o => o.kind === 'bracket' && !o.done && Math.abs(o.x - PX) < 140 && Math.abs(handsY() - o.y) < 60);
+  cx.fillStyle = '#2b3a55'; cx.fillRect(PX - 8, deck - 12, 7, 12); cx.fillRect(PX + 1, deck - 12, 7, 12);
+  rr(PX - 10, deck - 32, 20, 22, 4); cx.fillStyle = '#ff8a1f'; cx.fill();
+  cx.fillStyle = '#e8eef2'; cx.fillRect(PX - 10, deck - 24, 20, 3); cx.fillRect(PX - 4, deck - 32, 3, 22); cx.fillRect(PX + 1, deck - 32, 3, 22);
+  cx.fillStyle = '#5a3a1e'; cx.fillRect(PX - 10, deck - 13, 20, 3); cx.fillStyle = '#7a5530'; cx.fillRect(PX + 4, deck - 13, 6, 7);
+  cx.fillStyle = '#e9c39b'; cx.beginPath(); cx.arc(PX, head + 4, 8, 0, 7); cx.fill();
+  cx.fillStyle = '#2b2f36'; cx.fillRect(PX + 2, head + 2, 2, 2);
+  cx.fillStyle = C.safety; cx.beginPath(); cx.arc(PX, head + 1, 9.5, Math.PI, 0); cx.fill(); cx.fillRect(PX - 12, head, 25, 3); cx.fillStyle = '#d99a00'; cx.fillRect(PX - 1, head - 8, 2, 8);
+  cx.strokeStyle = '#ff8a1f'; cx.lineWidth = 4; cx.lineCap = 'round';
+  cx.beginPath();
+  if (reaching) { cx.moveTo(PX - 8, deck - 28); cx.lineTo(PX - 5, head - 14); cx.moveTo(PX + 8, deck - 28); cx.lineTo(PX + 5, head - 14); }
+  else { cx.moveTo(PX - 9, deck - 28); cx.lineTo(PX - 15, deck - 14); cx.moveTo(PX + 9, deck - 28); cx.lineTo(PX + 15, deck - 14); }
+  cx.stroke(); cx.lineCap = 'butt';
+  if (reaching) { rr(PX - 10, head - 20, 20, 11, 4); cx.fillStyle = '#eef1f4'; cx.fill(); cx.fillStyle = '#20252c'; cx.beginPath(); cx.arc(PX, head - 12, 4, 0, 7); cx.fill(); cx.fillStyle = C.alarm; cx.fillRect(PX + 6, head - 18, 2, 2); }
+}
+
+function drawThing(o) {
+  if (o.kind === 'bracket') {
+    const y = o.y;
+    if (o.onCeil) { cx.fillStyle = '#8b96a3'; cx.fillRect(o.x - 13, CEIL, 26, 8); }
+    else {
+      // Steel column with a wall plate at the mount height.
+      cx.fillStyle = '#2f3a47'; cx.fillRect(o.x + 14, CEIL, 14, FLOOR - CEIL);
+      cx.fillStyle = '#8b96a3'; cx.fillRect(o.x + 6, y - 10, 10, 20);
+    }
+    if (o.done === true) {
+      cx.fillStyle = '#dfe3e8'; cx.beginPath(); cx.ellipse(o.x, y, 16, 12, 0, 0, 7); cx.fill();
+      cx.fillStyle = '#20252c'; cx.beginPath(); cx.arc(o.x - 3, y + 2, 6, 0, 7); cx.fill();
+      if (Math.floor(t * 2) % 2) { cx.fillStyle = C.alarm; cx.beginPath(); cx.arc(o.x + 9, y - 6, 2.5, 0, 7); cx.fill(); }
+    } else if (!o.done) {
+      cx.strokeStyle = C.safety; cx.lineWidth = 2; cx.setLineDash([4, 4]);
+      cx.beginPath(); cx.arc(o.x, y, 16 + Math.sin(t * 6) * 2, 0, 7); cx.stroke(); cx.setLineDash([]);
+      cx.fillStyle = C.safety; cx.font = '700 11px "Chakra Petch", sans-serif'; cx.textAlign = 'center'; cx.fillText(o.onCeil ? 'MOUNT' : 'MOUNT +50', o.x, y + 30);
+    } else {
+      cx.fillStyle = C.alarm; cx.font = '700 11px "Chakra Petch", sans-serif'; cx.textAlign = 'center'; cx.fillText('EMPTY', o.x, y + 4);
+    }
+  }
+  if (o.kind === 'duct') {
+    // Rectangular duct with cross-breaks and flanged joints, hung on straps from the roof.
+    cx.fillStyle = '#5b6670'; for (let x = o.x + 14; x < o.x + o.w; x += 60) cx.fillRect(x, CEIL - 20, 3, 22);
+    const dg = cx.createLinearGradient(o.x, 0, o.x + o.w, 0); dg.addColorStop(0, '#8d99a5'); dg.addColorStop(.5, '#b8c2cc'); dg.addColorStop(1, '#8d99a5');
+    cx.fillStyle = dg; cx.fillRect(o.x, CEIL, o.w, o.depth);
+    cx.strokeStyle = 'rgba(40,48,58,.35)'; cx.lineWidth = 1;
+    for (let x = o.x; x < o.x + o.w - 1; x += 56) { const w = Math.min(56, o.x + o.w - x); cx.beginPath(); cx.moveTo(x, CEIL); cx.lineTo(x + w, CEIL + o.depth - 10); cx.moveTo(x + w, CEIL); cx.lineTo(x, CEIL + o.depth - 10); cx.stroke(); cx.fillStyle = '#6f7b87'; cx.fillRect(x, CEIL, 3, o.depth); }
+    cx.fillStyle = '#c4ccd4'; cx.fillRect(o.x - 4, CEIL + o.depth - 10, o.w + 8, 10);
+    cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(o.x - 4, CEIL + o.depth - 2, o.w + 8, 2);
+  }
+  if (o.kind === 'fork') {
+    const y = FLOOR - o.band;
+    // Mast (two channels, lift chain), carriage and forks.
+    cx.fillStyle = '#3a414b'; cx.fillRect(o.x - 6, y - 44, 5, FLOOR - y + 30); cx.fillRect(o.x + 1, y - 44, 5, FLOOR - y + 30);
+    cx.strokeStyle = '#1a1d22'; cx.lineWidth = 2; cx.setLineDash([3, 2]); cx.beginPath(); cx.moveTo(o.x, y - 40); cx.lineTo(o.x, FLOOR - 14); cx.stroke(); cx.setLineDash([]);
+    cx.fillStyle = '#2b2f36'; cx.fillRect(o.x - 10, y - 26, 10, 26);
+    cx.fillStyle = '#9aa6b2'; cx.fillRect(o.x - 72, y - 2, 76, 5);
+    // Pallet with a shrink-wrapped load
+    cx.fillStyle = '#7a5530'; cx.fillRect(o.x - 70, y - 9, 76, 7); cx.fillStyle = '#5c3f22'; [0, 1, 2].forEach(i => cx.fillRect(o.x - 66 + i * 30, y - 9, 6, 7));
+    cx.fillStyle = '#c89a68'; cx.fillRect(o.x - 66, y - 34, 32, 25); cx.fillRect(o.x - 32, y - 30, 34, 21);
+    cx.fillStyle = '#e6d3a8'; cx.fillRect(o.x - 52, y - 34, 4, 25); cx.fillRect(o.x - 17, y - 30, 4, 21);
+    cx.fillStyle = 'rgba(200,220,235,.18)'; cx.fillRect(o.x - 68, y - 36, 72, 28);
+    // Truck: body, counterweight, overhead guard, seat and driver
+    rr(o.x + 4, FLOOR - 54, 74, 36, 5); cx.fillStyle = '#e8590c'; cx.fill();
+    rr(o.x + 54, FLOOR - 60, 26, 44, 6); cx.fillStyle = '#2b2f36'; cx.fill();
+    cx.fillStyle = '#d14a05'; cx.fillRect(o.x + 4, FLOOR - 30, 50, 4);
+    cx.fillStyle = '#2b2f36'; cx.fillRect(o.x + 14, FLOOR - 98, 4, 46); cx.fillRect(o.x + 60, FLOOR - 98, 4, 40); cx.fillRect(o.x + 10, FLOOR - 100, 58, 5);
+    for (let i = 0; i < 4; i++) cx.fillRect(o.x + 18 + i * 11, FLOOR - 100, 2, 5);
+    cx.fillStyle = '#1d2026'; cx.fillRect(o.x + 34, FLOOR - 70, 14, 16);
+    cx.fillStyle = '#ff8a1f'; cx.fillRect(o.x + 30, FLOOR - 78, 12, 14); cx.fillStyle = '#e9c39b'; cx.beginPath(); cx.arc(o.x + 36, FLOOR - 84, 5, 0, 7); cx.fill();
+    cx.fillStyle = '#f2f2ee'; cx.beginPath(); cx.arc(o.x + 36, FLOOR - 86, 6, Math.PI, 0); cx.fill();
+    [o.x + 18, o.x + 62].forEach(x => { cx.fillStyle = '#121418'; cx.beginPath(); cx.arc(x, FLOOR - 10, 11, 0, 7); cx.fill(); cx.fillStyle = '#5b6670'; cx.beginPath(); cx.arc(x, FLOOR - 10, 4, 0, 7); cx.fill(); });
+    if (Math.floor(t * 4) % 2) { cx.fillStyle = C.alarm; cx.fillRect(o.x + 44, FLOOR - 100, 8, 6); }
+    if (o.osc) {
+      // Bad apple: striped mast, fast amber beacon, and a faint trail showing how far the forks travel.
+      cx.fillStyle = 'rgba(255,194,26,.10)'; cx.fillRect(o.x - 72, FLOOR - o.hi - 36, 80, o.hi - o.lo + 36);
+      cx.save(); cx.beginPath(); cx.rect(o.x - 4, FLOOR - o.hi - 40, 8, o.hi - 10); cx.clip();
+      for (let yy = FLOOR - o.hi - 50; yy < FLOOR; yy += 12) { cx.fillStyle = C.safety; cx.fillRect(o.x - 4, yy, 8, 6); }
+      cx.restore();
+      if (Math.floor(t * 10) % 2) { cx.fillStyle = C.safety; cx.beginPath(); cx.arc(o.x + 50, FLOOR - 104, 6, 0, 7); cx.fill(); }
+    }
+  }
+  if (o.kind === 'light') {
+    const sway = reduce ? 0 : Math.sin(t * 2 + o.ph) * 3, lx = o.x + sway, ly = CEIL + o.len;
+    // Light cone (looks only)
+    const grd = cx.createLinearGradient(0, ly + 20, 0, ly + 220);
+    grd.addColorStop(0, 'rgba(255,236,170,.22)'); grd.addColorStop(1, 'rgba(255,236,170,0)');
+    cx.fillStyle = grd; cx.beginPath(); cx.moveTo(lx - 20, ly + 22); cx.lineTo(lx + 20, ly + 22); cx.lineTo(lx + 90, ly + 220); cx.lineTo(lx - 90, ly + 220); cx.closePath(); cx.fill();
+    // Solid hanger pole (it's part of the hazard — you go under the lamp, not through the pole)
+    cx.strokeStyle = '#1a1e24'; cx.lineWidth = 8; cx.beginPath(); cx.moveTo(o.x, CEIL); cx.lineTo(lx, ly); cx.stroke();
+    cx.strokeStyle = '#aeb8c4'; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(o.x, CEIL); cx.lineTo(lx, ly); cx.stroke();
+    cx.fillStyle = '#aeb8c4'; cx.fillRect(o.x - 9, CEIL, 18, 6);
+    // Dome lamp
+    cx.fillStyle = '#c4ccd4'; cx.beginPath(); cx.moveTo(lx - 8, ly); cx.lineTo(lx + 8, ly); cx.lineTo(lx + 24, ly + 22); cx.lineTo(lx - 24, ly + 22); cx.closePath(); cx.fill();
+    cx.fillStyle = '#fff3c4'; cx.fillRect(lx - 20, ly + 21, 40, 5);
+  }
+  if (o.kind === 'hoist') {
+    // Beam trolley at the ceiling, wire rope, hook block and a strapped crate.
+    cx.fillStyle = '#3a414b'; cx.fillRect(o.x - 22, CEIL, 44, 12); cx.fillStyle = C.safety; cx.fillRect(o.x - 22, CEIL + 10, 44, 3);
+    cx.strokeStyle = '#1a1e24'; cx.lineWidth = 5; cx.beginPath(); cx.moveTo(o.x, CEIL + 12); cx.lineTo(o.x, o.hy - 12); cx.stroke();
+    cx.strokeStyle = '#9aa6b2'; cx.lineWidth = 2.5; cx.beginPath(); cx.moveTo(o.x, CEIL + 12); cx.lineTo(o.x, o.hy - 12); cx.stroke();
+    cx.fillStyle = C.safety; cx.fillRect(o.x - 9, o.hy - 14, 18, 10);
+    cx.strokeStyle = '#2b2f36'; cx.lineWidth = 3; cx.beginPath(); cx.arc(o.x, o.hy - 1, 5, 0, Math.PI); cx.stroke();
+    cx.strokeStyle = '#c94b2a'; cx.lineWidth = 2; cx.beginPath(); cx.moveTo(o.x, o.hy); cx.lineTo(o.x - 22, o.hy + 6); cx.moveTo(o.x, o.hy); cx.lineTo(o.x + 22, o.hy + 6); cx.stroke();
+    rr(o.x - 26, o.hy + 6, 52, 28, 3); cx.fillStyle = '#b5875a'; cx.fill();
+    cx.fillStyle = '#8e6740'; cx.fillRect(o.x - 26, o.hy + 18, 52, 3); cx.fillRect(o.x - 4, o.hy + 6, 8, 28);
+    cx.fillStyle = 'rgba(255,194,26,.08)'; cx.fillRect(o.x - 28, o.lo, 56, o.hi - o.lo + 40);
+  }
+  if (o.kind === 'mezz') {
+    // Steel deck with toe board and a guardrail, posts down to the floor, racking stored underneath.
+    cx.fillStyle = 'rgba(0,0,0,.25)'; cx.fillRect(o.x + 6, o.top + 16, o.w, 8);
+    for (let px = o.x + 6; px < o.x + o.w; px += 90) { cx.fillStyle = '#2f5d8a'; cx.fillRect(px, o.top + 16, 8, FLOOR - o.top - 16); }
+    cx.fillStyle = '#2f5d8a'; cx.fillRect(o.x + o.w - 14, o.top + 16, 8, FLOOR - o.top - 16);
+    for (let bx = o.x + 22; bx < o.x + o.w - 40; bx += 60) { cx.fillStyle = '#7a5530'; cx.fillRect(bx, FLOOR - 26, 48, 6); cx.fillStyle = '#c89a68'; cx.fillRect(bx + 2, FLOOR - 52, 44, 26); }
+    cx.fillStyle = '#e07b1a'; cx.fillRect(o.x, o.top, o.w, 16);
+    cx.fillStyle = '#b8611a'; for (let gx = o.x + 4; gx < o.x + o.w; gx += 10) cx.fillRect(gx, o.top + 4, 4, 8);
+    cx.fillStyle = C.safety; cx.fillRect(o.x, o.top - 30, o.w, 3); cx.fillRect(o.x, o.top - 15, o.w, 2);
+    for (let rx = o.x; rx <= o.x + o.w; rx += 40) cx.fillRect(Math.min(rx, o.x + o.w - 3), o.top - 30, 3, 30);
+  }
+  if (o.kind === 'reach') {
+    // Tall telescoping mast (it's the hazard), a pallet way up top, and the truck at the bottom.
+    const top = o.mastTop;
+    cx.fillStyle = 'rgba(255,75,62,.07)'; cx.fillRect(o.x - 72, top, 90, FLOOR - top);
+    cx.fillStyle = '#3a414b'; cx.fillRect(o.x - 6, top - 6, 5, FLOOR - top); cx.fillRect(o.x + 1, top - 6, 5, FLOOR - top);
+    cx.fillStyle = '#4b535e'; cx.fillRect(o.x - 4, top + (FLOOR - top) * .35, 8, 4); cx.fillRect(o.x - 4, top + (FLOOR - top) * .65, 8, 4);
+    cx.fillStyle = '#9aa6b2'; cx.fillRect(o.x - 72, top + 30, 76, 5);
+    cx.fillStyle = '#7a5530'; cx.fillRect(o.x - 70, top + 23, 76, 7); cx.fillStyle = '#c89a68'; cx.fillRect(o.x - 66, top, 32, 23); cx.fillRect(o.x - 32, top + 4, 34, 19);
+    rr(o.x + 4, FLOOR - 60, 64, 42, 6); cx.fillStyle = '#2b6fd6'; cx.fill();
+    cx.fillStyle = '#2b2f36'; cx.fillRect(o.x + 10, FLOOR - 104, 4, 46); cx.fillRect(o.x + 52, FLOOR - 104, 4, 46); cx.fillRect(o.x + 6, FLOOR - 106, 54, 5);
+    cx.fillStyle = '#ff8a1f'; cx.fillRect(o.x + 26, FLOOR - 84, 12, 14); cx.fillStyle = '#e9c39b'; cx.beginPath(); cx.arc(o.x + 32, FLOOR - 90, 5, 0, 7); cx.fill();
+    [o.x + 18, o.x + 58].forEach(px => { cx.fillStyle = '#121418'; cx.beginPath(); cx.arc(px, FLOOR - 10, 10, 0, 7); cx.fill(); });
+    if (Math.floor(t * 6) % 2) { cx.fillStyle = '#4fc3ff'; cx.fillRect(o.x + 30, FLOOR - 112, 8, 6); }
+  }
+  if (o.kind === 'pigeon') {
+    const flap = Math.sin(t * 20 + o.ph) * 9;
+    cx.fillStyle = '#6f7a86'; cx.beginPath(); cx.moveTo(o.x + 12, o.y); cx.lineTo(o.x + 22, o.y - 3); cx.lineTo(o.x + 22, o.y + 4); cx.closePath(); cx.fill();
+    cx.fillStyle = '#8a95a1'; cx.beginPath(); cx.ellipse(o.x, o.y, 14, 8, 0, 0, 7); cx.fill();
+    cx.fillStyle = '#5f6975'; cx.beginPath(); cx.moveTo(o.x - 4, o.y - 2); cx.lineTo(o.x + 6, o.y - 10 - flap); cx.lineTo(o.x + 12, o.y - 1); cx.closePath(); cx.fill();
+    cx.fillStyle = '#4e7f6c'; cx.beginPath(); cx.arc(o.x - 11, o.y - 4, 5.5, 0, 7); cx.fill();
+    cx.fillStyle = '#f2f2ee'; cx.beginPath(); cx.arc(o.x - 13, o.y - 5, 1.8, 0, 7); cx.fill(); cx.fillStyle = '#111'; cx.beginPath(); cx.arc(o.x - 13.3, o.y - 5, .9, 0, 7); cx.fill();
+    cx.fillStyle = '#e8a33a'; cx.beginPath(); cx.moveTo(o.x - 16, o.y - 4); cx.lineTo(o.x - 21, o.y - 2.5); cx.lineTo(o.x - 16, o.y - 2); cx.closePath(); cx.fill();
+  }
+}
+
+function hud() {
+  cx.textAlign = 'left'; cx.fillStyle = C.fg;
+  cx.font = '20px Bungee, Impact, sans-serif'; cx.fillText('$' + String(score).padStart(5, '0'), 18, 34);
+  cx.font = '700 12px "Chakra Petch", sans-serif'; cx.fillStyle = C.muted;
+  cx.fillText(`CAMERAS ${mounted}  ·  ${Math.floor(dist / 30)} FT`, 18, 52);
+  cx.textAlign = 'right';
+  for (let i = 0; i < 3; i++) { cx.fillStyle = i < lives ? C.safety : '#3a414b'; cx.beginPath(); cx.arc(W - 22 - i * 22, 28, 8, Math.PI, 0); cx.fill(); cx.fillRect(W - 32 - i * 22, 28, 20, 3); }
+  if (streak > 1) { cx.fillStyle = C.safety; cx.font = '14px Bungee, Impact, sans-serif'; cx.fillText(`STREAK ×${Math.min(5, streak)}`, W - 18, 56); }
+  floaters.forEach(f => { cx.globalAlpha = Math.max(0, f.life); cx.fillStyle = f.bad ? C.alarm : C.safety; cx.textAlign = 'center'; cx.font = '16px Bungee, Impact, sans-serif'; cx.fillText(f.txt, f.x, f.y); cx.globalAlpha = 1; });
+}
+
+function overlay(title, lines, cta) {
+  cx.fillStyle = 'rgba(13,15,18,.78)'; cx.fillRect(0, 0, W, H);
+  cx.textAlign = 'center';
+  cx.fillStyle = C.safety; cx.font = '64px Bungee, Impact, sans-serif'; cx.fillText(title, W / 2, 190);
+  cx.fillStyle = C.fg; cx.font = '500 18px "Chakra Petch", sans-serif';
+  lines.forEach((l, i) => cx.fillText(l, W / 2, 240 + i * 28));
+  cx.fillStyle = C.safety; cx.font = '18px Bungee, Impact, sans-serif';
+  if (Math.floor(performance.now() / 500) % 2 || reduce) cx.fillText(cta, W / 2, 240 + lines.length * 28 + 40);
+}
+
+function render() {
+  cx.save();
+  if (shake > 0.5) cx.translate((Math.random() - .5) * shake, (Math.random() - .5) * shake);
+  drawWarehouse();
+  if (state !== 'title') {
+    things.forEach(drawThing); drawLift();
+    if (dark > 0) {
+      // Darkness with a pool of work light around the tech; fades in and out at the ends.
+      const k = Math.min(1, dark, (8 - dark) * 2), lx = PX, ly = deck - TECH_H / 2;
+      const gr = cx.createRadialGradient(lx, ly, 50, lx + 120, ly, 330); gr.addColorStop(0, 'rgba(6,8,11,0)'); gr.addColorStop(1, `rgba(6,8,11,${.9 * k})`);
+      cx.fillStyle = gr; cx.fillRect(0, 0, W, H);
+    }
+    hud();
+  }
+  cx.restore();
+  if (hitFlash > 0) { cx.fillStyle = `rgba(255,75,62,${hitFlash})`; cx.fillRect(0, 0, W, H); }
+  if (state === 'title') {
+    deck = deck || MIN_DECK; drawLift();
+    overlay('LIFT PANIC', (PORTRAIT ? ['Line your hands up with each', 'MOUNT ring to hang the camera.', 'Dodge ducts, lights, forklifts, pigeons.'] : ['Line your hands up with each MOUNT ring to hang the camera.', 'Duck the ducts and lights, clear the forklifts, mind the pigeons.', 'Keep going: the warehouse throws new things at you the farther you get.']).concat(`Best: $${best.toLocaleString()}`), 'TAP OR PRESS SPACE');
+  }
+  if (state === 'over') overlay('SHIFT OVER', [PORTRAIT ? `${mounted} cameras · ${Math.floor(dist / 30)} ft` : `${mounted} cameras mounted · ${Math.floor(dist / 30)} ft of warehouse`, `Score $${score.toLocaleString()}${score >= best && score > 0 ? '  ·  New best!' : `  ·  Best $${best.toLocaleString()}`}`], 'TAP TO CLOCK BACK IN');
+  if (state === 'play' && paused) overlay('PAUSED', ['Press P to keep working.'], '');
+}
+
+let last = performance.now();
+function loop(now) {
+  const dt = Math.min(0.033, (now - last) / 1000); last = now;
+  if (state === 'play' && !paused && !document.hidden) update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+deck = MIN_DECK; t = 0; dist = 0; things = []; floaters = [];
+requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>

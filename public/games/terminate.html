@@ -1,0 +1,307 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Terminate</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;800&family=Barlow:wght@400;600&family=Space+Mono:wght@400;700&display=swap">
+<style>
+[hidden] { display: none !important; }
+/* Layout: a workbench. Ordering card + plug on top, loose conductors in the middle, the cable tester's LCD below. One light bench look. */
+:root {
+  color-scheme: light;
+  --bench: #dcd6cb;      /* bench top */
+  --card: #f6f3ec;
+  --ink: #23262b;
+  --muted: #6a6f78;
+  --lcd: #bfd9a8;        /* tester screen */
+  --lcd-ink: #22351a;
+  --pass: #1f8a4c;
+  --fail: #c8321f;
+  --plug: #e9eef2;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "Barlow", "Segoe UI", system-ui, sans-serif;
+  --mono: "Space Mono", ui-monospace, Consolas, monospace;
+}
+html, body { min-height: 100%; }
+body { background:
+    radial-gradient(circle at 12px 12px, rgba(60,45,30,.35) 0 3px, transparent 3.5px) 0 0 / 28px 28px,
+    linear-gradient(180deg, #cbb497, #b99d7c); background-attachment: fixed; color: var(--ink); font-family: var(--body); padding-block: 12px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; justify-content: center; box-sizing: border-box; }
+.app { width: 100%; max-width: 760px; display: grid; gap: 12px; }
+.top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; }
+h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 34px; letter-spacing: .02em; line-height: 1; }
+.stats { display: flex; gap: 14px; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+.stat { display: grid; } .stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.stat b { font-family: var(--mono); font-size: 18px; }
+.bench { grid-template-columns: minmax(0, 1fr) 128px; align-items: stretch; }
+.work { display: grid; gap: 10px; min-width: 0; }
+.slack { border-left: 1px dashed #c4bdb0; padding-left: 10px; display: grid; grid-template-rows: 1fr auto; justify-items: center; gap: 4px; text-align: center; }
+.slack svg { width: 100%; height: 100%; min-height: 150px; max-height: 260px; }
+.slack .ft { font-family: var(--display); font-weight: 800; font-size: 30px; line-height: 1; }
+.slack .lab { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+.slack.out .ft { color: var(--fail); font-size: 15px; letter-spacing: .02em; }
+.slack.cut svg { animation: snip .5s ease-out; }
+@keyframes snip { 30% { transform: translateY(-6px); } }
+@media (max-width: 560px) { .bench { grid-template-columns: 1fr; } .slack { border-left: 0; border-top: 1px dashed #c4bdb0; padding: 8px 0 0; grid-template-columns: 1fr auto; grid-template-rows: auto; align-items: center; } .slack svg { min-height: 0; height: 96px; } }
+@media (prefers-reduced-motion: reduce) { .slack.cut svg { animation: none; } }
+.panel { background: linear-gradient(180deg, #faf7f0, var(--card)); border: 1px solid #b5ab98; border-radius: 10px; padding: 12px; display: grid; gap: 10px; box-shadow: 0 6px 16px rgba(60,45,30,.25); }
+/* The conductors lie on a maple bench top. */
+.pool { padding: 14px 12px 10px; border-radius: 10px; background: repeating-linear-gradient(90deg, rgba(120,80,40,.07) 0 2px, transparent 2px 14px), repeating-linear-gradient(90deg, rgba(255,255,255,.05) 0 1px, transparent 1px 37px), linear-gradient(180deg, #e3c79a, #d2b182); box-shadow: inset 0 2px 0 rgba(255,255,255,.4), inset 0 -3px 0 rgba(0,0,0,.12), 0 6px 14px rgba(60,45,30,.3); }
+.job { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+.std { font-family: var(--display); font-weight: 800; font-size: 26px; }
+.std em { font-style: normal; color: var(--fail); }
+.chart { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; }
+.chart div { display: grid; gap: 2px; justify-items: center; font-size: 10px; color: var(--muted); }
+.chart i { width: 100%; height: 12px; border-radius: 3px; display: block; }
+.hidden-chart { font-size: 13px; color: var(--muted); }
+.plug { background: var(--plug); border: 2px solid #9aa6b0; border-radius: 10px 10px 4px 4px; padding: 10px 10px 6px; display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; position: relative; }
+.plug::after { content: ""; position: absolute; left: 30%; right: 30%; top: -12px; height: 10px; border: 2px solid #9aa6b0; border-bottom: 0; border-radius: 6px 6px 0 0; background: var(--plug); }
+.slot { height: 86px; border-radius: 4px; border: 1.5px dashed #9aa6b0; background: #fff; display: grid; align-content: end; justify-items: center; cursor: pointer; padding: 0 0 4px; font-family: var(--mono); font-size: 11px; color: var(--muted); position: relative; }
+.slot.filled { border-style: solid; border-color: #6f7c88; }
+.slot .w { position: absolute; inset: 4px 4px 20px; border-radius: 3px; }
+.slot.bad { border-color: var(--fail); box-shadow: 0 0 0 2px var(--fail); }
+.slot.good { border-color: var(--pass); box-shadow: 0 0 0 2px var(--pass); }
+.pool { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-height: 104px; align-items: flex-end; }
+.wire { width: 44px; height: 96px; border-radius: 22px 22px 6px 6px; border: 2px solid rgba(0,0,0,.25); cursor: pointer; position: relative; padding: 0; }
+.wire span { position: absolute; bottom: -2px; left: 50%; transform: translateX(-50%); font-family: var(--mono); font-size: 9px; color: var(--ink); background: var(--card); padding: 0 3px; border-radius: 3px; white-space: nowrap; }
+.wire:hover { transform: translateY(-3px); }
+.untwist { display: grid; gap: 4px; }
+.meter { height: 14px; background: #fff; border: 1px solid #a9a296; border-radius: 7px; position: relative; overflow: hidden; }
+.meter i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--pass); border-radius: 7px; }
+.meter b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--fail); }
+.lbl { font-size: 12px; color: var(--muted); display: flex; justify-content: space-between; font-variant-numeric: tabular-nums; }
+.tester { background: #2d3136; border-radius: 12px; padding: 10px; }
+.lcd { background: var(--lcd); color: var(--lcd-ink); font-family: var(--mono); font-size: 13px; border-radius: 6px; padding: 10px; min-height: 120px; display: grid; gap: 6px; align-content: start; }
+.lcd .big { font-size: 22px; font-weight: 700; }
+.map { display: grid; grid-template-columns: repeat(8, 1fr); gap: 4px; text-align: center; font-size: 12px; }
+.map div { border: 1px solid var(--lcd-ink); border-radius: 3px; padding: 2px 0; }
+.map .x { background: var(--lcd-ink); color: var(--lcd); }
+.btns { display: flex; gap: 8px; flex-wrap: wrap; }
+button { font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: .05em; text-transform: uppercase; border: 2px solid var(--ink); background: transparent; color: var(--ink); border-radius: 8px; padding: 9px 14px; cursor: pointer; touch-action: manipulation; }
+button.primary { background: var(--ink); color: var(--card); }
+button:disabled { opacity: .35; cursor: default; }
+button:focus-visible, .slot:focus-visible { outline: 3px solid #2766d8; outline-offset: 2px; }
+.btns .grow { flex: 1; }
+.modal { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; background: rgba(35,38,43,.6);
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+.card { background: var(--card); border: 2px solid var(--ink); border-radius: 12px; padding: 18px; max-width: 480px; width: 100%; max-height: 100%; overflow-y: auto; display: grid; gap: 10px; }
+.card h2 { margin: 0; font-family: var(--display); font-size: 30px; font-weight: 800; }
+.card h3 { margin: 4px 0 0; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.card p, .card li { margin: 0; font-size: 14px; line-height: 1.5; }
+.card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+@media (max-width: 520px) { .slot { height: 70px; } .wire { width: 38px; height: 84px; } h1 { font-size: 28px; } .stat b { font-size: 15px; } }
+@media (prefers-reduced-motion: reduce) { .wire:hover { transform: none; } }
+</style>
+
+<div class="app">
+  <div class="top">
+    <h1>TERMINATE</h1>
+    <div class="stats">
+      <div class="stat"><span>Score</span><b id="score">0</b></div>
+      <div class="stat"><span>Cable</span><b id="count">1/10</b></div>
+      <div class="stat"><span>Time</span><b id="time">0:00</b></div>
+      <div class="stat"><span>Fails</span><b id="fails">0/3</b></div>
+      <div class="stat"><span>Best</span><b id="best">0</b></div>
+    </div>
+  </div>
+  <div class="panel bench">
+    <div class="work">
+    <div class="job"><div class="std" id="std">T568B</div><button type="button" id="howBtn">How to play</button></div>
+    <div id="chartWrap"></div>
+    <div class="plug" id="plug" aria-label="RJ45 plug, pins 1 to 8"></div>
+    <div class="lbl"><span id="tip">Tap the conductors in pin order, 1 to 8. Your slack is the clock.</span></div>
+    </div>
+    <aside class="slack" id="slack" aria-live="polite"></aside>
+  </div>
+  <div class="pool" id="pool" aria-label="Loose conductors"></div>
+  <div class="btns">
+    <button type="button" id="clear">Pull them all out</button>
+    <button type="button" class="primary grow" id="crimp" disabled>Crimp &amp; test</button>
+  </div>
+  <div class="tester"><div class="lcd" id="lcd"><div>WIRE MAP TESTER · READY</div><div>Crimp a plug to test it.</div></div></div>
+</div>
+
+<div class="modal" id="howModal">
+  <div class="card">
+    <h2>TERMINATE</h2>
+    <p>Put the eight conductors in pin order, crimp it, and pass the tester. Do it fast: your 3 ft of slack shrinks while you work.</p>
+    <h3>Rules</h3>
+    <ul>
+      <li>Tap a conductor to put it in the next empty pin. Tap a pin to pull its conductor back out.</li>
+      <li>The job card says which standard: <b>T568B</b> or <b>T568A</b>. Cables 1–4 are two of each with the color chart showing. From cable 5 the chart is hidden.</li>
+      <li>The shift clock runs while you work. Finish all 10 cables to post a time on the Fastest leaderboard.</li>
+      <li>Every cable has a <b>3 ft service loop</b>, and it's your clock: it shrinks while you work. <b>Peeking</b> at the chart (2 seconds) costs 1 ft. A <b>failed test</b> lets you cut the bad end off and re-terminate for 1 ft, at half pay.</li>
+      <li>Out of slack, the cable's too short to save: that's a fail. 10 cables per shift; 3 fails and you're sent home.</li>
+    </ul>
+    <h3>Scoring</h3>
+    <ul><li>Pass: $100 plus up to $200 for the slack you have left. Passes in a row multiply it, up to ×3.</li></ul>
+    <button type="button" class="primary" id="go">Start shift</button>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const WIRES = {
+  wo: { n: 'W/O', c: '#f07a1a', s: 1 }, o: { n: 'O', c: '#f07a1a' },
+  wg: { n: 'W/G', c: '#2f9a46', s: 1 }, g: { n: 'G', c: '#2f9a46' },
+  bl: { n: 'BL', c: '#2766d8' }, wb: { n: 'W/BL', c: '#2766d8', s: 1 },
+  wbr: { n: 'W/BR', c: '#7a4a24', s: 1 }, br: { n: 'BR', c: '#7a4a24' },
+};
+const STD = { B: ['wo', 'o', 'wg', 'bl', 'wb', 'g', 'wbr', 'br'], A: ['wg', 'g', 'wo', 'bl', 'wb', 'o', 'wbr', 'br'] };
+const PAIR = { wb: 1, bl: 1, wo: 2, o: 2, wg: 3, g: 3, wbr: 4, br: 4 };
+const fill = w => WIRES[w].s ? `repeating-linear-gradient(160deg, #f4f1ea 0 7px, ${WIRES[w].c} 7px 12px)` : WIRES[w].c;
+const LIMIT = 0.5, CABLES = 10;
+
+let best = 0; try { best = +localStorage.getItem('terminate:best') || 0; } catch {}
+let score, cable, fails, streak, std, pool, slots, untwist, running, peeking, last;
+// Service loop: 3 ft per cable. A peek at the chart or cutting off a bad end costs 1 ft.
+let shiftT = 0, order = [];   // shift clock; the standard for each cable
+const SLACK = 3; let slack = SLACK, redo = false, peekT = null, shown = '';
+// How fast the service loop shrinks while you work (ft per second): about 24 s on cable 1, 15 s by cable 10.
+const drain = () => .125 + Math.min(cable, 10) * .008;
+
+function startShift() {
+  score = 0; cable = 0; fails = 0; streak = 0; shiftT = 0;
+  // Learn both first: cables 1-4 are two T568A and two T568B (random order), chart showing.
+  order = ['A', 'A', 'B', 'B'].sort(() => Math.random() - .5);
+  nextCable();
+}
+function nextCable() {
+  cable++;
+  if (cable > CABLES || fails >= 3) return endShift();
+  std = cable <= 4 ? order[cable - 1] : Math.random() < .5 ? 'A' : 'B';
+  pool = [...STD.B].sort(() => Math.random() - .5);
+  slots = Array(8).fill(null); untwist = 0; running = true; peeking = false; last = performance.now(); slack = SLACK; redo = false;
+  $('lcd').innerHTML = '<div>WIRE MAP TESTER · READY</div><div>Crimp a plug to test it.</div>';
+  $('crimp').textContent = 'Crimp & test'; $('crimp').onclick = crimp;
+  render();
+}
+function endShift() {
+const finished = fails < 3; try { if (parent !== window) parent.postMessage({ arcade: 'terminate', score: score, time: finished ? Math.round(shiftT) : null }, '*'); } catch (e) {}   running = false;
+  const nb = score > best; if (nb) { best = score; try { localStorage.setItem('terminate:best', best); } catch {} }
+  $('lcd').innerHTML = `<div class="big">SHIFT OVER</div><div>${fails >= 3 ? 'Three failed tests. Sent home early.' : `All 10 cables terminated in ${clk(shiftT)}.`}</div><div>Score $${score.toLocaleString()}${nb ? ' · New best!' : ` · Best $${best.toLocaleString()}`}</div>`;
+  $('crimp').disabled = false; $('crimp').textContent = 'New shift'; $('crimp').onclick = () => { startShift(); };
+  syncStats();
+}
+
+function chartHTML() {
+  return '<div class="chart">' + STD[std].map((w, i) => `<div><i style="background:${fill(w)}"></i>${i + 1} ${WIRES[w].n}</div>`).join('') + '</div>';
+}
+function render() {
+  $('std').innerHTML = `Cable ${cable} · <em>${std === 'A' ? 'T568A' : 'T568B'}</em>`;
+  const hide = cable >= 5;
+  $('chartWrap').innerHTML = hide && !peeking
+    ? `<div class="hidden-chart">Chart hidden. ${slack > 0 ? '<button type="button" id="peek">Peek (−1 ft slack)</button>' : '<b style="color:var(--fail)">Ran out of slack. No more peeks.</b>'}</div>`
+    : chartHTML();
+  const pk = $('peek');
+  if (pk) pk.onclick = () => { if (!running || slack <= 0) return; useSlack('peek'); peeking = true; clearTimeout(peekT); peekT = setTimeout(() => { peeking = false; render(); }, 2000); render(); };
+  drawSlack();
+  $('plug').innerHTML = slots.map((w, i) => `<button type="button" class="slot ${w ? 'filled' : ''}" data-i="${i}" aria-label="Pin ${i + 1}${w ? ': ' + WIRES[w].n : ' empty'}">${w ? `<i class="w" style="background:${fill(w)}"></i>` : ''}${i + 1}</button>`).join('');
+  $('pool').innerHTML = pool.map(w => `<button type="button" class="wire" data-w="${w}" style="background:${fill(w)}" aria-label="${WIRES[w].n}"><span>${WIRES[w].n}</span></button>`).join('');
+  $('crimp').disabled = !running || slots.some(s => !s);
+  syncStats();
+}
+// The slack: a straight run of Cat6 from the wall plate; its length is the slack left. The end is
+// stripped with the eight conductors fanned out. A ruler alongside marks 1', 2', 3'.
+function drawSlack() {
+  const el = $('slack'); if (!el) return;
+  const top = 38, full = 132, L = Math.max(0, Math.min(1, slack / SLACK)) * full, end = top + Math.max(L, 4);
+  const WIRES = [['#fff', '#f08a1a'], ['#f08a1a'], ['#fff', '#2f9a46'], ['#2b6fe0'], ['#fff', '#2b6fe0'], ['#2f9a46'], ['#fff', '#8a5a2b'], ['#8a5a2b']];
+  let fan = '';
+  if (slack > 0) WIRES.forEach((w, i) => {
+    const a = (-52 + i * (104 / 7)) * Math.PI / 180, x2 = 50 + Math.sin(a) * 30, y2 = end + 8 + Math.cos(a) * 26, d = `M${50 + (i - 3.5) * 1.6} ${end + 6} Q 50 ${end + 14} ${x2.toFixed(1)} ${y2.toFixed(1)}`;
+    fan += `<path d="${d}" stroke="#2b2f36" stroke-width="4.6" fill="none" stroke-linecap="round"/><path d="${d}" stroke="${w[0]}" stroke-width="3.2" fill="none" stroke-linecap="round"/>`;
+    if (w[1]) fan += `<path d="${d}" stroke="${w[1]}" stroke-width="3.2" fill="none" stroke-dasharray="3 3" />`;
+  });
+  const marks = [1, 2, 3].map(ft => { const y = top + full * ft / SLACK; return `<line x1="84" y1="${y}" x2="92" y2="${y}" stroke="#8a8170" stroke-width="1.5"/><text x="95" y="${y + 3.5}" font-size="9" font-weight="700" fill="#8a8170">${ft}'</text>`; }).join('');
+  const svg = `<svg viewBox="0 0 104 220" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <line x1="86" y1="${top}" x2="86" y2="${top + full}" stroke="#c4bdb0" stroke-width="1.5"/>${marks}
+    <rect x="32" y="4" width="36" height="34" rx="3" fill="#f6f3ec" stroke="#9aa6b0" stroke-width="2"/><rect x="42" y="14" width="16" height="12" rx="2" fill="#23262b"/>
+    ${slack > 0 ? `<rect x="44" y="${top - 2}" width="12" height="${end - top + 6}" rx="3" fill="#1d4ea8"/>
+    <rect x="45.5" y="${top - 2}" width="3" height="${end - top + 4}" rx="1.5" fill="rgba(255,255,255,.35)"/>
+    ${L > 40 ? `<text x="0" y="0" font-size="5.5" font-weight="700" fill="rgba(255,255,255,.55)" transform="translate(54 ${top + 8}) rotate(90)">CAT6 · 23AWG · ${(slack).toFixed(1)}FT</text>` : ''}
+    <rect x="43" y="${end + 1}" width="14" height="5" rx="1.5" fill="#1d3f86"/>
+    ${fan}` : `<rect x="44" y="${top - 2}" width="12" height="8" rx="3" fill="#1d4ea8"/><text x="50" y="${top + 34}" text-anchor="middle" font-size="12" font-weight="700" fill="#c8321f">TOO SHORT</text>`}
+  </svg>`;
+  el.classList.toggle('out', slack <= 0);
+  const low = slack > 0 && slack < 1;
+  el.innerHTML = svg + (slack > 0 ? `<div><div class="ft" style="${low ? 'color:var(--fail)' : ''}">${slack.toFixed(1)} ft</div><div class="lab">slack left</div></div>` : `<div><div class="ft">Ran out of slack</div><div class="lab">cable too short</div></div>`);
+}
+function useSlack(why) {
+  slack = Math.max(0, slack - 1); shown = '';
+  if (slack <= 0 && running) outOfSlack();
+  const el = $('slack'); el.classList.remove('cut'); void el.offsetWidth; el.classList.add('cut');
+  drawSlack();
+}
+const clk = t => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;
+function syncStats() {
+  $('time').textContent = clk(shiftT || 0);
+  $('score').textContent = '$' + score.toLocaleString(); $('count').textContent = `${Math.min(cable, CABLES)}/${CABLES}`;
+  $('fails').textContent = `${fails}/3`; $('best').textContent = '$' + Math.max(best, score).toLocaleString();
+}
+$('pool').addEventListener('click', e => {
+  const b = e.target.closest('.wire'); if (!b || !running) return;
+  const i = slots.indexOf(null); if (i < 0) return;
+  slots[i] = b.dataset.w; pool.splice(pool.indexOf(b.dataset.w), 1); render();
+});
+$('plug').addEventListener('click', e => {
+  const b = e.target.closest('.slot'); if (!b || !running) return;
+  const i = +b.dataset.i; if (!slots[i]) return;
+  pool.push(slots[i]); slots[i] = null; render();
+});
+$('clear').onclick = () => { if (!running) return; slots.forEach(w => w && pool.push(w)); slots.fill(null); render(); };
+// The loop ran out mid-termination: too short to finish, counts as a fail.
+function outOfSlack() {
+  running = false; slack = 0; streak = 0; fails++; drawSlack();
+  $('lcd').innerHTML = `<div class="big" style="color:var(--fail)">RAN OUT OF SLACK</div><div>The cable's too short to terminate. Counts as a fail.</div>`;
+  $('crimp').disabled = false; $('crimp').textContent = cable >= CABLES || fails >= 3 ? 'Finish shift' : 'Next cable →'; $('crimp').onclick = nextCable;
+  syncStats();
+}
+function crimp() {
+  running = false;
+  const want = STD[std], bad = slots.map((w, i) => w !== want[i]);
+  const nBad = bad.filter(Boolean).length, over = false;
+  let kind = '';
+  if (nBad === 2) { const [a, b] = bad.map((x, i) => x ? i : -1).filter(i => i >= 0); kind = slots[a] === want[b] && PAIR[slots[a]] === PAIR[slots[b]] ? 'REVERSED PAIR' : 'CROSSED WIRES'; }
+  else if (nBad) kind = std === 'A' && slots.every((w, i) => w === STD.B[i]) ? 'WRONG STANDARD (wired B, job is A)' : 'MISWIRE';
+  const pass = !nBad && !over;
+  let earned = 0;
+  if (pass) { streak++; earned = Math.round((100 + 200 * Math.max(0, slack) / SLACK) * Math.min(3, 1 + (streak - 1) * .5) * (redo ? .5 : 1)); score += earned; }
+  else { streak = 0; if (slack <= 0) fails++; }
+  document.querySelectorAll('.slot').forEach((el, i) => el.classList.add(bad[i] ? 'bad' : 'good'));
+  const map = slots.map((w, i) => `<div class="${bad[i] ? 'x' : ''}">${i + 1}${bad[i] ? '✕' : '─'}${want.indexOf(w) + 1}</div>`).join('');
+  $('lcd').innerHTML = `<div class="big" style="color:${pass ? 'var(--pass)' : 'var(--fail)'}">${pass ? 'PASS' : 'FAIL'}</div>
+    <div class="map">${map}</div>
+    <div>${nBad ? kind : 'Wire map OK'} · ${Math.max(0, slack).toFixed(1)} ft slack left</div>
+    <div>${pass ? `+$${earned}${redo ? ' (re-terminated: half pay)' : ''}${streak > 1 ? ` · streak ×${Math.min(3, 1 + (streak - 1) * .5)}` : ''}` : slack > 0 ? `Cut the bad end off and re-terminate (−1 ft slack, ${slack} ft left).` : 'Ran out of slack. The cable is too short to re-terminate. Counts as a fail.'}</div>`;
+  $('crimp').disabled = false;
+  if (!pass && slack > 0) {
+    $('crimp').textContent = 'Cut it off & re-terminate (−1 ft)';
+    $('crimp').onclick = () => {
+      useSlack('cut'); redo = true;
+      pool = [...STD.B].sort(() => Math.random() - .5); slots = Array(8).fill(null); untwist = 0; running = true; last = performance.now();
+      $('lcd').innerHTML = '<div>WIRE MAP TESTER · READY</div><div>Fresh end. Re-terminate it.</div>';
+      $('crimp').textContent = 'Crimp & test'; $('crimp').onclick = crimp; render();
+    };
+  } else { $('crimp').textContent = cable >= CABLES || fails >= 3 ? 'Finish shift' : 'Next cable →'; $('crimp').onclick = nextCable; }
+  syncStats();
+}
+function loop(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (running && $('howModal').hidden && !document.hidden && cable) {
+    slack -= drain() * dt;
+    const b4 = Math.floor(shiftT); shiftT += dt; if (Math.floor(shiftT) !== b4) $('time').textContent = clk(shiftT);
+    if (slack <= 0) outOfSlack();
+    const t = Math.max(0, slack).toFixed(1); if (t !== shown) { shown = t; drawSlack(); }
+  }
+  requestAnimationFrame(loop);
+}
+$('howBtn').onclick = () => { $('howModal').hidden = false; $('go').textContent = 'Back to the bench'; };
+$('go').onclick = () => { $('howModal').hidden = true; last = performance.now(); if (cable === undefined) startShift(); };
+untwist = 0; std = 'B'; cable = 1; pool = [...STD.B]; slots = Array(8).fill(null); score = 0; fails = 0; running = false;
+render(); cable = undefined; last = performance.now(); requestAnimationFrame(loop);
+})();
+</script>
+
+</body></html>
