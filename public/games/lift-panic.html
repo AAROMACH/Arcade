@@ -100,12 +100,19 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
 @media (pointer: coarse), (max-width: 640px) { .liftpad { display: flex; align-items: center; } }
 @media (max-aspect-ratio: 1/1) {
   body { height: 100%; overflow: hidden; }
-  .cab, .liftpad, .bar { flex: 0 0 auto; }
+  .stage, .liftpad, .bar { flex: 0 0 auto; }
 }
 canvas { aspect-ratio: 560 / 700; }
+.stage { display: flex; align-items: stretch; justify-content: center; gap: 12px; width: 100%; }
+.stage .cab { flex: 0 1 auto; width: 100%; }
+.sidebtn { display: none; flex: 0 0 112px; flex-direction: column; align-items: center; justify-content: center; gap: 12px; font-size: 18px; border-radius: 14px; padding: 0 6px; touch-action: none; box-shadow: 0 4px 0 #a77d00; }
+.sidebtn span { font-size: 40px; line-height: 1; }
+.sidebtn.on { transform: translateY(3px); box-shadow: 0 1px 0 #a77d00; filter: brightness(1.1); }
+body.sidepads .sidebtn { display: flex; }
+@media (pointer: coarse), (max-width: 640px) { body.sidepads .sidebtn { display: none; } .pcOnly { display: none !important; } }
 </style>
 
-<div class="cab"><canvas id="game" width="560" height="700" aria-label="Lift Panic game"></canvas></div>
+<div class="stage"><button type="button" class="sidebtn" data-dir="up" aria-label="Raise the lift"><span>▲</span>RAISE</button><div class="cab"><canvas id="game" width="560" height="700" aria-label="Lift Panic game"></canvas></div><button type="button" class="sidebtn" data-dir="down" aria-label="Lower the lift"><span>▼</span>LOWER</button></div>
 <div class="bar">
   <div class="keys">
     <span><kbd>↑</kbd>/<kbd>W</kbd> raise lift</span>
@@ -136,6 +143,10 @@ canvas { aspect-ratio: 560 / 700; }
     <div class="seg" id="segDir" role="group" aria-label="Button arrangement">
       <button type="button" data-dir2="stack">Stacked</button><button type="button" data-dir2="side">Side by side</button>
     </div>
+    <h3 class="pcOnly">Side buttons (computers)</h3>
+    <div class="seg pcOnly" id="segSide" role="group" aria-label="Side buttons">
+      <button type="button" data-side="off">Off</button><button type="button" data-side="on">On: Raise left, Lower right</button>
+    </div>
     <p class="note">Saved on this device. The game resizes to fit around them. You can still hold the top or bottom half of the game to steer.</p>
     <button id="setClose" type="button">Done</button>
   </div>
@@ -165,6 +176,7 @@ canvas { aspect-ratio: 560 / 700; }
     <ul>
       <li><kbd>↑</kbd> / <kbd>W</kbd> raise · <kbd>↓</kbd> / <kbd>S</kbd> lower · <kbd>P</kbd> pause</li>
       <li>Phone: hold <b>RAISE</b> or <b>LOWER</b> under the game (move them in ⚙ Settings), or hold the top / bottom half of the game.</li>
+      <li>Computer with a mouse: turn on <b>side buttons</b> in ⚙ Settings for a big RAISE on the left and LOWER on the right.</li>
     </ul>
     <button id="howClose" type="button">Got it</button>
   </div>
@@ -186,7 +198,8 @@ const CEIL = 70;
 function fitDisplay() {
   const bar = document.querySelector('.bar'), pad = document.querySelector('.liftpad');
   const used = (bar ? bar.offsetHeight + 12 : 0) + (pad && getComputedStyle(pad).display !== 'none' ? pad.offsetHeight + 12 : 0) + 34;
-  const gw = Math.max(260, Math.min(innerWidth - 32, (innerHeight - used) * W / H + 16));
+  const sb = document.querySelector('.sidebtn'), sides = sb && getComputedStyle(sb).display !== 'none' ? 2 * (sb.offsetWidth + 12) : 0;
+  const gw = Math.max(260, Math.min(innerWidth - 32 - sides, (innerHeight - used) * W / H + 16));
   document.documentElement.style.setProperty('--gw', Math.floor(gw) + 'px');
   return gw - 16;
 }
@@ -389,7 +402,7 @@ cv.addEventListener('pointermove', e => { if (pointers.has(e.pointerId)) { point
 const lift = e => { pointers.delete(e.pointerId); readPointers(); };
 cv.addEventListener('pointerup', lift); cv.addEventListener('pointercancel', lift);
 // Raise / Lower buttons: hold to move. Pressing one also starts a new shift from the title screen.
-document.querySelectorAll('#liftpad button').forEach(b => {
+document.querySelectorAll('#liftpad button, .sidebtn').forEach(b => {
   const d = b.dataset.dir;
   const down = e => { e.preventDefault(); if (state !== 'play') { start(); } b.setPointerCapture?.(e.pointerId); src.pad[d] = true; b.classList.add('on'); mix(); };
   const up = () => { src.pad[d] = false; b.classList.remove('on'); mix(); };
@@ -409,6 +422,15 @@ const applyPad = () => {
 };
 document.querySelectorAll('#segPos button').forEach(x => x.onclick = () => { padPos = x.dataset.pos; applyPad(); });
 document.querySelectorAll('#segDir button').forEach(x => x.onclick = () => { padDir = x.dataset.dir2; applyPad(); });
+let sidePads = false; try { sidePads = localStorage.getItem('liftpanic:sidepads') === '1'; } catch {}
+const applySide = () => {
+  document.body.classList.toggle('sidepads', sidePads);
+  document.querySelectorAll('#segSide button').forEach(x => x.classList.toggle('on', (x.dataset.side === 'on') === sidePads));
+  try { localStorage.setItem('liftpanic:sidepads', sidePads ? '1' : '0'); } catch {}
+  try { if (state !== 'play') requestAnimationFrame(layoutWorld); else fitDisplay(); } catch { /* before the game starts */ }
+};
+document.querySelectorAll('#segSide button').forEach(x => x.onclick = () => { sidePads = x.dataset.side === 'on'; applySide(); });
+applySide();
 document.getElementById('setBtn').onclick = () => { if (state === 'play') paused = true; setModal.hidden = false; };
 document.getElementById('setClose').onclick = () => { setModal.hidden = true; };
 applyPad();
