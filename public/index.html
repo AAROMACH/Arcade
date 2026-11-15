@@ -117,6 +117,15 @@ table.rank { width: 100%; border-collapse: collapse; font-variant-numeric: tabul
 </style>
 </head><body>
 
+<style id="tapfix">
+/* Phones: tapping or holding on the game never selects text or opens the copy / look-up pop-up.
+   Text boxes and dropdowns still work normally. */
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+button, a, canvas, svg, label, [role="button"], [data-id], [data-t], [data-c] { touch-action: manipulation; }
+img, svg, canvas { -webkit-user-drag: none; }
+</style>
 
 <div class="wrap">
   <header>
@@ -330,6 +339,12 @@ $('gIn').onclick = async () => {
 $('gOut').onclick = async () => { await S.signOut(); $('acctMsg').textContent = 'Signed out. You’re a guest again.'; };
 $('keepIn').onchange = () => { if (S.setKeep) S.setKeep($('keepIn').checked); };
 $('nameRow').addEventListener('submit', async e => { e.preventDefault(); await S.setName($('pname').value); $('nameSaved').textContent = 'Saved'; setTimeout(() => $('nameSaved').textContent = '', 1500); });
+</script>
+<script id="tapfix-js">
+// Long-press on game controls: no context menu (text boxes keep theirs).
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea, select, [contenteditable]')) e.preventDefault(); });
+// iOS: a stray selection from a double tap gets cleared straight away.
+document.addEventListener('selectionchange', () => { const a = document.activeElement; if (a && a.matches && a.matches('input, textarea, [contenteditable]')) return; const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); });
 </script>
 
 <script>

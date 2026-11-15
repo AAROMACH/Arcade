@@ -1,4 +1,13 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style id="tapfix">
+/* Phones: tapping or holding on the game never selects text or opens the copy / look-up pop-up.
+   Text boxes and dropdowns still work normally. */
+html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+button, a, canvas, svg, label, [role="button"], [data-id], [data-t], [data-c] { touch-action: manipulation; }
+img, svg, canvas { -webkit-user-drag: none; }
+</style></head><body>
 <title>Splice</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -232,12 +241,15 @@ function fiberView(y0, h, label, off, gap, endAngle, fused, col, offL = 0) {
   }
   g.strokeStyle = 'rgba(127,224,255,.25)'; g.setLineDash([4, 6]); g.beginPath(); g.moveTo(40, cy); g.lineTo(W - 40, cy); g.stroke(); g.setLineDash([]);
 }
+// Canvas text size that stays readable when the canvas is shrunk onto a phone screen.
+const fpx = px => Math.max(px, Math.round(px * .62 * W / Math.max(1, cv.clientWidth)));
 function draw(dt) {
   g.fillStyle = '#061018'; g.fillRect(0, 0, W, H);
   if (state === 'idle') {
     g.fillStyle = '#f2a33a'; g.font = '800 64px "Exo 2", sans-serif'; g.textAlign = 'center'; g.fillText('SPLICE', W / 2, 250);
-    g.fillStyle = '#e6eef2'; g.font = '400 18px "Azeret Mono", monospace'; g.fillText('12 fibers: 3 easy, 3 medium, 3 hard, 3 super hard.', W / 2, 300);
-    g.fillText(`Best $${best.toLocaleString()}`, W / 2, 334); return;
+    const f = fpx(18); g.fillStyle = '#e6eef2'; g.font = `400 ${f}px "Azeret Mono", monospace`;
+    g.fillText('12 fibers to splice:', W / 2, 300); g.fillText('3 easy, 3 medium, 3 hard, 3 super hard.', W / 2, 300 + f * 1.4);
+    g.fillText(`Best $${best.toLocaleString()}`, W / 2, 300 + f * 2.9); return;
   }
   const k = speedK();
   const live = state === 'play' && $('howModal').hidden && !document.hidden;
@@ -291,8 +303,8 @@ function draw(dt) {
     g.fillText(`${res.grade} · ${res.loss.toFixed(3)} dB`, W - 36, y + 42);
     g.font = '600 15px "Azeret Mono", monospace'; g.fillStyle = '#e6eef2'; g.fillText(msg || '', W - 36, y + 70);
   }
-  if (state === 'won') { g.fillStyle = 'rgba(6,16,24,.85)'; g.fillRect(0, 0, W, H); g.textAlign = 'center'; g.fillStyle = '#5ee08a'; g.font = '800 56px "Exo 2", sans-serif'; g.fillText('TRAY COMPLETE', W / 2, 250); g.fillStyle = '#e6eef2'; g.font = '400 20px "Azeret Mono", monospace'; g.fillText(`Score $${score.toLocaleString()}${score >= best && score ? ' · new best!' : ` · best $${best.toLocaleString()}`}`, W / 2, 300); g.fillText(`Time ${clk(runT)}`, W / 2, 334); }
-  if (state === 'over') { g.fillStyle = 'rgba(6,16,24,.85)'; g.fillRect(0, 0, W, H); g.textAlign = 'center'; g.fillStyle = '#ff6464'; g.font = '800 56px "Exo 2", sans-serif'; g.fillText('SHIFT OVER', W / 2, 250); g.fillStyle = '#e6eef2'; g.font = '400 20px "Azeret Mono", monospace'; g.fillText(`Score $${score.toLocaleString()}${score >= best && score ? ' · new best!' : ` · best $${best.toLocaleString()}`}`, W / 2, 300); }
+  if (state === 'won') { g.fillStyle = 'rgba(6,16,24,.85)'; g.fillRect(0, 0, W, H); g.textAlign = 'center'; g.fillStyle = '#5ee08a'; g.font = '800 56px "Exo 2", sans-serif'; g.fillText('TRAY COMPLETE', W / 2, 250); g.fillStyle = '#e6eef2'; g.font = `400 ${fpx(20)}px "Azeret Mono", monospace`; g.fillText(`Score $${score.toLocaleString()}${score >= best && score ? ' · new best!' : ` · best $${best.toLocaleString()}`}`, W / 2, 300); g.fillText(`Time ${clk(runT)}`, W / 2, 334); }
+  if (state === 'over') { g.fillStyle = 'rgba(6,16,24,.85)'; g.fillRect(0, 0, W, H); g.textAlign = 'center'; g.fillStyle = '#ff6464'; g.font = '800 56px "Exo 2", sans-serif'; g.fillText('SHIFT OVER', W / 2, 250); g.fillStyle = '#e6eef2'; g.font = `400 ${fpx(20)}px "Azeret Mono", monospace`; g.fillText(`Score $${score.toLocaleString()}${score >= best && score ? ' · new best!' : ` · best $${best.toLocaleString()}`}`, W / 2, 300); }
 }
 let last = performance.now();
 function loop(now) { const dt = Math.min(.05, (now - last) / 1000); last = now; draw(dt); requestAnimationFrame(loop); }
@@ -300,4 +312,10 @@ fiber = 0; renderTray(); requestAnimationFrame(loop);
 })();
 </script>
 
+<script id="tapfix-js">
+// Long-press on game controls: no context menu (text boxes keep theirs).
+document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea, select, [contenteditable]')) e.preventDefault(); });
+// iOS: a stray selection from a double tap gets cleared straight away.
+document.addEventListener('selectionchange', () => { const a = document.activeElement; if (a && a.matches && a.matches('input, textarea, [contenteditable]')) return; const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); });
+</script>
 </body></html>
