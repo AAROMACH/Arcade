@@ -14,7 +14,7 @@ window.ARCADE_FIREBASE = {
 };
 // App Check: the reCAPTCHA Enterprise site key registered for this site (Firebase console, App Check).
 // (For a classic reCAPTCHA v3 key instead, also set window.ARCADE_APPCHECK_PROVIDER = 'v3'.)
-window.ARCADE_APPCHECK_KEY = "6Lf6fCAuAAAAANeIK3o9CZZ0D3fLzbiw-qVY8Q02";
+window.ARCADE_APPCHECK_KEY = "6LcTfSAuAAAAAA9wnwBl9gQKVi79pasS4MuLmj6_";
 // Region the Cloud Functions are deployed to (functions/index.js).
 window.ARCADE_FUNCTIONS_REGION = 'us-central1';
 /* Example:
