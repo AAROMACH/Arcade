@@ -112,8 +112,8 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
     <h3>Three ways to play</h3>
     <ul>
       <li><b>Timed shift:</b> one tool at a time. Each find adds time and fills the tote higher. A wrong tap costs 3 seconds. Scores go on the leaderboard.</li>
-      <li><b>I Spy:</b> a mountain of 140 tools and a checklist of 8. Find them in any order, no clock.</li>
-      <li><b>Drawer hunt (hard):</b> a chest with 4 drawers, each with its own pile. There's only <b>one</b> of each tool you're sent for, in one drawer; the others hold look-alikes. Switching drawers costs 1 second, and the drawers stay how you left them, so remember what you saw. 90-second shift; each find adds time.</li>
+      <li><b>I Spy:</b> a mountain of 100 tools and a checklist of 8. Find them in any order, no clock. On a phone the list shows the next 3; tap <b>+ more</b> for the rest. Your best time is saved on this device.</li>
+      <li><b>Drawer hunt (hard):</b> a chest with 4 drawers, each with its own pile. There's only <b>one</b> of each tool you're sent for, in one drawer; the others hold look-alikes. Switching drawers costs 1 second, and the drawers stay how you left them, so remember what you saw. 90-second shift; each find adds time. Your best is saved on this device (only Timed shift goes on the leaderboard).</li>
       <li>Watch for look-alikes: a blue screwdriver isn't the red one, and a Phillips isn't a flathead.</li>
     </ul>
     <button type="button" id="howClose">Start digging</button>
@@ -279,7 +279,8 @@ function start(m) {
 }
 function over() {
   state = 'over'; msg = `Shift over. Found ${found} tool${found === 1 ? '' : 's'}. Score $${score.toLocaleString()}.`;
-  try { if (parent !== window) parent.postMessage({ arcade: 'find-the-tool', score, stats: { found } }, '*'); } catch (e) {}
+  // Only Timed shift goes on the leaderboard; Drawer hunt scores differently, so it keeps its own best here.
+  if (mode === 'timed') try { if (parent !== window) parent.postMessage({ arcade: 'find-the-tool', score, stats: { found } }, '*'); } catch (e) {}
   if (mode === 'hunt') { let hb = 0; try { hb = +localStorage.getItem('findtool:huntbest') || 0; if (score > hb) localStorage.setItem('findtool:huntbest', score); } catch {} }
   else if (score > best) { best = score; try { localStorage.setItem('findtool:best', best); } catch {} }
   renderDrawers(); sync();
