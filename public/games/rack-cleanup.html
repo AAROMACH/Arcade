@@ -44,7 +44,7 @@ h1 { margin: 0; font-family: var(--display); font-weight: 800; font-size: 32px; 
 .main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 10px; align-items: start; }
 @media (max-width: 900px) { .main { grid-template-columns: 1fr; } }
 .rackwrap { background: #0f1215; border: 1px solid var(--line); border-radius: 10px; padding: 6px; position: relative; }
-@media (max-width: 760px) { .rackwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; } svg#rack { min-width: 760px; } }
+@media (max-width: 760px) { .rackwrap { overflow-x: auto; -webkit-overflow-scrolling: touch; } svg#rack { min-width: 760px; touch-action: pan-x pan-y !important; } .rackwrap::after { content: "Swipe the rack for more ports \2192"; position: sticky; left: 0; display: block; font-size: 11px; color: var(--muted); padding: 4px 4px 0; } }
 svg#rack { width: 100%; height: auto; display: block; touch-action: none; user-select: none; -webkit-user-select: none; }
 .banner { position: absolute; left: 10px; right: 10px; bottom: 10px; border-radius: 8px; padding: 8px 12px; font-weight: 700; font-size: 15px; display: grid; gap: 2px; pointer-events: none; }
 .banner.cd { background: rgba(255,93,77,.92); color: #fff; animation: pulse .8s ease-in-out infinite; }
@@ -136,6 +136,8 @@ button.danger { border-color: rgba(255,93,77,.6); }
     </ul>
     <h3>Pay</h3>
     <ul>
+      <li>Racks get bigger through the shift (12 ports, then 24), with more gear and labels that lie. On a phone, swipe the rack sideways to reach every port.</li>
+      <li>Your shift total (all three racks) goes on the leaderboard, with how tidy you left them.</li>
       <li>Pay scales with how tidy the rack is, plus $10 for each right mapping book row and −$15 for each wrong one. Minus downtime, outages, cords and time over par.</li>
     </ul>
     <button type="button" class="primary" id="howClose">Start the shift</button>

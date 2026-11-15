@@ -95,8 +95,8 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
     </ul>
     <h3>Two ways to play</h3>
     <ul>
-      <li><b>Timed shift:</b> drawers get bigger as you go, each on a clock. Scores go on the leaderboard.</li>
-      <li><b>Big drawer:</b> one giant drawer, about 40 items, no clock. Hints are free. Your progress saves on this device, so you can come back to it.</li>
+      <li><b>Timed shift:</b> drawers get bigger as you go, each on a clock. Run out of time and you can <b>Continue</b> from that drawer with the score you had going in, twice per shift. Scores go on the leaderboard.</li>
+      <li><b>Big drawer:</b> one giant drawer, about 40 items, no clock. Hints are free. Your progress saves on this device, so you can come back to it. Your fastest time stays on this device, not the leaderboard.</li>
     </ul>
     <h3>The drawers</h3>
     <ul>
@@ -201,8 +201,11 @@ let level = 1, score = 0, state = 'idle', cols, rows, pieces, cell, gx, gy, tray
 let anim = null, hintP = null, hintT = 0;
 
 // Timed-shift checkpoint: the drawer you're on and the score you brought into it.
-const getCP = () => { try { const c = JSON.parse(localStorage.getItem('tooldrawer:cp') || 'null'); return c && c.level > 1 ? c : null; } catch { return null; } };
-const setCP = (lv, sc) => { try { localStorage.setItem('tooldrawer:cp', JSON.stringify({ level: lv, score: sc })); } catch {} };
+// Two continues per shift, so a shift can't be retried forever.
+const CONTINUES = 2;
+let contUsed = 0;
+const getCP = () => { try { const c = JSON.parse(localStorage.getItem('tooldrawer:cp') || 'null'); return c && c.level > 1 && (c.used || 0) < CONTINUES ? c : null; } catch { return null; } };
+const setCP = (lv, sc) => { try { localStorage.setItem('tooldrawer:cp', JSON.stringify({ level: lv, score: sc, used: contUsed })); } catch {} };
 function build() {
   if (mode === 'timed') setCP(level, score);
   sizeCanvas();
@@ -305,7 +308,7 @@ function check() {
   sync();
 }
 function gameOver() {
-  state = 'over'; msg = `Out of time on drawer ${level}. Score $${score.toLocaleString()}. Tap Continue to retry this drawer with the score you had going in.`;
+  state = 'over'; msg = `Out of time on drawer ${level}. Score $${score.toLocaleString()}. ${getCP() ? 'Tap Continue to retry this drawer with the score you had going in.' : 'No continues left: start a new shift.'}`;
   try { if (parent !== window) parent.postMessage({ arcade: 'tool-drawer', score, stats: { drawer: level } }, '*'); } catch (e) {}
   if (score > best) { best = score; try { localStorage.setItem('tooldrawer:best', best); } catch {} }
   sync();
@@ -326,15 +329,15 @@ function sync() {
   $('timedBtn').hidden = $('relaxBtn').hidden = !menu;
   const cp = getCP();
   $('contBtn').hidden = !menu || !cp;
-  if (cp) $('contBtn').textContent = `Continue: drawer ${cp.level}`;
+  if (cp) $('contBtn').textContent = `Continue: drawer ${cp.level} (${CONTINUES - (cp.used || 0)} left)`;
   $('timedBtn').textContent = cp ? 'New shift from drawer 1' : 'Timed shift';
   $('relaxBtn').textContent = savedBig() ? 'Big drawer (resume)' : 'Big drawer, no clock';
   $('act').hidden = menu;
   $('act').textContent = state === 'done' ? 'Next drawer' : 'Dump all';
   $('act').disabled = state === 'intro' || state === 'outro';
 }
-$('timedBtn').onclick = () => { mode = 'timed'; level = 1; score = 0; build(); };
-$('contBtn').onclick = () => { const cp = getCP(); if (!cp) return; mode = 'timed'; level = cp.level; score = cp.score; build(); };
+$('timedBtn').onclick = () => { mode = 'timed'; level = 1; score = 0; contUsed = 0; build(); };
+$('contBtn').onclick = () => { const cp = getCP(); if (!cp) return; mode = 'timed'; level = cp.level; score = cp.score; contUsed = (cp.used || 0) + 1; build(); };
 $('relaxBtn').onclick = () => { const d = savedBig(); if (d) resumeBig(d); else { mode = 'relax'; build(); } };
 $('act').onclick = () => {
   if (state === 'done') { level++; build(); }

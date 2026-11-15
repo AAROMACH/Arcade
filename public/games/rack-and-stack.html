@@ -1,4 +1,5 @@
 <!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style>
+<style>@media (max-width: 560px) { #howBtn, #setBtn, #pauseBtn { width: 36px !important; height: 36px !important; font-size: 16px !important; } }</style>
 <style id="tapfix">
 /* Phones: tapping or holding on the game never selects text or opens the copy / look-up pop-up.
    Text boxes and dropdowns still work normally. */
@@ -176,7 +177,7 @@ button.icon[aria-pressed="true"] { color: var(--link); border-color: var(--link)
     <p>Rack the gear as it drops. Fill rows to clear them. Every full row needs a switch.</p>
     <h3>Difficulty</h3>
     <div class="diffs" id="diffs">
-      <button type="button" data-d="easy">EASY<small>slow drop</small></button>
+      <button type="button" data-d="easy">EASY<small>slow drop · practice, not on the leaderboard</small></button>
       <button type="button" data-d="normal">NORMAL<small>standard</small></button>
       <button type="button" data-d="hard">HARD<small>fast, speeds up quicker</small></button>
     </div>
@@ -222,6 +223,8 @@ button.icon[aria-pressed="true"] { color: var(--link); border-color: var(--link)
       <p>Put a patch panel right above or below a switch. That row is worth more when it clears.</p></div></div>
 
     <p class="small">Every 8 rows cleared = next level. Gear drops faster.</p>
+    <h3>Difficulty</h3>
+    <p class="small"><b>Easy:</b> slow drop, for practice. Easy scores stay on this device and don't go on the leaderboard. <b>Normal:</b> standard speed. <b>Hard:</b> starts fast, speeds up quicker, and there's no pause. Each difficulty keeps its own best.</p>
 
     <h3>Controls</h3>
     <div class="ctl">
@@ -402,7 +405,7 @@ function lock() {
   syncPanel();
 }
 
-function gameOver(why) { try { if (parent !== window) parent.postMessage({ arcade: 'rack-and-stack', score: score, stats: { rows, level } }, '*'); } catch (e) {} over = true; toast = null; overReason = why; if (score > best) { best = score; try { localStorage.setItem(`rackstack:best:${diff}`, best); } catch {} } tone(110, .4, 'sawtooth', .06); syncPanel(); }
+function gameOver(why) { try { if (parent !== window && diff !== 'easy') parent.postMessage({ arcade: 'rack-and-stack', score: score, stats: { rows, level } }, '*'); } catch (e) {} over = true; toast = null; overReason = why; if (score > best) { best = score; try { localStorage.setItem(`rackstack:best:${diff}`, best); } catch {} } tone(110, .4, 'sawtooth', .06); syncPanel(); }
 function showToast(text, color, d = 1.6) { toast = { text, color, t: d }; }
 
 function syncPanel() {

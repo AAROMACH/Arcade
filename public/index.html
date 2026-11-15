@@ -128,6 +128,8 @@ table.rank { width: 100%; border-collapse: collapse; font-variant-numeric: tabul
 .drawer .mine { font-size: 13px; color: var(--muted); }
 .drawer .rank td { font-size: 14px; padding: 6px 2px; }
 .drawer .rank .d { display: none; }
+/* Phones: the bar's buttons go to icons so the game's name fits. */
+@media (max-width: 560px) { .pbar { gap: 8px; } .pbar .t { display: none; } .pbar .lbtn { min-width: 36px; height: 34px; padding: 0 9px; font-size: 16px; } .pbar .back { padding: 8px 11px; } }
 @media (max-width: 760px) { .drawer { position: absolute; inset: 0 0 0 auto; width: min(320px, 86vw); box-shadow: -10px 0 30px rgba(0,0,0,.5); z-index: 2; } .toast { display: none; } }
 /* Game list views */
 .chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin: -6px 0 -4px; padding: 2px 0; }
@@ -205,11 +207,11 @@ img, svg, canvas { -webkit-user-drag: none; }
 
 <div class="player" id="player" hidden>
   <div class="pbar">
-    <button type="button" class="back" id="back">◂ All games</button>
-    <button type="button" class="lbtn" id="restart" title="Start this game over">↻ Restart</button>
+    <button type="button" class="back" id="back" aria-label="All games">◂ <span class="t">All </span>Games</button>
+    <button type="button" class="lbtn" id="restart" title="Start this game over" aria-label="Restart">↻<span class="t"> Restart</span></button>
     <strong id="ptitle"></strong>
     <span class="toast" id="toast"></span>
-    <button type="button" class="lbtn" id="lbtn" aria-expanded="false" aria-controls="drawer">Leaderboard</button>
+    <button type="button" class="lbtn" id="lbtn" aria-expanded="false" aria-controls="drawer" aria-label="Leaderboard">🏆<span class="t"> Leaderboard</span></button>
   </div>
   <div class="stage">
     <iframe id="frame" title="Game"></iframe>
