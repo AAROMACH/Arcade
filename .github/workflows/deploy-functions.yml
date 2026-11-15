@@ -1,0 +1,48 @@
+# Deploys the leaderboard's Cloud Functions and Firestore rules whenever they change on main.
+# No keys or secrets: GitHub signs in to Google through Workload Identity Federation, which only
+# trusts this repository (see README → "Automatic deploys").
+name: Deploy Firebase functions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'functions/**'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'firebase.json'
+      - '.github/workflows/deploy-functions.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write   # lets the job ask GitHub for the identity token Google trusts
+
+concurrency:
+  group: deploy-functions
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install function dependencies
+        working-directory: functions
+        run: npm ci --no-audit --no-fund
+
+      - name: Sign in to Google Cloud (no key: Workload Identity Federation)
+        uses: google-github-actions/auth@v2
+        with:
+          project_id: aaromach-arcade
+          workload_identity_provider: projects/269405406156/locations/global/workloadIdentityPools/github/providers/arcade
+          service_account: arcade-deployer@aaromach-arcade.iam.gserviceaccount.com
+
+      - name: Deploy functions and Firestore rules
+        run: npx --yes firebase-tools@13.29.1 deploy --only functions,firestore:rules --project aaromach-arcade --non-interactive --force
