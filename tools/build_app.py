@@ -100,8 +100,16 @@ self.addEventListener('fetch', e => {{
       .catch(() => caches.match(req, {{ ignoreSearch: true }}).then(r => r || caches.match('./'))));
     return;
   }}
-  // Everything else: cache first, refreshed in the background.
-  e.respondWith(caches.match(req, {{ ignoreSearch: same }}).then(hit => {{
+  if (same) {{
+    // The arcade's own files (config, scores, scripts, icons): network first, so an update shows up
+    // on the very next load. The cached copy is only for offline, or a network that hangs past 4 s.
+    const net = fetch(req).then(res => {{ if (res.ok) {{ const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }} return res; }});
+    const slow = new Promise(r => setTimeout(r, 4000)).then(() => caches.match(req, {{ ignoreSearch: true }}));
+    e.respondWith(Promise.race([net.catch(() => null), slow]).then(r => r || caches.match(req, {{ ignoreSearch: true }})).then(r => r || net));
+    return;
+  }}
+  // Fonts: cache first, refreshed in the background.
+  e.respondWith(caches.match(req).then(hit => {{
     const net = fetch(req).then(res => {{ if (res.ok || res.type === 'opaque') {{ const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }} return res; }}).catch(() => hit);
     return hit || net;
   }}));
