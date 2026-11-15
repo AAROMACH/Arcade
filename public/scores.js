@@ -5,7 +5,8 @@
 //    Firebase project's Firestore (collection "scores", one doc per player). The browser can only
 //    READ them. Every write goes through the arcade's Cloud Functions (functions/), which check
 //    the score before saving it. Players sign in anonymously behind the scenes and pick a name.
-//    App Check (window.ARCADE_APPCHECK_KEY, a reCAPTCHA v3 site key) proves calls come from
+//    App Check (window.ARCADE_APPCHECK_KEY, a reCAPTCHA Enterprise site key; set
+//    window.ARCADE_APPCHECK_PROVIDER = 'v3' for a classic reCAPTCHA v3 key) proves calls come from
 //    this site.
 //  • This device only: with no Firebase config, scores are kept in this browser's storage.
 //
@@ -46,7 +47,10 @@
     await loadScript(`https://www.gstatic.com/firebasejs/${V}/firebase-app-compat.js`);
     await Promise.all(['auth', 'firestore', 'functions', 'app-check'].map(m => loadScript(`https://www.gstatic.com/firebasejs/${V}/firebase-${m}-compat.js`)));
     const app = firebase.initializeApp(cfg, 'arcade');
-    if (window.ARCADE_APPCHECK_KEY) app.appCheck().activate(new firebase.appCheck.ReCaptchaV3Provider(window.ARCADE_APPCHECK_KEY), true);
+    if (window.ARCADE_APPCHECK_KEY) {
+      const AC = firebase.appCheck, Provider = window.ARCADE_APPCHECK_PROVIDER === 'v3' ? AC.ReCaptchaV3Provider : AC.ReCaptchaEnterpriseProvider;
+      app.appCheck().activate(new Provider(window.ARCADE_APPCHECK_KEY), true);
+    }
     const auth = app.auth(), db = app.firestore(), fn = app.functions(window.ARCADE_FUNCTIONS_REGION || 'us-central1');
     if (window.ARCADE_EMULATORS) { auth.useEmulator('http://127.0.0.1:9099'); db.useEmulator('127.0.0.1', 8085); fn.useEmulator('127.0.0.1', 5001); }
     const call = (name, data) => fn.httpsCallable(name)(data).then(r => r.data);

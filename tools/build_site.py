@@ -114,7 +114,8 @@ open(OUT + 'config.js', 'w').write("""// Aaromach Arcade — shared leaderboard 
 // To turn on the shared leaderboard, create a SEPARATE Firebase project for the arcade
 // (not the Command Center project), add a Web app, and paste its config here. See README.md.
 window.ARCADE_FIREBASE = null;
-// App Check: the reCAPTCHA v3 site key registered for this site (Firebase console, App Check).
+// App Check: the reCAPTCHA Enterprise site key registered for this site (Firebase console, App Check).
+// (For a classic reCAPTCHA v3 key instead, also set window.ARCADE_APPCHECK_PROVIDER = 'v3'.)
 window.ARCADE_APPCHECK_KEY = null;
 // Region the Cloud Functions are deployed to (functions/index.js).
 window.ARCADE_FUNCTIONS_REGION = 'us-central1';

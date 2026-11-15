@@ -12,7 +12,8 @@ window.ARCADE_FIREBASE = {
   messagingSenderId: "269405406156",
   appId: "1:269405406156:web:d01bfad556fb957fa49369",
 };
-// App Check: the reCAPTCHA v3 site key registered for this site (Firebase console, App Check).
+// App Check: the reCAPTCHA Enterprise site key registered for this site (Firebase console, App Check).
+// (For a classic reCAPTCHA v3 key instead, also set window.ARCADE_APPCHECK_PROVIDER = 'v3'.)
 window.ARCADE_APPCHECK_KEY = null;
 // Region the Cloud Functions are deployed to (functions/index.js).
 window.ARCADE_FUNCTIONS_REGION = 'us-central1';
