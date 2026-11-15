@@ -40,6 +40,13 @@ R("""  }).catch(err => { $('toast').textContent = err?.code === 'permission_deni
     $('postErr').hidden = false;
     $('postErr').textContent = `Your last ${G(gameId).t} score didn\u2019t save: ${(err && err.message) || 'no reply from the server'} [${(err && err.code) || 'no code'}]`;
   });""")
+R("const saveAcct = () => db && me ? 'account' : 'local';",
+  "const saveAcct = () => S.account && S.account.kind === 'google' ? 'account' : S.account && S.account.kind === 'guest' ? 'guest' : 'local';")
+R("const loadSave = game => (mine._save || {})[game] || null;", "const loadSave = game => saveAcct() === 'account' && S.loadSave ? S.loadSave(game) : null;")
+R("""  if (!db || !me || !loaded) return;
+  mine = { ...mine, _save: { ...(mine._save || {}), [game]: data } };
+  const body = mine; writing = writing.then(() => db.doc('scores/' + me).set(body)).catch(() => {});""",
+  "  if (S.writeSave) S.writeSave(game, data).catch(e => console.warn('Save failed:', e));")
 a = s.index("(async () => {\n  const timer = setTimeout(() => { if (!loaded)"); b = s.index("</script>", a)
 s = s[:a] + """// Scores: a shared leaderboard (separate Firebase project, set in config.js) or this device only.
 S.start({
@@ -47,7 +54,7 @@ S.start({
     loaded = true; me = S.me;
     rows = new Map([...next].map(([id, v]) => [id, v.games || {}])); names = new Map([...next].map(([id, v]) => [id, v.name]));
     if (me && rows.has(me)) mine = { ...rows.get(me) };
-    render();
+    render(); sendSave();
   },
   onAccount: showAccount,
   onStatus(st) {
@@ -75,6 +82,7 @@ function googleError(e) {
   return why !== undefined ? why : `Google sign-in didn’t finish${c ? ` (${c})` : ''}. Try again.`;
 }
 function showAccount(a) {
+  setTimeout(sendSave, 0);   // a sign-in changes where the game's save lives
   const g = a && a.kind === 'google';
   $('acct').hidden = !a || a.kind === 'local';
   $('acctWho').textContent = g ? `Signed in with Google${a.email ? ` (${a.email})` : ''}.` : 'Playing as a guest on this device.';
