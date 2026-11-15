@@ -151,10 +151,10 @@ const label = it => { const cn = L.COLOR_NAMES[it.col], n = it.tool.name, nm = /
 const cap = s => s.replace(/^./, ch => ch.toUpperCase());
 function setCanvas() {
   // Same tote on every device (a tall phone used to get a roomier one, which made tools easier to find).
-  cv.height = mode === 'spy' ? 1300 : 1000; W = cv.width; H = cv.height;
+  cv.height = 1000; W = cv.width; H = cv.height; // every mode uses the same tote, so I Spy isn't shrunk on phones
   TUB = { x: 40, y: 40, w: W - 80, h: H - 80 };
 }
-const scale = () => mode === 'spy' ? 19 : 24 * (round > 6 ? .9 : 1);
+const scale = () => mode === 'spy' ? 21 : 24 * (round > 6 ? .9 : 1);
 function makeItem(tool, col) {
   const s = scale(), w = tool.mask[0].length * s, h = tool.mask.length * s, r = Math.hypot(w, h) / 2 * .55;
   return { tool, col, sc: s, x: TUB.x + r + Math.random() * (TUB.w - 2 * r), y: TUB.y + r + Math.random() * (TUB.h - 2 * r), ang: Math.random() * Math.PI * 2, flip: Math.random() < .5, vx: 0, vy: 0, va: 0, shake: 0, rad: Math.max(w, h) * .3, mass: Math.max(1, Math.sqrt(tool.size) / 2) };
@@ -219,10 +219,10 @@ $('drawers').addEventListener('click', e => {
   msg = `Drawer ${i + 1}. −1 second.`; renderDrawers(); sync();
 });
 function newSpy() {
-  // Eight different tools to find; three look-alikes each; 140 in the pile.
+  // Eight different tools to find; three look-alikes each; 100 in the pile.
   const pool = L.TOOLS.slice().sort(() => Math.random() - .5);
   targets = pool.slice(0, 8).map(t => { const it = makeItem(t, pick(t.colors)); it.got = false; return it; });
-  items = fill(targets.map(t => ({ tool: t.tool, col: t.col })), 132, 3);
+  items = fill(targets.map(t => ({ tool: t.tool, col: t.col })), 92, 3);
   targets.forEach(t => items.splice(rnd(0, Math.floor(items.length * .4)), 0, t));
   listOpen = false; renderList();
   msg = 'Find all 8 on the list, in any order. Sweep the pile around. No clock.';
