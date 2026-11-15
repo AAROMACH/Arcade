@@ -68,6 +68,19 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await call('submitScore', { runId: prun, game: 'pull-day', score: 600, sheet: { n: 2, stars: 7 } }, b.token);
   L = await lvOf(); ok(L.lv[2] === 3, 'impossible star count is ignored', JSON.stringify(L));
 
+  console.log('Game saves (Google accounts only, own doc only):');
+  const gsign = async sub => { const r = await j(await fetch('http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signInWithIdp?key=fake', { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ postBody: 'id_token=' + encodeURIComponent(JSON.stringify({ sub, email: sub + '@example.com', email_verified: true })) + '&providerId=google.com', requestUri: 'http://localhost', returnSecureToken: true }) })); return { token: r.idToken, uid: r.localId }; };
+  const g = await gsign('g1'), g2 = await gsign('g2');
+  const saveDoc = (uid, token, fields) => fetch(FS + 'saves/' + uid, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer ' + token }, body: JSON.stringify({ fields }) });
+  const career = { 'dispatch-board': { mapValue: { fields: { cash: { integerValue: '1500' } } } } };
+  ok((await saveDoc(a.uid, a.token, career)).status === 403, 'a guest cannot save to an account');
+  ok((await saveDoc(g.uid, g.token, career)).status === 200, 'a Google player can save their own');
+  ok((await fetch(FS + 'saves/' + g.uid, { headers: { authorization: 'Bearer ' + g.token } })).status === 200, '...and read it back');
+  ok((await fetch(FS + 'saves/' + g.uid, { headers: { authorization: 'Bearer ' + g2.token } })).status === 403, "another player can't read it");
+  ok((await saveDoc(g.uid, g2.token, career)).status === 403, "another player can't write it");
+  ok((await saveDoc(g.uid, g.token, { ...career, s: { integerValue: '999999' } })).status === 403, 'unknown fields are refused');
+
   console.log('Reading the leaderboard:');
   r = await fetch(FS + 'scores/' + a.uid); const doc = await j(r);
   ok(r.status === 200, 'anyone can read scores', r.status);

@@ -249,7 +249,7 @@ function openGame(id) {
   $('player').hidden = false; setDrawer(drawerOpen);
   $('frame').addEventListener('load', () => $('frame').focus(), { once: true });
 }
-function closeGame() { current = null; $('player').hidden = true; $('frame').src = 'about:blank'; }
+function closeGame() { wantsSave = null; current = null; $('player').hidden = true; $('frame').src = 'about:blank'; }
 function route() {
   const h = location.hash.slice(1);
   if (G(h)) return openGame(h);
@@ -385,9 +385,25 @@ function post(gameId, score, time, stats, sheet) {
     $('toast').textContent = sheetBetter && !better ? `${'★'.repeat(sp.stars)} on ${sg.unit} ${sp.n}!` : better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : faster ? `New fastest: ${clockFmt(time)}!` : `New best ${improved[0].n.toLowerCase()}: ${statFmt(improved[0], ns[improved[0].k])}!`;
   }).catch(err => { $('toast').textContent = err?.code === 'permission_denied' || err?.code === 'not_granted' ? 'Score not posted: needs Contributor access' : 'Score not posted'; });
 }
+// ── Game saves (Dispatch Board's company): kept with the player's account. ──
+const saveAcct = () => db && me ? 'account' : 'local';
+const loadSave = game => (mine._save || {})[game] || null;
+function writeSave(game, data) {
+  if (!db || !me || !loaded) return;
+  mine = { ...mine, _save: { ...(mine._save || {}), [game]: data } };
+  const body = mine; writing = writing.then(() => db.doc('scores/' + me).set(body)).catch(() => {});
+}
+let wantsSave = null;
+function sendSave() {
+  if (!wantsSave || wantsSave !== current || !loaded) return;
+  const w = $('frame').contentWindow, game = current;
+  Promise.resolve(loadSave(game)).catch(() => null).then(data => { if (current === game && w) w.postMessage({ arcadeSave: data || null, account: saveAcct() }, '*'); });
+}
 addEventListener('message', e => {
   if (e.source !== $('frame').contentWindow) return;
   const d = e.data; if (!d || typeof d.arcade !== 'string' || d.arcade !== current) return;
+  if (d.wantSave) { wantsSave = d.arcade; sendSave(); return; }
+  if (d.save && typeof d.save === 'object') { if (saveAcct() === 'account') writeSave(d.arcade, d.save); return; }
   post(d.arcade, Number(d.score), d.time == null ? NaN : Number(d.time), d.stats && typeof d.stats === 'object' ? d.stats : null, d.sheet && typeof d.sheet === 'object' ? d.sheet : null);
 });
 route(); render();
@@ -401,6 +417,7 @@ route(); render();
     clearTimeout(timer); loaded = true;
     rows = new Map(snap.docs.filter(d => d.exists).map(d => [d.id, d.data() || {}]));
     if (me && rows.has(me)) mine = { ...rows.get(me) };
+    sendSave();
     $('lbnote').textContent = 'Each player’s best run. Scores post automatically when a run ends.';
     render();
   }, () => { clearTimeout(timer); $('lbnote').textContent = 'Scores stopped updating. Reopen the page to reconnect.'; });

@@ -9,6 +9,13 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    // Game saves (Dispatch Board's company): only the player, and only once signed in with Google.
+    // Not a score: the leaderboard still only takes what the Cloud Functions check.
+    match /saves/{uid} {
+      allow read: if request.auth != null && request.auth.uid == uid && 'google.com' in request.auth.token.firebase.identities;
+      allow create, update: if request.auth != null && request.auth.uid == uid && 'google.com' in request.auth.token.firebase.identities
+        && request.resource.data.keys().hasOnly(['dispatch-board', 'updated']);
+    }
     // runs/ and limits/ are server-only bookkeeping: no rule means no access.
   }
 }

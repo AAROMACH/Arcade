@@ -17,7 +17,7 @@
 <script>
 // If an old offline cache served an out-of-date scores.js, clear that cache and reload once.
 (function () {
-  var want = 'b90c45c7db', S = window.ArcadeScores;
+  var want = '55ace9e79c', S = window.ArcadeScores;
   if (S && S.ver === want) { try { sessionStorage.removeItem('arcade:refetched'); } catch (e) {} return; }
   try { if (sessionStorage.getItem('arcade:refetched')) return; sessionStorage.setItem('arcade:refetched', '1'); } catch (e) { return; }
   var regs = navigator.serviceWorker && navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : Promise.resolve([]);
@@ -292,7 +292,7 @@ function openGame(id) {
   $('player').hidden = false; setDrawer(drawerOpen);
   $('frame').addEventListener('load', () => $('frame').focus(), { once: true });
 }
-function closeGame() { current = null; $('player').hidden = true; $('frame').src = 'about:blank'; }
+function closeGame() { wantsSave = null; current = null; $('player').hidden = true; $('frame').src = 'about:blank'; }
 function route() {
   const h = location.hash.slice(1);
   if (G(h)) return openGame(h);
@@ -434,9 +434,23 @@ function post(gameId, score, time, stats, sheet) {
     $('postErr').textContent = `Your last ${G(gameId).t} score didn’t save: ${(err && err.message) || 'no reply from the server'} [${(err && err.code) || 'no code'}]`;
   });
 }
+// ── Game saves (Dispatch Board's company): kept with the player's account. ──
+const saveAcct = () => S.account && S.account.kind === 'google' ? 'account' : S.account && S.account.kind === 'guest' ? 'guest' : 'local';
+const loadSave = game => saveAcct() === 'account' && S.loadSave ? S.loadSave(game) : null;
+function writeSave(game, data) {
+  if (S.writeSave) S.writeSave(game, data).catch(e => console.warn('Save failed:', e));
+}
+let wantsSave = null;
+function sendSave() {
+  if (!wantsSave || wantsSave !== current || !loaded) return;
+  const w = $('frame').contentWindow, game = current;
+  Promise.resolve(loadSave(game)).catch(() => null).then(data => { if (current === game && w) w.postMessage({ arcadeSave: data || null, account: saveAcct() }, '*'); });
+}
 addEventListener('message', e => {
   if (e.source !== $('frame').contentWindow) return;
   const d = e.data; if (!d || typeof d.arcade !== 'string' || d.arcade !== current) return;
+  if (d.wantSave) { wantsSave = d.arcade; sendSave(); return; }
+  if (d.save && typeof d.save === 'object') { if (saveAcct() === 'account') writeSave(d.arcade, d.save); return; }
   post(d.arcade, Number(d.score), d.time == null ? NaN : Number(d.time), d.stats && typeof d.stats === 'object' ? d.stats : null, d.sheet && typeof d.sheet === 'object' ? d.sheet : null);
 });
 route(); render();
@@ -446,7 +460,7 @@ S.start({
     loaded = true; me = S.me;
     rows = new Map([...next].map(([id, v]) => [id, v.games || {}])); names = new Map([...next].map(([id, v]) => [id, v.name]));
     if (me && rows.has(me)) mine = { ...rows.get(me) };
-    render();
+    render(); sendSave();
   },
   onAccount: showAccount,
   onStatus(st) {
@@ -474,6 +488,7 @@ function googleError(e) {
   return why !== undefined ? why : `Google sign-in didn’t finish${c ? ` (${c})` : ''}. Try again.`;
 }
 function showAccount(a) {
+  setTimeout(sendSave, 0);   // a sign-in changes where the game's save lives
   const g = a && a.kind === 'google';
   $('acct').hidden = !a || a.kind === 'local';
   $('acctWho').textContent = g ? `Signed in with Google${a.email ? ` (${a.email})` : ''}.` : 'Playing as a guest on this device.';

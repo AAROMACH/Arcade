@@ -87,6 +87,10 @@
       try { return await fn(); } finally { lastPost = Date.now(); }
     }));
     api.save = async (_all, post) => spaced(() => saveNow(post));
+    // Game saves (Dispatch Board's company): one doc per player, readable and writable only by them,
+    // and only once they're signed in with Google (see firestore.rules).
+    api.loadSave = async game => { const u = auth.currentUser; if (!u || u.isAnonymous) return null; const d = await db.doc('saves/' + u.uid).get(); return d.exists ? (d.get(game) || null) : null; };
+    api.writeSave = async (game, data) => { const u = auth.currentUser; if (!u || u.isAnonymous) return; await db.doc('saves/' + u.uid).set({ [game]: data, updated: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true }); };
     const saveNow = async post => {
       if (!post || !post.game) return;
       if (!runs[post.game]) api.startRun(post.game);
