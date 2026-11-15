@@ -133,7 +133,7 @@ open(DEST + 'firebase.json', 'w').write(json.dumps({
         ],
     },
     "firestore": {"rules": "firestore.rules", "indexes": "firestore.indexes.json"},
-    "functions": [{"source": "functions", "codebase": "default", "runtime": "nodejs20", "ignore": ["node_modules", ".git", "*.log"]}],
+    "functions": [{"source": "functions", "codebase": "default", "runtime": "nodejs22", "ignore": ["node_modules", ".git", "*.log"]}],
     "emulators": {"auth": {"port": 9099}, "firestore": {"port": 8085}, "functions": {"port": 5001}, "hosting": {"port": 5000}, "ui": {"enabled": True, "port": 4000}, "singleProjectMode": True},
 }, indent=2) + '\n')
 if not os.path.exists(DEST + '.firebaserc'):
