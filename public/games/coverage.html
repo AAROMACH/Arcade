@@ -220,7 +220,7 @@ button small { text-transform: none; color: var(--muted); font-family: var(--mon
 const cv = $('cv'), g = cv.getContext('2d');
 function $(id) { return document.getElementById(id); }
 const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
-const COLS = PORTRAIT ? 8 : 13, ROWS = PORTRAIT ? 12 : 8, T = 60;
+const COLS = PORTRAIT ? 8 : 12, ROWS = PORTRAIT ? 12 : 8, T = 60;
 cv.width = COLS * T; cv.height = ROWS * T;
 const LENS = { wide: { fov: 100, range: 4, cost: 180, lvl: 1 }, tele: { fov: 45, range: 8, cost: 240, lvl: 1 }, fish: { fov: 360, range: 3, cost: 300, lvl: 3 } };
 // Each camera gets its own color so you can see exactly which tiles it covers.

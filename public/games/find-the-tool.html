@@ -136,10 +136,11 @@ let mode = 'timed', state = 'idle', items = [], target = null, targets = [], rou
 const label = it => { const cn = L.COLOR_NAMES[it.col], n = it.tool.name, nm = /^[A-Z0-9]{2,}/.test(n) ? n : n[0].toLowerCase() + n.slice(1); return (it.tool.colors.length > 1 && cn ? cn + ' ' : '') + nm; };
 const cap = s => s.replace(/^./, ch => ch.toUpperCase());
 function setCanvas() {
-  cv.height = mode === 'spy' ? (TALL ? 1900 : 1300) : (TALL ? 1350 : 1000); W = cv.width; H = cv.height;
+  // Same tote on every device (a tall phone used to get a roomier one, which made tools easier to find).
+  cv.height = mode === 'spy' ? 1300 : 1000; W = cv.width; H = cv.height;
   TUB = { x: 40, y: 40, w: W - 80, h: H - 80 };
 }
-const scale = () => mode === 'spy' ? (TALL ? 22 : 19) : (TALL ? 26 : 24) * (round > 6 ? .9 : 1);
+const scale = () => mode === 'spy' ? 19 : 24 * (round > 6 ? .9 : 1);
 function makeItem(tool, col) {
   const s = scale(), w = tool.mask[0].length * s, h = tool.mask.length * s, r = Math.hypot(w, h) / 2 * .55;
   return { tool, col, sc: s, x: TUB.x + r + Math.random() * (TUB.w - 2 * r), y: TUB.y + r + Math.random() * (TUB.h - 2 * r), ang: Math.random() * Math.PI * 2, flip: Math.random() < .5, vx: 0, vy: 0, va: 0, shake: 0, rad: Math.max(w, h) * .3, mass: Math.max(1, Math.sqrt(tool.size) / 2) };

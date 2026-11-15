@@ -126,7 +126,7 @@ button.go { background: var(--ink); color: var(--sheet); border-color: var(--ink
 const $ = id => document.getElementById(id);
 const cv = $('cv'), g = cv.getContext('2d');
 const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
-const COLS = PORTRAIT ? 7 : 11, ROWS = PORTRAIT ? 10 : 7, T = 64;
+const COLS = PORTRAIT ? 7 : 10, ROWS = PORTRAIT ? 10 : 7, T = 64;
 const GUT = 30;   // room for the A-B-C / 1-2-3 labels
 cv.width = COLS * T + GUT; cv.height = ROWS * T + GUT;
 const colName = x => String.fromCharCode(65 + x), cellName = k => colName(k % COLS) + (Math.floor(k / COLS) + 1);

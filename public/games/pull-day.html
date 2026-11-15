@@ -249,7 +249,7 @@ button:focus-visible { outline: 3px solid var(--cable); outline-offset: 2px; }
 const cv = document.getElementById('cv'), g = cv.getContext('2d');
 const $ = id => document.getElementById(id);
 const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
-const COLS = PORTRAIT ? 10 : 16, ROWS = PORTRAIT ? 15 : 10, T = 60, FT_PER_TILE = 16.4, MAX_TILES = 20; // 20 tiles × 5 m = 100 m
+const COLS = PORTRAIT ? 10 : 15, ROWS = PORTRAIT ? 15 : 10, T = 60, FT_PER_TILE = 16.4, MAX_TILES = 20; // 20 tiles × 5 m = 100 m
 // Pricing (for looks — the sheet is scored in dollars and labor minutes).
 const $FT = 0.45, RATE = 85;                       // cable $/ft, labor $/hr
 const MIN = { open: 2.5, tray: 0.75, conduit: 1.5, emi: 4, fw: 2.5, occ: 5 };   // labor minutes per 16 ft section
