@@ -17,7 +17,7 @@
 <script>
 // If an old offline cache served an out-of-date scores.js, clear that cache and reload once.
 (function () {
-  var want = '2347d7f41a', S = window.ArcadeScores;
+  var want = 'b90c45c7db', S = window.ArcadeScores;
   if (S && S.ver === want) { try { sessionStorage.removeItem('arcade:refetched'); } catch (e) {} return; }
   try { if (sessionStorage.getItem('arcade:refetched')) return; sessionStorage.setItem('arcade:refetched', '1'); } catch (e) { return; }
   var regs = navigator.serviceWorker && navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : Promise.resolve([]);
@@ -182,9 +182,10 @@ img, svg, canvas { -webkit-user-drag: none; }
       <button type="button" data-v="all">All</button>
       <button type="button" data-v="recent">Recent</button>
       <button type="button" data-v="most">Most played</button>
-      <button type="button" data-v="cab">Cabling</button>
-      <button type="button" data-v="cam">Cameras &amp; fiber</button>
-      <button type="button" data-v="ops">Racks &amp; ops</button>
+      <button type="button" data-v="plan">Plan</button>
+      <button type="button" data-v="install">Install</button>
+      <button type="button" data-v="rack">Rack &amp; service</button>
+      <button type="button" data-v="shop">Shop</button>
     </div>
     <div id="gameList"></div>
   </div>
@@ -225,23 +226,23 @@ img, svg, canvas { -webkit-user-drag: none; }
 
 <script>
 const GAMES = [
-  { id: 'pull-day', t: 'Pull Day', d: 'Route cable runs from the IDF to every drop under par.', k: 'Route puzzle', c: '#5aa9ff', g: 'cab' },
-  { id: 'terminate', timed: true, t: 'Terminate', d: 'T568A/B pin order, crimp and test before the pairs untwist.', k: 'Speed & precision', c: '#f07a1a', g: 'cab' },
-  { id: 'rough-in', t: 'Rough-In Day', d: 'Memorize the print, place every box before drywall.', k: 'Memory', c: '#e2c79a', g: 'cab' },
-  { id: 'lift-panic', t: 'Lift Panic', d: 'Hang cameras from a scissor lift and dodge the warehouse.', k: 'Arcade runner', c: '#ffc21a', g: 'cam' },
-  { id: 'coverage', t: 'Coverage', d: 'Aim cameras to cover every zone within NVR channels.', k: 'Placement puzzle', c: '#39d98a', g: 'cam' },
-  { id: 'splice', timed: true, t: 'Splice', d: 'Cleave, align and arc-fuse a 12-fiber tray.', k: 'Timing', c: '#7fe0ff', g: 'cam' },
-  { id: 'rack-and-stack', t: 'Rack & Stack', d: 'Rack falling gear. Every full row needs a switch.', k: 'Falling blocks', c: '#3ee08f', g: 'ops' },
-  { id: 'rack-cleanup', t: 'Rack Cleanup', d: 'Untangle a live rack: tone, map, re-patch. Fail over before you pull the firewall.', k: 'Live puzzle', c: '#5ad1c4', g: 'ops' },
-  { id: 'tone-trace', t: 'Tone & Trace', d: 'Find why the drop is dead, then pick the fix.', k: 'Deduction', c: '#ff8a6b', g: 'ops' },
-  { id: 'tool-drawer', t: 'Tool Drawer', d: 'Fit every real tool back in the foam. No gaps, nothing left over.', k: 'Packing puzzle', c: '#e2622b', g: 'ops' },
-  { id: 'find-the-tool', t: 'Find the Tool', d: 'Dig through the junk tote for the one tool on the work order.', k: 'Hidden object', c: '#ffe9a8', g: 'ops' },
-  { id: 'dispatch-board', t: 'Dispatch Board', d: 'Hit the day\'s money goal: send four techs across town before tickets go late, and play the chance cards the phone deals you.', k: 'Management', c: '#c48bff', g: 'ops' },
+  { id: 'pull-day', t: 'Pull Day', d: 'Route cable runs from the IDF to every drop under par.', k: 'Route puzzle', c: '#5aa9ff', g: 'plan' },
+  { id: 'coverage', t: 'Coverage', d: 'Aim cameras to cover every zone within NVR channels.', k: 'Placement puzzle', c: '#39d98a', g: 'plan' },
+  { id: 'rough-in', t: 'Rough-In Day', d: 'Memorize the print, place every box before drywall.', k: 'Memory', c: '#e2c79a', g: 'plan' },
+  { id: 'terminate', timed: true, t: 'Terminate', d: 'T568A/B pin order, crimp and test before the pairs untwist.', k: 'Speed & precision', c: '#f07a1a', g: 'install' },
+  { id: 'splice', timed: true, t: 'Splice', d: 'Cleave, align and arc-fuse a 12-fiber tray.', k: 'Timing', c: '#7fe0ff', g: 'install' },
+  { id: 'lift-panic', t: 'Lift Panic', d: 'Hang cameras from a scissor lift and dodge the warehouse.', k: 'Arcade runner', c: '#ffc21a', g: 'install' },
+  { id: 'rack-and-stack', t: 'Rack & Stack', d: 'Rack falling gear. Every full row needs a switch.', k: 'Falling blocks', c: '#3ee08f', g: 'rack' },
+  { id: 'rack-cleanup', t: 'Rack Cleanup', d: 'Untangle a live rack: tone, map, re-patch. Fail over before you pull the firewall.', k: 'Live puzzle', c: '#5ad1c4', g: 'rack' },
+  { id: 'tone-trace', t: 'Tone & Trace', d: 'Find why the drop is dead, then pick the fix.', k: 'Deduction', c: '#ff8a6b', g: 'rack' },
+  { id: 'dispatch-board', t: 'Dispatch Board', d: 'Hit the day\'s money goal: send four techs across town before tickets go late, and play the chance cards the phone deals you.', k: 'Management', c: '#c48bff', g: 'shop' },
+  { id: 'tool-drawer', t: 'Tool Drawer', d: 'Fit every real tool back in the foam. No gaps, nothing left over.', k: 'Packing puzzle', c: '#e2622b', g: 'shop' },
+  { id: 'find-the-tool', t: 'Find the Tool', d: 'Dig through the junk tote for the one tool on the work order.', k: 'Hidden object', c: '#ffe9a8', g: 'shop' },
 ];
 const $ = id => document.getElementById(id);
 const G = id => GAMES.find(g => g.id === id);
 // ── Game list: All (Jump back in + by trade), Recent, Most played, or one trade. Plays are counted on this device. ──
-const CATS = { cab: 'Cabling', cam: 'Cameras & fiber', ops: 'Racks, tools & ops' };
+const CATS = { plan: 'Plan the job', install: 'On the install', rack: 'Rack room & service calls', shop: 'Run the shop' };
 let plays = {}, view = 'all';
 try { plays = JSON.parse(localStorage.getItem('arcade:plays') || '{}') || {}; view = localStorage.getItem('arcade:view') || 'all'; } catch {}
 function countPlay(id) {
@@ -305,7 +306,7 @@ $('tabLb').onclick = () => go('leaderboard');
 $('back').onclick = () => go('');
 $('sPlay').onclick = () => { countPlay(lbGame); go(lbGame); };
 $('byBtns').addEventListener('click', e => { const b = e.target.closest('button[data-by]'); if (b) { lbBy = b.dataset.by; render(); } });
-$('pickers').addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (!b) return; lbGame = b.dataset.pick; try { localStorage.setItem('arcade:lbGame', lbGame); } catch {} render(); });
+$('pickers').addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (!b) return; if (lbGame !== b.dataset.pick) lbBy = defBy(b.dataset.pick); lbGame = b.dataset.pick; try { localStorage.setItem('arcade:lbGame', lbGame); } catch {} render(); });
 function setDrawer(v) { drawerOpen = v; $('drawer').hidden = !v; $('lbtn').setAttribute('aria-expanded', v); try { localStorage.setItem('arcade:drawer', v ? '1' : '0'); } catch {} render(); }
 $('lbtn').onclick = () => setDrawer(!drawerOpen);
 // Restart reloads the game from scratch (anything a game saves on the device, like a checkpoint, stays).
@@ -317,11 +318,11 @@ const fmt = (x, v) => '$' + Math.round(v).toLocaleString();
 // Competitive stats each game sends with its score. The board can rank by any of them; each is the
 // player's own best (so a long Lift Panic run counts for distance even if it wasn't their top score).
 const STATS = {
-  'pull-day': [{ k: 'sheets', n: 'Sheets' }, { k: 'level', n: 'Level' }],
+  'pull-day': [{ k: 'level', n: 'Furthest sheet' }],
   'terminate': [{ k: 'cables', n: 'Cables' }],
   'rough-in': [{ k: 'floor', n: 'Floor' }],
   'lift-panic': [{ k: 'ft', n: 'Distance', u: 'ft' }, { k: 'cams', n: 'Cameras' }],
-  'coverage': [{ k: 'level', n: 'Level' }],
+  'coverage': [{ k: 'level', n: 'Furthest site' }],
   'splice': [{ k: 'fibers', n: 'Fibers' }, { k: 'loss', n: 'Avg loss', u: 'dB', low: true }],
   'rack-and-stack': [{ k: 'rows', n: 'Rows' }, { k: 'level', n: 'Level' }],
   'rack-cleanup': [{ k: 'tidy', n: 'Avg tidy', u: '%' }],
@@ -331,13 +332,30 @@ const STATS = {
   'dispatch-board': [{ k: 'day', n: 'Furthest day' }],
 };
 const statsOf = id => STATS[id] || [];
+// Sheet games: endless random maps, so instead of a running total each player's best stars per sheet
+// are kept, and boards rank by how many sheets they've 3-starred (then 2, then 1) in a tier. Score = best single sheet.
+const STARS = {
+  'pull-day': { unit: 'sheet', tiers: [['T1 Basics', 1, 15], ['T2 Ratings', 16, 30], ['T3 Infra', 31, 45], ['T4 Hardened', 46, 999]] },
+  'coverage': { unit: 'site', tiers: [['Sites 1–5', 1, 5], ['Sites 6–10', 6, 10], ['Sites 11–15', 11, 15], ['Sites 16+', 16, 999]] },
+};
+const SCORE_V = 2;
+const defBy = id => STARS[id] ? 'st' : 'score';
+// Star counts in a tier (by 'st' = every tier, 'st1'… = one tier).
+function starCount(id, lv, by) {
+  const t = by === 'st' ? null : STARS[id].tiers[+by.slice(2) - 1], c = [0, 0, 0, 0];
+  for (const [k, v] of Object.entries(lv || {})) { const n = +k; if (t && (n < t[1] || n > t[2])) continue; const st = Math.max(0, Math.min(3, Math.round(+v) || 0)); if (st) c[st]++; }
+  return { c3: c[3], c2: c[2], c1: c[1], n: c[1] + c[2] + c[3] };
+}
+const starLine = (id, k) => `${k.c3} ★★★ · ${k.c2} ★★ · ${k.c1} ★ · ${k.n} ${STARS[id].unit}${k.n === 1 ? '' : 's'}`;
 const statFmt = (d, v) => d.u === 'ft' ? `${Math.round(v).toLocaleString()} ft` : d.u === '%' ? `${Math.round(v)}%` : d.u === 'dB' ? `${(+v).toFixed(2)} dB` : Math.round(v).toLocaleString();
 const statShort = (d, v) => `${statFmt(d, v)}${d.u ? '' : ' ' + d.n.toLowerCase()}`;
 const ago = t => { if (!t) return ''; const d = (Date.now() - t) / 864e5; return d < 1 ? 'today' : d < 2 ? 'yesterday' : d < 30 ? `${Math.floor(d)}d ago` : new Date(t).toLocaleDateString(); };
 let me = null, rows = new Map(), names = new Map(), mine = {}, loaded = false;
 const S = window.ArcadeScores;
 const standings = (id, by = 'score') => {
-  const all = [...rows].map(([pid, r]) => ({ pid, s: +r?.[id]?.s, at: +r?.[id]?.at, t: +r?.[id]?.t, tat: +r?.[id]?.tat, x: r?.[id]?.x || {} }));
+  const all = [...rows].map(([pid, r]) => ({ pid, s: STARS[id] && r?.[id]?.v !== SCORE_V ? NaN : +r?.[id]?.s, at: +r?.[id]?.at, t: +r?.[id]?.t, tat: +r?.[id]?.tat, x: r?.[id]?.x || {}, lv: r?.[id]?.lv || {} }));
+  if (STARS[id] && /^st\d?$/.test(by)) return all.map(r => ({ ...r, k: starCount(id, r.lv, by) })).filter(r => r.k.n > 0)
+    .sort((a, b) => b.k.c3 - a.k.c3 || b.k.c2 - a.k.c2 || b.k.c1 - a.k.c1 || (+b.x.level || 0) - (+a.x.level || 0));
   const sd = statsOf(id).find(d => d.k === by);
   if (sd) return all.filter(r => Number.isFinite(+r.x[by]) && (sd.low || +r.x[by] > 0)).sort((a, b) => sd.low ? a.x[by] - b.x[by] : b.x[by] - a.x[by]);
   // Fastest: completed runs only, quickest first.
@@ -345,12 +363,13 @@ const standings = (id, by = 'score') => {
   return all.filter(r => Number.isFinite(r.s) && r.s > 0).sort((a, b) => b.s - a.s);
 };
 const clockFmt = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
-let lbBy = 'score';
+let lbBy = null;   // set to the game's default board on first render
 function table(x, list, ps, by = 'score') {
   const sd = statsOf(x.id).find(d => d.k === by);
-  if (!list.length) return `<div class="empty">${loaded ? (by === 'time' ? 'No finished runs yet. Finish one to post a time.' : sd ? `No ${sd.n.toLowerCase()} posted yet.` : 'No scores yet. Be the first.') : 'Loading…'}</div>`;
-  const main = r => by === 'time' ? clockFmt(r.t) : sd ? statFmt(sd, r.x[by]) : fmt(x, r.s);
-  const extra = r => [by !== 'score' && r.s > 0 ? fmt(x, r.s) : '', by !== 'time' && x.timed && r.t > 0 ? clockFmt(r.t) : '', ...statsOf(x.id).filter(d => d.k !== by && Number.isFinite(+r.x[d.k])).map(d => statShort(d, r.x[d.k]))].filter(Boolean).join(' · ');
+  if (!list.length) return `<div class="empty">${loaded ? (STARS[x.id] && /^st\d?$/.test(by) ? `No stars in ${by === 'st' ? 'any tier' : STARS[x.id].tiers[+by.slice(2) - 1][0]} yet.` : by === 'time' ? 'No finished runs yet. Finish one to post a time.' : sd ? `No ${sd.n.toLowerCase()} posted yet.` : 'No scores yet. Be the first.') : 'Loading…'}</div>`;
+  const star = STARS[x.id] && /^st\d?$/.test(by);
+  const main = r => star ? `${r.k.c3} ★★★` : by === 'time' ? clockFmt(r.t) : sd ? statFmt(sd, r.x[by]) : fmt(x, r.s);
+  const extra = r => star ? `${r.k.c2} ★★ · ${r.k.c1} ★ · ${r.k.n} ${STARS[x.id].unit}${r.k.n === 1 ? '' : 's'}${r.x.level ? ` · furthest ${r.x.level}` : ''}` : [by !== 'score' && r.s > 0 ? (STARS[x.id] ? 'best ' + STARS[x.id].unit + ' ' : '') + fmt(x, r.s) : '', by !== 'time' && x.timed && r.t > 0 ? clockFmt(r.t) : '', ...statsOf(x.id).filter(d => d.k !== by && Number.isFinite(+r.x[d.k])).map(d => statShort(d, r.x[d.k]))].filter(Boolean).join(' · ');
   return `<table class="rank"><tbody>${list.map((r, i) => `<tr class="p${i + 1} ${r.pid === me ? 'me' : ''}" data-pid="${r.pid}"><td class="n">${i + 1}</td><td><div class="who"><b class="av" style="background:hsl(${[...r.pid].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 55% 42%)">${(ps[r.pid]?.name || '?').split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase().replace(/[<>&"]/g, '')}</b><div class="nm"><span></span>${extra(r) ? `<small class="sub">${extra(r)}</small>` : ''}</div></div></td><td class="s">${main(r)}</td><td class="d">${ago(by === 'time' ? r.tat || r.at : r.at)}</td></tr>`).join('')}</tbody></table>`;
 }
 function fillNames(root, ps) { root.querySelectorAll('tr[data-pid]').forEach(tr => { tr.querySelector('.who .nm > span').textContent = (ps[tr.dataset.pid]?.name || 'Someone') + (tr.dataset.pid === me ? ' (you)' : ''); }); }
@@ -360,11 +379,11 @@ function paintLeaders() { document.querySelectorAll('[data-top]').forEach(el => 
 async function render() {
   const ids = [...rows.keys()];
   const ps = Object.fromEntries(ids.map(id => [id, { name: names.get(id) || 'Someone' }]));
-  GAMES.forEach(x => { const top = standings(x.id)[0]; leaders[x.id] = top ? `Leader: ${ps[top.pid]?.name || 'Someone'} · ${fmt(x, top.s)}` : ''; });
+  GAMES.forEach(x => { const top = standings(x.id, defBy(x.id))[0]; leaders[x.id] = top ? `Leader: ${ps[top.pid]?.name || 'Someone'} · ${STARS[x.id] ? `${top.k.c3} ★★★` : fmt(x, top.s)}` : ''; });
   paintLeaders();
   // Standings tab
-  const x = G(lbGame), opts = [['score', 'Top score'], ...(x.timed ? [['time', 'Fastest']] : []), ...statsOf(x.id).map(d => [d.k, d.low ? `${d.n} (lowest)` : d.n])];
-  if (!opts.some(o => o[0] === lbBy)) lbBy = 'score';
+  const x = G(lbGame), opts = [...(STARS[x.id] ? [['st', 'Stars: all tiers'], ...STARS[x.id].tiers.map((t, i) => ['st' + (i + 1), t[0]]), ['score', `Best ${STARS[x.id].unit}`]] : [['score', 'Top score']]), ...(x.timed ? [['time', 'Fastest']] : []), ...statsOf(x.id).map(d => [d.k, d.low ? `${d.n} (lowest)` : d.n])];
+  if (!opts.some(o => o[0] === lbBy)) lbBy = defBy(x.id);
   const list = standings(lbGame, lbBy);
   $('byBtns').hidden = opts.length < 2;
   $('byBtns').innerHTML = opts.map(([k, n]) => `<button type="button" data-by="${k}" aria-pressed="${k === lbBy}">${n}</button>`).join('');
@@ -376,32 +395,38 @@ async function render() {
   $('sTable').innerHTML = table(x, list.slice(0, 50), ps, lbBy); fillNames($('sTable'), ps);
   // In-game drawer
   if (current && drawerOpen) {
-    const gx = G(current), gl = standings(current), mr = gl.findIndex(r => r.pid === me);
-    $('dTable').innerHTML = table(gx, gl.slice(0, 10), ps); fillNames($('dTable'), ps);
+    const gx = G(current), gb = defBy(current), gl = standings(current, gb), mr = gl.findIndex(r => r.pid === me);
+    $('dTable').innerHTML = table(gx, gl.slice(0, 10), ps, gb); fillNames($('dTable'), ps);
     const myT = +mine[current]?.t;
-    $('dMine').textContent = (mr >= 0 ? `Your best: ${fmt(gx, gl[mr].s)} · #${mr + 1} of ${gl.length}` : db ? 'Finish a run to post your score.' : '') + (gx.timed && myT ? ` · Fastest: ${clockFmt(myT)}` : '');
+    $('dMine').textContent = (mr >= 0 ? `${STARS[current] ? `You: ${starLine(current, gl[mr].k)}` : `Your best: ${fmt(gx, gl[mr].s)}`} · #${mr + 1} of ${gl.length}` : db ? 'Finish a run to post your score.' : '') + (gx.timed && myT ? ` · Fastest: ${clockFmt(myT)}` : '');
   }
 }
 let writing = Promise.resolve();
-function post(gameId, score, time, stats) {
+function post(gameId, score, time, stats, sheet) {
   if (!me || !loaded || !G(gameId)) return;
-  const prev = mine[gameId] || {}, px = prev.x || {};
+  const prev0 = mine[gameId] || {}, sg = STARS[gameId];
+  // Sheet games: a best from before v2 was a running total, so it doesn't count against single sheets.
+  const prev = sg && prev0.v !== SCORE_V ? { ...prev0, s: 0, at: null } : prev0, px = prev.x || {};
+  const sp = sg && sheet && Number.isInteger(+sheet.n) && +sheet.n >= 1 && +sheet.n <= 500 && [1, 2, 3].includes(+sheet.stars) ? { n: +sheet.n, stars: +sheet.stars } : null;
+  const sheetBetter = !!sp && sp.stars > (+(prev.lv || {})[sp.n] || 0);
   const better = Number.isFinite(score) && score > 0 && score < 1e9 && (+prev.s || 0) < score;
   const faster = G(gameId).timed && Number.isFinite(time) && time > 0 && time < 1e6 && (!prev.t || time < prev.t);
   // Stats: each kept as the player's own best (lower is better for some, like splice loss).
   const ns = {}, improved = [];
   statsOf(gameId).forEach(d => { const v = +(stats || {})[d.k]; if (!Number.isFinite(v) || v < 0 || v > 1e7 || (!d.low && v <= 0)) return; ns[d.k] = v;
     const old = +px[d.k]; if (!Number.isFinite(old) || (d.low ? v < old : v > old)) improved.push(d); });
-  if (!better && !faster && !improved.length) return;
+  if (!better && !faster && !improved.length && !sheetBetter) return;
   const next = { ...prev };
+  if (sg) next.v = SCORE_V;
+  if (sheetBetter) { next.lv = { ...(prev.lv || {}), [sp.n]: sp.stars }; if (!next.at) next.at = Date.now(); }
   if (better) { next.s = Math.round(score); next.at = Date.now(); }
   if (faster) { next.t = Math.round(time); next.tat = Date.now(); }
   if (improved.length) { next.x = { ...px }; improved.forEach(d => { next.x[d.k] = ns[d.k]; }); if (!next.at) next.at = Date.now(); }
   mine = { ...mine, [gameId]: next };
   const body = mine;
-  writing = writing.then(() => S.save(body, { game: gameId, score: Number.isFinite(score) ? Math.round(score) : 0, time: faster ? Math.round(time) : null, stats: ns })).then(() => {
+  writing = writing.then(() => S.save(body, { game: gameId, score: Number.isFinite(score) ? Math.round(score) : 0, time: faster ? Math.round(time) : null, stats: ns, sheet: sheetBetter ? sp : null })).then(() => {
     const r = standings(gameId).findIndex(r => r.pid === me);
-    $('toast').textContent = better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : faster ? `New fastest: ${clockFmt(time)}!` : `New best ${improved[0].n.toLowerCase()}: ${statFmt(improved[0], ns[improved[0].k])}!`;
+    $('toast').textContent = sheetBetter && !better ? `${'★'.repeat(sp.stars)} on ${sg.unit} ${sp.n}!` : better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : faster ? `New fastest: ${clockFmt(time)}!` : `New best ${improved[0].n.toLowerCase()}: ${statFmt(improved[0], ns[improved[0].k])}!`;
   }).catch(err => {
     $('toast').textContent = err && err.code && err.code !== 'functions/internal' && err.code !== 'functions/unavailable' ? `Score not posted: ${err.message}` : 'Score not posted. Check your connection.';
     // Keep the reason on the Leaderboard tab (the toast fades), with the code, so it can be reported.
@@ -412,7 +437,7 @@ function post(gameId, score, time, stats) {
 addEventListener('message', e => {
   if (e.source !== $('frame').contentWindow) return;
   const d = e.data; if (!d || typeof d.arcade !== 'string' || d.arcade !== current) return;
-  post(d.arcade, Number(d.score), d.time == null ? NaN : Number(d.time), d.stats && typeof d.stats === 'object' ? d.stats : null);
+  post(d.arcade, Number(d.score), d.time == null ? NaN : Number(d.time), d.stats && typeof d.stats === 'object' ? d.stats : null, d.sheet && typeof d.sheet === 'object' ? d.sheet : null);
 });
 route(); render();
 // Scores: a shared leaderboard (separate Firebase project, set in config.js) or this device only.

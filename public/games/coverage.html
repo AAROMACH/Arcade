@@ -233,7 +233,7 @@ button small { text-transform: none; color: var(--muted); font-family: var(--mon
       <li>Every camera takes one NVR channel. You can't go over the recorder's channel count.</li>
       <li>From site 3: <b>360° fisheye</b> ($300) sees all around, 3 tiles out. From site 4: the <b>gate needs plate reads</b>, so only a bullet camera counts there.</li>
       <li>When every zone is green, sign off. The <b>target cost</b> is what a good installer would spend: come in at or under it for 3 stars.</li>
-      <li>Each sign-off adds the site's points to your total and opens the next, bigger site. Your total and the furthest site you reached go on the leaderboard. <b>Clear</b> takes every camera down so you can start the site over.</li>
+      <li>Each sign-off adds the site's points to your total and opens the next, bigger site. The leaderboard keeps your best stars on each site number (sites are grouped 1–5, 6–10, 11–15, 16+, ranked by how many you've 3-starred), your best single site, and the furthest site you reached. <b>Clear</b> takes every camera down so you can start the site over.</li>
     </ul>
     <h3>Score bonuses — tap one to see how to earn it</h3>
     <div id="bonusHow"></div>
@@ -520,7 +520,9 @@ $('next').onclick = () => {
   add('Spare NVR channels', (chLimit - cams.length) * 50);
   const got = lines.reduce((a, l) => a + l[1], 0); total += got; lastBreak = { level, lines, got };
   if (total > best) { best = total; try { localStorage.setItem('coverage:best', best); } catch {} }
-try { if (parent !== window) parent.postMessage({ arcade: 'coverage', score: total, stats: { level } }, '*'); } catch (e) {} 
+// The leaderboard keeps the best stars per site and the best single site, not the running total.
+  const stars = cost <= par ? 3 : cost <= par * 1.25 ? 2 : 1;
+  try { if (parent !== window) parent.postMessage({ arcade: 'coverage', score: got, sheet: { n: level, stars }, stats: { level } }, '*'); } catch (e) {}
   level++; build();
 };
 $('how').onclick = () => { $('howModal').hidden = false; };

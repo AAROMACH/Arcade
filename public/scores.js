@@ -80,12 +80,19 @@
     // Keep the reason a run couldn't start, so a failed score post says why (not just "no run").
     const runErr = {};
     api.startRun = game => { delete runErr[game]; runs[game] = call('startRun', { game }).then(r => { if (!r || !r.runId) throw new Error('The score server answered without a run id: ' + JSON.stringify(r)); return r.runId; }).catch(e => { runErr[game] = e; console.warn('startRun failed:', e); return null; }); };
-    api.save = async (_all, post) => {
+    // The server takes one score per player every 10 s; quick sheets queue up here instead of failing.
+    let lastPost = 0, queue = Promise.resolve();
+    const spaced = fn => (queue = queue.catch(() => {}).then(async () => {
+      const wait = lastPost + 10500 - Date.now(); if (wait > 0) await new Promise(r => setTimeout(r, wait));
+      try { return await fn(); } finally { lastPost = Date.now(); }
+    }));
+    api.save = async (_all, post) => spaced(() => saveNow(post));
+    const saveNow = async post => {
       if (!post || !post.game) return;
       if (!runs[post.game]) api.startRun(post.game);
       const runId = await runs[post.game];
       if (!runId) { const e = runErr[post.game]; if (e) throw e; throw new Error('No run'); }
-      return call('submitScore', { runId, game: post.game, score: post.score, time: Number.isFinite(post.time) ? post.time : null, stats: post.stats || null });
+      return call('submitScore', { runId, game: post.game, score: post.score, time: Number.isFinite(post.time) ? post.time : null, stats: post.stats || null, sheet: post.sheet || null });
     };
     api.setName = async n => {
       const name = clean(n); if (!name) return;
@@ -137,4 +144,4 @@
   };
   window.ArcadeScores = api;
 })();
-window.ArcadeScores.ver = '2347d7f41a';   // checked by index.html: a stale cached copy repairs itself
+window.ArcadeScores.ver = 'b90c45c7db';   // checked by index.html: a stale cached copy repairs itself
