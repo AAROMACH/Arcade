@@ -31,10 +31,10 @@ body { background: var(--bg); color: var(--fg); font-family: var(--body); paddin
 .order canvas { width: 110px; height: 77px; flex: none; background: rgba(0,0,0,.06); border-radius: 4px; }
 .order .k { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; font-weight: 700; opacity: .7; }
 .order .t { font-family: var(--display); font-size: 21px; line-height: 1.05; text-wrap: balance; }
-.list { display: flex; gap: 6px; flex-wrap: wrap; }
-.list .it { display: grid; justify-items: center; gap: 1px; width: 74px; font-size: 11px; font-weight: 700; text-align: center; line-height: 1.05; position: relative; }
-.list .it canvas { width: 70px; height: 46px; background: rgba(0,0,0,.06); border-radius: 3px; }
-.list .it.got { opacity: .45; } .list .it.got::after { content: "✓"; position: absolute; top: 2px; right: 6px; font-size: 22px; color: #1d7a43; }
+.list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 10px; width: 100%; align-content: center; }
+.list .it { display: grid; grid-template-columns: 52px 1fr; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; line-height: 1.1; min-width: 0; }
+.list .it canvas { width: 52px; height: 34px; background: rgba(0,0,0,.06); border-radius: 3px; }
+.list .more { grid-column: 1 / -1; justify-self: start; font-size: 13px; padding: 4px 10px; background: rgba(0,0,0,.08); color: var(--order-ink); box-shadow: none; }
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; align-content: center; font-variant-numeric: tabular-nums; flex: none; }
 .stat { display: grid; } .stat span { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); font-weight: 700; }
 .stat b { font-size: 20px; font-weight: 700; }
@@ -55,7 +55,21 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
 .card h3 { margin: 4px 0 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
 .card p, .card li { margin: 0; font-size: 15px; line-height: 1.45; }
 .card ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
-@media (max-width: 560px) { .order canvas { width: 76px; height: 54px; } .order .t { font-size: 17px; } .stat b { font-size: 16px; } .list .it { width: 56px; font-size: 10px; } .list .it canvas { width: 54px; height: 36px; } }
+#how { order: 99; margin-left: auto; }
+#how .ic { display: none; }
+@media (max-width: 560px) {
+  .bar { gap: 6px; }
+  .msg { flex: 1 1 100%; font-size: 14px; }
+  .bar button:not(#how) { flex: 1 1 0; font-size: 13px; padding: 9px 6px; }
+  #how { flex: none; width: 40px; height: 40px; padding: 0; border-radius: 50%; display: grid; place-items: center; }
+  #how .ic { display: block; font-size: 20px; } #how .lbl { display: none; }
+  .order { padding: 6px 8px; position: relative; }
+  .list { grid-template-columns: 1fr; gap: 3px; }
+  .list .it { grid-template-columns: 46px 1fr; font-size: 14px; } .list .it canvas { width: 46px; height: 30px; }
+  .order .drop { position: absolute; left: 0; right: 0; top: 100%; z-index: 5; margin-top: 4px; background: var(--order); color: var(--order-ink); border-radius: 4px; padding: 6px 8px; display: grid; gap: 3px; box-shadow: 0 8px 20px rgba(0,0,0,.5); }
+  .order .drop .it { display: grid; grid-template-columns: 46px 1fr; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; } .order .drop canvas { width: 46px; height: 30px; background: rgba(0,0,0,.06); border-radius: 3px; }
+}
+@media (max-width: 560px) { .order canvas { width: 76px; height: 54px; } .order .t { font-size: 17px; } .stat b { font-size: 16px; } }
 </style>
 
 <div class="app">
@@ -76,7 +90,7 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
   <canvas id="cv" width="900" height="1000" aria-label="A tote full of tools. Drag a tool to move it; drag empty space to sweep tools aside; tap the one you're looking for."></canvas>
   <div class="bar">
     <div class="msg" id="msg">Three ways to play: a timed shift, I Spy with a mountain of tools, or the hard drawer hunt.</div>
-    <button type="button" id="how">How to play</button>
+    <button type="button" id="how" aria-label="How to play" title="How to play"><span class="ic">?</span><span class="lbl">How to play</span></button>
     <button type="button" id="act" hidden>New tote</button>
     <button type="button" id="timedBtn">Timed shift</button>
     <button type="button" id="spyBtn">I Spy, no clock</button>
@@ -210,11 +224,25 @@ function newSpy() {
   targets = pool.slice(0, 8).map(t => { const it = makeItem(t, pick(t.colors)); it.got = false; return it; });
   items = fill(targets.map(t => ({ tool: t.tool, col: t.col })), 132, 3);
   targets.forEach(t => items.splice(rnd(0, Math.floor(items.length * .4)), 0, t));
-  $('order').innerHTML = `<div class="list" id="list">${targets.map((t, i) => `<div class="it" data-i="${i}"><canvas width="140" height="92"></canvas><span>${cap(label(t))}</span></div>`).join('')}</div>`;
-  document.querySelectorAll('#list .it').forEach((el, i) => drawThumb(el.querySelector('canvas'), targets[i]));
+  listOpen = false; renderList();
   msg = 'Find all 8 on the list, in any order. Sweep the pile around. No clock.';
   sync();
 }
+// The I-spy list: only tools still to find. On a phone, the next 3 and a "+N more" toggle, so the tote gets the room.
+let listOpen = false;
+const narrow = () => matchMedia('(max-width: 560px)').matches;
+function renderList() {
+  const left = targets.filter(t => !t.got), cut = narrow() && !listOpen ? 3 : left.length, shown = left.slice(0, cut);
+  const row = t => `<div class="it" data-i="${targets.indexOf(t)}"><canvas width="104" height="68"></canvas><span>${cap(label(t))}</span></div>`;
+  const rest = narrow() ? left.slice(3) : [];
+  const more = rest.length ? `<button type="button" class="more" id="listMore" aria-expanded="${listOpen}">${listOpen ? 'Hide ▴' : `+${rest.length} more ▾`}</button>` : '';
+  // The rest opens as a dropdown over the tote, so the tote doesn't jump.
+  const drop = rest.length && listOpen ? `<div class="drop">${rest.map(row).join('')}</div>` : '';
+  $('order').innerHTML = `<div class="list" id="list">${left.slice(0, narrow() ? 3 : left.length).map(row).join('')}${more}</div>${drop}`;
+  document.querySelectorAll('#order .it').forEach(el => drawThumb(el.querySelector('canvas'), targets[+el.dataset.i]));
+  const m = $('listMore'); if (m) m.onclick = () => { listOpen = !listOpen; renderList(); };
+}
+addEventListener('resize', () => { if (mode === 'spy' && targets.length) renderList(); });
 function drawThumb(cvs, it) {
   const c = cvs.getContext('2d'), cw = cvs.width, ch = cvs.height; c.clearRect(0, 0, cw, ch);
   const t = it.tool, w = t.mask[0].length, h = t.mask.length, k = w < h ? 1 : 0;
@@ -316,7 +344,7 @@ function tap(it) {
     const t = targets.find(t => t === it && !t.got);
     if (t) {
       t.got = true; flash = { it: t, t: reduce ? .3 : .8 };
-      document.querySelector(`#list .it[data-i="${targets.indexOf(t)}"]`)?.classList.add('got');
+      renderList();
       const left = targets.filter(t => !t.got).length;
       msg = left ? `Got the ${label(t)}. ${left} to go.` : '';
       if (!left) {

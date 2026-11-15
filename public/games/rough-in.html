@@ -7,7 +7,18 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 button, a, canvas, svg, label, [role="button"], [data-id], [data-t], [data-c] { touch-action: manipulation; }
 img, svg, canvas { -webkit-user-drag: none; }
-</style></head><body>
+</style><style id="mobicons">
+/* Phones: How to play / Settings shrink to round icons and sit together at the end of their row;
+   the game controls in that row share the rest of the width evenly. */
+@media (max-width: 560px) {
+  #how, #howBtn, #setBtn { flex: none !important; order: 99; width: 40px; height: 40px; min-width: 0; padding: 0 !important; border-radius: 50% !important; font-size: 0 !important; line-height: 1; display: inline-grid; place-items: center; }
+  #how::before, #howBtn::before { content: "?"; font-size: 20px; font-weight: 800; }
+  #setBtn::before { content: "\2699"; font-size: 20px; }
+  #how, #howBtn { margin-left: auto; }
+  :has(> #how) > button:not(#how, #setBtn), :has(> #howBtn) > button:not(#howBtn, #setBtn) { flex: 1 1 auto; }
+}
+</style>
+</head><body>
 <title>Rough-In Day</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -98,7 +109,7 @@ button.go { background: var(--ink); color: var(--sheet); border-color: var(--ink
       <button type="button" class="go" id="act">Start</button>
     </div>
   </div>
-  <div class="bar"><div class="tally" id="tally"></div><button type="button" id="how">How to play</button></div>
+  <div class="bar"><div class="tally" id="tally"></div><button type="button" id="how" aria-label="How to play" title="How to play">How to play</button></div>
 </div>
 
 <div class="modal" id="howModal">

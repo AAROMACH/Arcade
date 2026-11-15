@@ -7,7 +7,18 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 button, a, canvas, svg, label, [role="button"], [data-id], [data-t], [data-c] { touch-action: manipulation; }
 img, svg, canvas { -webkit-user-drag: none; }
-</style></head><body>
+</style><style id="mobicons">
+/* Phones: How to play / Settings shrink to round icons and sit together at the end of their row;
+   the game controls in that row share the rest of the width evenly. */
+@media (max-width: 560px) {
+  #how, #howBtn, #setBtn { flex: none !important; order: 99; width: 40px; height: 40px; min-width: 0; padding: 0 !important; border-radius: 50% !important; font-size: 0 !important; line-height: 1; display: inline-grid; place-items: center; }
+  #how::before, #howBtn::before { content: "?"; font-size: 20px; font-weight: 800; }
+  #setBtn::before { content: "\2699"; font-size: 20px; }
+  #how, #howBtn { margin-left: auto; }
+  :has(> #how) > button:not(#how, #setBtn), :has(> #howBtn) > button:not(#howBtn, #setBtn) { flex: 1 1 auto; }
+}
+</style>
+</head><body>
 <title>Rack Cleanup</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -95,7 +106,7 @@ button.danger { border-color: rgba(255,93,77,.6); }
       <div class="box"><div class="k"><span>Tone results</span><span>drag into the book</span></div><div class="chips" id="chips"></div></div>
       <div class="box"><div class="k"><span>Mapping book</span><span id="bookN"></span></div><div class="book" id="book"></div></div>
       <div class="toast" id="toast" role="status"></div>
-      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="finish">Finish this rack</button><button type="button" id="how">How to play</button></div>
+      <div class="row" style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="primary" id="finish">Finish this rack</button><button type="button" id="how" aria-label="How to play" title="How to play">How to play</button></div>
     </div>
   </div>
   <div class="legend"><span><i class="sw" style="background:#2f7de1"></i> Desk</span><span><i class="sw" style="background:#d83a2e"></i> Camera</span><span><i class="sw" style="background:#e8c21c"></i> Phone</span><span><i class="sw" style="background:#2fa856"></i> Access point</span><span><i class="sw" style="background:#e9edf1"></i> Gear uplink</span></div>
