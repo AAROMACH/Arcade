@@ -14,6 +14,18 @@
 <meta name="apple-mobile-web-app-title" content="Arcade">
 <script src="config.js"></script>
 <script src="scores.js"></script>
+<script>
+// If an old offline cache served an out-of-date scores.js, clear that cache and reload once.
+(function () {
+  var want = '35a7ea95c0', S = window.ArcadeScores;
+  if (S && S.ver === want) { try { sessionStorage.removeItem('arcade:refetched'); } catch (e) {} return; }
+  try { if (sessionStorage.getItem('arcade:refetched')) return; sessionStorage.setItem('arcade:refetched', '1'); } catch (e) { return; }
+  var regs = navigator.serviceWorker && navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : Promise.resolve([]);
+  regs.then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })
+    .then(function () { return window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : 0; })
+    .catch(function () {}).then(function () { location.reload(); });
+})();
+</script>
 <title>Aaromach Arcade</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=Chakra+Petch:wght@500;700&display=swap">

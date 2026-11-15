@@ -21,7 +21,9 @@ if os.path.exists(PUB + 'config.js'):
 if os.path.exists(PUB): shutil.rmtree(PUB)
 os.makedirs(PUB + 'games'); os.makedirs(PUB + 'icons')
 for f in os.listdir(SITE + 'games'): shutil.copy(SITE + 'games/' + f, PUB + 'games/' + f)
-shutil.copy(T + 'scores.js', PUB + 'scores.js'); shutil.copy(SITE + 'config.js', PUB + 'config.js')
+SVER = hashlib.sha256(open(T + 'scores.js', 'rb').read()).hexdigest()[:10]
+open(PUB + 'scores.js', 'w').write(open(T + 'scores.js').read().rstrip('\n') + f"\nwindow.ArcadeScores.ver = '{SVER}';   // checked by index.html: a stale cached copy repairs itself\n")
+shutil.copy(SITE + 'config.js', PUB + 'config.js')
 if kept_cfg: open(PUB + 'config.js', 'w').write(kept_cfg)
 subprocess.run(['node', T + 'make_icons.js', PUB + 'icons'], check=True, stdout=subprocess.DEVNULL, cwd=T)
 
@@ -31,6 +33,19 @@ def R(a, b):
     global s
     assert s.count(a) == 1, (a[:80], s.count(a))
     s = s.replace(a, b)
+R('<script src="scores.js"></script>', '''<script src="scores.js"></script>
+<script>
+// If an old offline cache served an out-of-date scores.js, clear that cache and reload once.
+(function () {
+  var want = '%s', S = window.ArcadeScores;
+  if (S && S.ver === want) { try { sessionStorage.removeItem('arcade:refetched'); } catch (e) {} return; }
+  try { if (sessionStorage.getItem('arcade:refetched')) return; sessionStorage.setItem('arcade:refetched', '1'); } catch (e) { return; }
+  var regs = navigator.serviceWorker && navigator.serviceWorker.getRegistrations ? navigator.serviceWorker.getRegistrations() : Promise.resolve([]);
+  regs.then(function (rs) { return Promise.all(rs.map(function (r) { return r.unregister(); })); })
+    .then(function () { return window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : 0; })
+    .catch(function () {}).then(function () { location.reload(); });
+})();
+</script>''' % SVER)
 R('<meta name="theme-color" content="#121417">', '''<meta name="theme-color" content="#121417">
 <meta name="description" content="Field-work games from Aaromach: pull cable, terminate, hang cameras, splice fiber, dispatch the crew.">
 <link rel="manifest" href="manifest.webmanifest">
