@@ -129,9 +129,11 @@
     const cfg = window.ARCADE_FIREBASE;
     if (cfg && cfg.apiKey && cfg.projectId) {
       try { await startShared(cfg, handlers); return; }
-      catch (e) { console.warn('Shared leaderboard unavailable, using this device:', e); }
+      catch (e) { console.warn('Shared leaderboard unavailable, using this device:', e); api.failReason = (e && (e.code || e.message)) || 'unknown error'; }
     }
     startLocal(handlers);
+    // Configured but couldn't connect: tell the player (instead of looking like a setup that isn't done).
+    if (api.failReason) handlers.onStatus('offline');
   };
   window.ArcadeScores = api;
 })();

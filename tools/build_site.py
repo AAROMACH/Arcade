@@ -53,7 +53,9 @@ S.start({
   onStatus(st) {
     $('lbnote').textContent = st === 'shared' ? 'Each player’s best run, shared with everyone who plays. Scores post automatically when a run ends.'
       : st === 'local' ? 'Scores are saved on this device only. (The shared leaderboard switches on once the arcade’s Firebase project is set up.)'
+      : st === 'offline' ? `Couldn’t connect to the shared leaderboard (${S.failReason}), so scores are saved on this device for now. An ad blocker or privacy extension can cause this: allow this site, or try a private window. `
       : 'Scores stopped updating. Reopen the page to reconnect.';
+    if (st === 'offline') { const b = document.createElement('button'); b.type = 'button'; b.className = 'retry'; b.textContent = 'Try again'; b.onclick = () => location.reload(); $('lbnote').appendChild(b); }
     $('nameRow').hidden = st === 'error'; $('pname').value = S.name || '';
   },
 });
@@ -107,6 +109,7 @@ R(".lbnote { font-size: 13px; color: var(--muted); margin: 0; }",
 .namerow input { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 180px; }
 .namerow button { font: inherit; font-weight: 700; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .namerow #nameSaved { color: #4cc38a; }
+.lbnote .retry { font: inherit; font-weight: 700; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 3px 10px; margin-left: 6px; cursor: pointer; }
 .posterr { margin: 0; font-size: 13px; color: #ff8a7a; border-left: 3px solid #ff6a55; padding: 4px 8px; background: rgba(255,106,85,.08); border-radius: 4px; }
 .acct { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .acct button { font: inherit; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; color: #1f1f1f; background: #fff; border: 1px solid #dadce0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
