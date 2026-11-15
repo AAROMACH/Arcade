@@ -7,15 +7,29 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 button, a, canvas, svg, label, [role="button"], [data-id], [data-t], [data-c] { touch-action: manipulation; }
 img, svg, canvas { -webkit-user-drag: none; }
-</style><style id="mobicons">
-/* Phones: How to play / Settings shrink to round icons and sit together at the end of their row;
-   the game controls in that row share the rest of the width evenly. */
+</style><style id="gamemenu">
+/* ☰ menu: How to play and Settings live here, so the game's own buttons stay together. */
+.inmenu { display: none !important; }
+#menuBtn .mi { font-size: 1.1em; line-height: 1; }
+#menuBtn.icon .ml { display: none; }
+#menuPop { position: fixed; z-index: 60; min-width: 190px; display: grid; gap: 2px; padding: 6px; border-radius: 10px; background: #1b1f25; border: 1px solid #39414b; box-shadow: 0 12px 30px rgba(0,0,0,.45); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+#menuPop[hidden] { display: none; }
+#menuPop button { all: unset; box-sizing: border-box; display: flex; gap: 10px; align-items: center; padding: 11px 12px; border-radius: 7px; color: #e9ecef; font-size: 15px; font-weight: 600; cursor: pointer; }
+#menuPop button:hover, #menuPop button:focus-visible { background: #2a313a; }
+#menuPop button b { width: 22px; text-align: center; font-size: 16px; }
+/* Start card: the goal in a sentence, Start, and a link to the full How to play. */
+.introCard { display: grid; gap: 12px; max-width: 420px !important; text-align: left; }
+.introCard .ig { font-size: 17px; line-height: 1.45; margin: 0; }
+.introCard .it2 { font-size: 14px; opacity: .75; margin: 0; }
+.introCard .ib { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.introCard .ib > button:first-child { flex: 1 1 auto; }
+.introCard .ihow { background: none !important; border: 0 !important; box-shadow: none !important; color: inherit !important; text-decoration: underline; font: inherit; font-size: 14px; padding: 8px 4px !important; cursor: pointer; opacity: .85; flex: none !important; width: auto !important; }
+/* Phones: the menu is a round icon at the end of its row; the game controls share the rest. */
 @media (max-width: 560px) {
-  #how, #howBtn, #setBtn { flex: none !important; order: 99; width: 40px; height: 40px; min-width: 0; padding: 0 !important; border-radius: 50% !important; font-size: 0 !important; line-height: 1; display: inline-grid; place-items: center; }
-  #how::before, #howBtn::before { content: "?"; font-size: 20px; font-weight: 800; }
-  #setBtn::before { content: "\2699"; font-size: 20px; }
-  #how, #howBtn { margin-left: auto; }
-  :has(> #how) > button:not(#how, #setBtn), :has(> #howBtn) > button:not(#howBtn, #setBtn) { flex: 1 1 auto; }
+  #menuBtn { flex: none !important; order: 99; width: 40px; height: 40px; min-width: 0; padding: 0 !important; border-radius: 50% !important; display: inline-grid; place-items: center; margin-left: auto; }
+  #menuBtn .ml { display: none; }
+  #menuBtn .mi { font-size: 19px; }
+  :has(> #menuBtn) > button:not(#menuBtn, .inmenu) { flex: 1 1 auto; }
 }
 </style>
 </head><body>
@@ -1130,5 +1144,62 @@ reset(); morning(); requestAnimationFrame(loop);
 document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea, select, [contenteditable]')) e.preventDefault(); });
 // iOS: a stray selection from a double tap gets cleared straight away.
 document.addEventListener('selectionchange', () => { const a = document.activeElement; if (a && a.matches && a.matches('input, textarea, [contenteditable]')) return; const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); });
+</script>
+<script id="gamemenu-js">
+(() => {
+  const INTRO = "skip";
+  const $ = id => document.getElementById(id);
+  const how = $('how') || $('howBtn'), set = $('setBtn'), modal = $('howModal');
+  // ── ☰ menu ──
+  if (how) {
+    const items = [['?', 'How to play', how]]; if (set) items.push(['⚙', 'Settings', set]);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.id = 'menuBtn'; btn.className = how.className; btn.title = 'Menu';
+    if (how.getAttribute('style')) btn.setAttribute('style', how.getAttribute('style'));
+    btn.setAttribute('aria-label', 'Menu'); btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = '<span class="mi">☰</span><span class="ml">&nbsp;Menu</span>';
+    how.before(btn); how.classList.add('inmenu'); if (set) set.classList.add('inmenu');
+    const pop = document.createElement('div'); pop.id = 'menuPop'; pop.setAttribute('role', 'menu'); pop.hidden = true;
+    pop.innerHTML = items.map(([ic, t], i) => `<button type="button" role="menuitem" data-i="${i}"><b>${ic}</b>${t}</button>`).join('');
+    document.body.append(pop);
+    const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!pop.hidden) return close();
+      pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+      let top = r.bottom + 6; if (top + ph > innerHeight - 8) top = r.top - ph - 6;
+      pop.style.left = Math.max(8, Math.min(innerWidth - pw - 8, r.right - pw)) + 'px'; pop.style.top = Math.max(8, top) + 'px';
+      pop.querySelector('button').focus();
+    });
+    pop.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; e.stopPropagation(); close(); items[+b.dataset.i][2].click(); });
+    document.addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close(); });
+    addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { close(); btn.focus(); } }, true);
+    addEventListener('resize', close);
+  }
+  // ── Start card instead of the full How to play ──
+  // The game still thinks How to play is open (so its clock doesn't run); the card just covers it.
+  const go = $('howClose') || $('go');
+  if (INTRO === 'skip' && modal && go && !modal.hidden) go.click();
+  else if (INTRO && modal && go && !modal.hidden) {
+    const card = document.createElement('div'); card.className = 'modal'; card.id = 'introModal';
+    card.innerHTML = `<div class="card introCard" role="dialog" aria-modal="true" aria-labelledby="introT"><h2 id="introT"></h2><p class="ig"></p><p class="it2"></p><div class="ib"></div></div>`;
+    card.querySelector('h2').textContent = INTRO[0]; card.querySelector('.ig').textContent = INTRO[1]; card.querySelector('.it2').textContent = INTRO[2];
+    const start = go.cloneNode(true); start.removeAttribute('id'); start.removeAttribute('style');
+    const more = document.createElement('button'); more.type = 'button'; more.className = 'ihow'; more.textContent = 'How to play';
+    card.querySelector('.ib').append(start, more);
+    modal.style.visibility = 'hidden'; modal.after(card);
+    let open = true;
+    const shut = () => { open = false; card.remove(); modal.style.visibility = ''; };
+    start.onclick = () => { shut(); go.click(); };
+    more.onclick = () => { shut(); };   // leaves the full How to play showing, with its own Start button
+    addEventListener('keydown', e => {
+      if (!open) return;
+      if (e.key === 'Enter' || e.key === ' ') { if (document.activeElement !== more) { e.preventDefault(); start.click(); } }
+      else if (e.key !== 'Tab') e.stopImmediatePropagation();
+    }, true);
+    setTimeout(() => start.focus(), 0);
+  }
+})();
 </script>
 </body></html>
