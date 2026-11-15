@@ -409,9 +409,15 @@ document.addEventListener('selectionchange', () => { const a = document.activeEl
 </script>
 
 <script>
-// Installable app + offline play: the service worker keeps every game cached after the first visit.
-if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+// No offline cache: every deploy shows up on the next load, like any website. Browsers that still
+// run the old offline service worker get it removed, its cached copies deleted, and one reload.
+if ('serviceWorker' in navigator && navigator.serviceWorker.getRegistrations) {
+  navigator.serviceWorker.getRegistrations().then(function (rs) {
+    if (!rs.length) return;
+    Promise.all(rs.map(function (r) { return r.unregister(); }))
+      .then(function () { return window.caches ? caches.keys().then(function (ks) { return Promise.all(ks.map(function (k) { return caches.delete(k); })); }) : 0; })
+      .catch(function () {}).then(function () { if (navigator.serviceWorker.controller) location.reload(); });
+  }).catch(function () {});
 }
 </script>
 </body></html>

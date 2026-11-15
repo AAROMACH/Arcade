@@ -17,7 +17,7 @@ public/
   config.js              the only file you edit: the arcade's Firebase web config
   scores.js              score storage: shared leaderboard, or this device only
   manifest.webmanifest   install as an app (home screen / desktop)
-  sw.js                  offline play: caches every game after the first visit
+  sw.js                  removes the old offline cache from browsers that still have it
   icons/                 app icons
 ```
 
@@ -133,8 +133,7 @@ aaromach-arcade project:
 - **Android:** Chrome menu → Install app.
 - **Desktop Chrome / Edge:** the install icon in the address bar.
 
-After the first visit every game works offline. Scores made offline post the next time a
-run ends with a connection.
+The arcade needs a connection (there is no offline mode), so every deploy shows up on the next load.
 
 ## 5. Link it from Command Center
 
