@@ -85,7 +85,16 @@ $('gIn').onclick = async () => {
 };
 $('gOut').onclick = async () => { await S.signOut(); $('acctMsg').textContent = 'Signed out. You\u2019re a guest again.'; };
 $('keepIn').onchange = () => { if (S.setKeep) S.setKeep($('keepIn').checked); };
-$('nameRow').addEventListener('submit', async e => { e.preventDefault(); await S.setName($('pname').value); $('nameSaved').textContent = 'Saved'; setTimeout(() => $('nameSaved').textContent = '', 1500); });
+$('nameRow').addEventListener('submit', async e => {
+  e.preventDefault(); $('nameSaved').textContent = 'Saving\u2026';
+  try { await S.setName($('pname').value); $('nameSaved').textContent = 'Saved'; $('postErr').hidden = true; setTimeout(() => $('nameSaved').textContent = '', 1500); }
+  catch (err) {
+    // Show the server's reason and code (same place as a failed score), so a setup problem is visible.
+    $('nameSaved').textContent = '';
+    $('postErr').hidden = false;
+    $('postErr').textContent = `Your name didn\u2019t save: ${(err && err.message) || 'no reply from the server'} [${(err && err.code) || 'no code'}]`;
+  }
+});
 """ + s[b:]
 R("""        <p class="lbnote" id="lbnote">Loading scores…</p>""",
   """        <p class="lbnote" id="lbnote">Loading scores…</p>
