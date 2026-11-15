@@ -48,6 +48,26 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   ok(n && n.name === 'bCorey/b the tech', 'name is cleaned', JSON.stringify(n));
   ok((await call('setName', { name: '   ' }, a.token)).err === 'INVALID_ARGUMENT', 'empty name is refused');
 
+  console.log('Sheet games (best stars per sheet):');
+  // An old running total from before v2 (seeded directly, as the emulator's owner).
+  await fetch(FS + 'scores/' + b.uid, { method: 'PATCH', headers: { 'content-type': 'application/json', authorization: 'Bearer owner' }, body: JSON.stringify({ fields: { name: { stringValue: 'B' }, games: { mapValue: { fields: { 'pull-day': { mapValue: { fields: { s: { integerValue: '99999' } } } } } } } } }) });
+  const lvOf = async () => { const d = await j(await fetch(FS + 'scores/' + b.uid)); const g = d.fields.games.mapValue.fields['pull-day'].mapValue.fields; const lv = g.lv ? g.lv.mapValue.fields : {}; return { s: +g.s.integerValue, lv: Object.fromEntries(Object.entries(lv).map(([k, v]) => [k, +v.integerValue])) }; };
+  const prun = (await call('startRun', { game: 'pull-day' }, b.token)).runId;
+  s = await call('submitScore', { runId: prun, game: 'pull-day', score: 800, sheet: { n: 1, stars: 2 }, stats: { level: 1 } }, b.token);
+  let L = await lvOf();
+  ok(L.s === 800 && L.lv[1] === 2, 'old running total is dropped; sheet 1 = 2 stars, best sheet $800', JSON.stringify(L));
+  await sleep(10500);
+  await call('submitScore', { runId: prun, game: 'pull-day', score: 100, sheet: { n: 5, stars: 3 } }, b.token);
+  L = await lvOf(); ok(!L.lv[5], 'a sheet past the furthest reached is ignored', JSON.stringify(L));
+  await sleep(10500);
+  await call('submitScore', { runId: prun, game: 'pull-day', score: 600, sheet: { n: 2, stars: 3 }, stats: { level: 2 } }, b.token);
+  await sleep(10500);
+  await call('submitScore', { runId: prun, game: 'pull-day', score: 600, sheet: { n: 1, stars: 1 } }, b.token);
+  L = await lvOf(); ok(L.lv[1] === 2 && L.lv[2] === 3 && L.s === 800, 'stars only go up; best single sheet kept', JSON.stringify(L));
+  await sleep(10500);
+  await call('submitScore', { runId: prun, game: 'pull-day', score: 600, sheet: { n: 2, stars: 7 } }, b.token);
+  L = await lvOf(); ok(L.lv[2] === 3, 'impossible star count is ignored', JSON.stringify(L));
+
   console.log('Reading the leaderboard:');
   r = await fetch(FS + 'scores/' + a.uid); const doc = await j(r);
   ok(r.status === 200, 'anyone can read scores', r.status);

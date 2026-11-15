@@ -41,7 +41,7 @@ const GAMES = {
 // Leaderboard stats each game may send with a score: the most a run could believably reach, and
 // whether lower is better. Each player's best of each is kept. Unknown keys are ignored.
 const STATS = {
-  'pull-day': { sheets: { max: 500 }, level: { max: 500 } },
+  'pull-day': { level: { max: 500 } },
   'terminate': { cables: { max: 10 } },
   'rough-in': { floor: { max: 500 } },
   'lift-panic': { ft: { max: 200000 }, cams: { max: 5000 } },
@@ -54,6 +54,11 @@ const STATS = {
   'tone-trace': { fixed: { max: 6 }, first: { max: 6 } },
   'dispatch-board': { day: { max: 10000 } },
 };
+// Sheet games: endless levels on fresh random maps. Instead of a running total (which rewards a long
+// sitting), the server keeps each player's best stars on each sheet number (lv: { "12": 3, ... }), and the
+// score is their best single sheet. A sheet can only be one past the furthest they've reached.
+const SHEETS = { 'pull-day': 500, 'coverage': 500 };
+const SCORE_VERSION = 2;   // v2 = "best single sheet" for sheet games; older running totals are dropped
 const MIN_GAP_MS = 10 * 1000;            // one score post per player every 10 seconds
 const RUN_MAX_AGE_MS = 12 * 3600 * 1000; // a run (an open game) expires after 12 hours
 
@@ -97,8 +102,11 @@ exports.submitScore = onCall(opts, async req => {
       need(time <= (now - started) / 1000 + 5, 'out-of-range', 'Time is longer than the game has been open.');
     }
 
-    const games = (cur.exists && cur.get('games')) || {}, prev = games[game] || {};
+    const games = (cur.exists && cur.get('games')) || {}, prev0 = games[game] || {};
+    // Sheet games: a best from before v2 was a running total, so it doesn't count against single sheets.
+    const prev = SHEETS[game] && prev0.v !== SCORE_VERSION ? { ...prev0, s: 0, at: null } : prev0;
     const next = { ...prev };
+    if (SHEETS[game]) next.v = SCORE_VERSION;
     const better = Math.round(score) > (+prev.s || 0), faster = time !== null && (!prev.t || Math.round(time) < prev.t);
     if (better) { next.s = Math.round(score); next.at = now; }
     if (faster) { next.t = Math.round(time); next.tat = now; }
@@ -111,11 +119,22 @@ exports.submitScore = onCall(opts, async req => {
       if (!Number.isFinite(old) || (rule2.low ? val < old : val > old)) { nx[k] = val; statBetter = true; }
     }
     if (statBetter) { next.x = nx; if (!next.at) next.at = now; }
+    // Stars on a sheet: 1–3, kept as the best per sheet number.
+    let sheetBetter = false;
+    const sh = d.sheet && typeof d.sheet === 'object' ? d.sheet : null;
+    if (SHEETS[game] && sh) {
+      const n = Number(sh.n), st = Number(sh.stars), lv = prev.lv || {};
+      const reached = Math.max(0, ...Object.keys(lv).map(Number).filter(Number.isFinite), Number(px.level) || 0);
+      if (Number.isInteger(n) && n >= 1 && n <= SHEETS[game] && n <= reached + 1 && Number.isInteger(st) && st >= 1 && st <= 3 && st > (Number(lv[n]) || 0)) {
+        next.lv = { ...lv, [n]: st }; sheetBetter = true; if (!next.at) next.at = now;
+      }
+    }
+    const migrated = SHEETS[game] && prev0.v !== SCORE_VERSION;
     tx.set(limRef, { lastScoreAt: Timestamp.fromMillis(now) });
-    if (better || faster || statBetter) {
+    if (better || faster || statBetter || sheetBetter || migrated) {
       tx.set(scoreRef, { games: { [game]: next }, updated: FieldValue.serverTimestamp(), ...(cur.exists && cur.get('name') ? {} : { name: 'Tech-' + uid.slice(-4).toUpperCase() }) }, { merge: true });
     }
-    return { best: next.s || 0, fastest: next.t || null, stats: next.x || {}, improved: better || faster || statBetter };
+    return { best: next.s || 0, fastest: next.t || null, stats: next.x || {}, improved: better || faster || statBetter || sheetBetter };
   });
 });
 

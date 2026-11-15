@@ -261,7 +261,7 @@ button:focus-visible { outline: 3px solid var(--cable); outline-offset: 2px; }
 
     <h3>Sheets and tiers</h3>
     <ul class="small" style="margin:0;padding-left:18px;display:grid;gap:4px">
-      <li>Each building is a <b>sheet</b>. Finish it, then <b>Next sheet →</b>. Your <b>job total</b> adds up every sheet you finish this sitting, and that's what goes on the leaderboard (along with the furthest sheet you reached).</li>
+      <li>Each building is a <b>sheet</b>. Finish it, then <b>Next sheet →</b>. Your <b>job total</b> adds up every sheet you finish this sitting (it's just for you). The leaderboard keeps your <b>best stars on each sheet</b>: each tier has a board ranked by how many sheets you've 3-starred, then 2-starred, then 1-starred. It also shows your best single sheet and the furthest sheet you reached. Replaying a sheet can only raise its stars.</li>
       <li><b>Undo run</b> takes back your last run. <b>Restart sheet</b> clears this sheet; if it was finished, its points come back off your total so you can try for a better plan.</li>
       <li><b>Tiers</b> add new walls and rooms: T1 Basics, T2 fire-rated walls and wood (sheet 16), T3 conduit and locked rooms (sheet 31), T4 hardened sites (sheet 46). Reach a tier once and you can jump straight to it.</li>
     </ul>
@@ -754,7 +754,7 @@ function showBreakdown(sc) {
     + `<div class="sum"><span>Sheet score</span><span>$${sc.total.toLocaleString()}</span></div>`;
 }
 function saveBoard() {
-try { if (parent !== window) parent.postMessage({ arcade: 'pull-day', score: jobScore, stats: { sheets: sheetScores.length, level } }, '*'); } catch (e) {}   const row = { id: jobId, score: jobScore, sheets: sheetScores.length, at: new Date().toLocaleDateString() };
+const row = { id: jobId, score: jobScore, sheets: sheetScores.length, at: new Date().toLocaleDateString() };
   board = board.filter(b => b.id !== jobId).concat(jobScore > 0 ? [row] : []).sort((a, b) => b.score - a.score).slice(0, 5);
   try { localStorage.setItem('pullday:board', JSON.stringify(board)); } catch {}
   renderBoard();
@@ -843,6 +843,8 @@ function finish(d) {
     done = true; const s = tally(); const st = starsFor(s.cost);
     total += s.cost;
     const sc = scoreSheet(s); sheetScores.push(sc.total); jobScore += sc.total; showBreakdown(sc); saveBoard();
+    // The leaderboard keeps the best stars per sheet number and the best single sheet, not the running total.
+    try { if (parent !== window) parent.postMessage({ arcade: 'pull-day', score: sc.total, sheet: { n: level, stars: st }, stats: { level } }, '*'); } catch (e) {}
     flash(analysis && analysis.best && s.cost < analysis.best - 1 ? 'You beat the best plan the game found!' : s.cost < parCost - 1 ? 'Under target. Good planning!' : st === 3 ? 'Right on target. Clean pull.' : st === 2 ? 'A little long. Close.' : 'Done, but long. Look for shorter paths.', 2.4);
     level >= bestLevel && (bestLevel = level + 1);
     try { localStorage.setItem('pullday:best', bestLevel); } catch {}
