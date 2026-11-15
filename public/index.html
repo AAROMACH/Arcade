@@ -70,6 +70,7 @@ h2 { margin: 0 0 10px; font-size: 12px; letter-spacing: .16em; text-transform: u
 .namerow input { font: inherit; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; width: 180px; }
 .namerow button { font: inherit; font-weight: 700; color: #111; background: var(--safety); border: 0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .namerow #nameSaved { color: #4cc38a; }
+.posterr { margin: 0; font-size: 13px; color: #ff8a7a; border-left: 3px solid #ff6a55; padding: 4px 8px; background: rgba(255,106,85,.08); border-radius: 4px; }
 .acct { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
 .acct button { font: inherit; font-weight: 700; display: inline-flex; align-items: center; gap: 7px; color: #1f1f1f; background: #fff; border: 1px solid #dadce0; border-radius: 6px; padding: 5px 12px; cursor: pointer; }
 .acct button svg { width: 16px; height: 16px; } .acct #gOut { color: var(--fg); background: var(--panel); border-color: var(--line); }
@@ -148,6 +149,7 @@ img, svg, canvas { -webkit-user-drag: none; }
         <div class="shead"><h3 id="sTitle"></h3><span id="sCount"></span></div>
         <div class="by" id="byBtns" hidden><button type="button" data-by="score">Top score</button><button type="button" data-by="time">Fastest</button></div>
         <p class="lbnote" id="lbnote">Loading scores…</p>
+        <p class="posterr" id="postErr" role="status" hidden></p>
         <form class="namerow" id="nameRow" hidden><label for="pname">Playing as</label><input id="pname" maxlength="24" autocomplete="nickname" placeholder="Your name"><button type="submit">Save</button><span id="nameSaved"></span></form>
         <div class="acct" id="acct" hidden><span id="acctWho"></span><button type="button" id="gIn"><svg viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.2-.2-1.7H9v3.3h4.8a4.1 4.1 0 0 1-1.8 2.7v2.2h2.9c1.7-1.6 2.7-3.9 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.5-.8 6-2.2l-2.9-2.2c-.8.5-1.8.9-3.1.9-2.4 0-4.4-1.6-5.1-3.8H.9v2.3A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.9 10.7a5.4 5.4 0 0 1 0-3.4V5H.9a9 9 0 0 0 0 8z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.5 3.5 1.4l2.6-2.6A9 9 0 0 0 .9 5l3 2.3C4.6 5.2 6.6 3.6 9 3.6z"/></svg>Sign in with Google</button><label class="keep"><input type="checkbox" id="keepIn" checked> Keep me signed in</label><button type="button" id="gOut" hidden>Sign out</button><span id="acctMsg" role="status"></span></div>
         <div id="sTable"></div>
@@ -286,7 +288,12 @@ function post(gameId, score, time) {
   writing = writing.then(() => S.save(body, { game: gameId, score: Number.isFinite(score) ? Math.round(score) : 0, time: faster ? Math.round(time) : null })).then(() => {
     const r = standings(gameId).findIndex(r => r.pid === me);
     $('toast').textContent = better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : `New fastest: ${clockFmt(time)}!`;
-  }).catch(err => { $('toast').textContent = err && err.code && err.code !== 'functions/internal' && err.code !== 'functions/unavailable' ? `Score not posted: ${err.message}` : 'Score not posted. Check your connection.'; });
+  }).catch(err => {
+    $('toast').textContent = err && err.code && err.code !== 'functions/internal' && err.code !== 'functions/unavailable' ? `Score not posted: ${err.message}` : 'Score not posted. Check your connection.';
+    // Keep the reason on the Leaderboard tab (the toast fades), with the code, so it can be reported.
+    $('postErr').hidden = false;
+    $('postErr').textContent = `Your last ${G(gameId).t} score didn’t save: ${(err && err.message) || 'no reply from the server'} [${(err && err.code) || 'no code'}]`;
+  });
 }
 addEventListener('message', e => {
   if (e.source !== $('frame').contentWindow) return;

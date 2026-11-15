@@ -77,11 +77,14 @@
     api.shared = true;
 
     // A "run" starts when a game is opened; the server uses it to judge whether a score is believable.
-    api.startRun = game => { runs[game] = call('startRun', { game }).then(r => r.runId).catch(() => null); };
+    // Keep the reason a run couldn't start, so a failed score post says why (not just "no run").
+    const runErr = {};
+    api.startRun = game => { delete runErr[game]; runs[game] = call('startRun', { game }).then(r => r.runId).catch(e => { runErr[game] = e; console.warn('startRun failed:', e); return null; }); };
     api.save = async (_all, post) => {
       if (!post || !post.game) return;
       if (!runs[post.game]) api.startRun(post.game);
-      const runId = await runs[post.game]; if (!runId) throw new Error('No run');
+      const runId = await runs[post.game];
+      if (!runId) { const e = runErr[post.game]; if (e) throw e; throw new Error('No run'); }
       return call('submitScore', { runId, game: post.game, score: post.score, time: Number.isFinite(post.time) ? post.time : null });
     };
     api.setName = async n => {
