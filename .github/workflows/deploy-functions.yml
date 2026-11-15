@@ -37,7 +37,7 @@ jobs:
         working-directory: functions
         run: npm ci --no-audit --no-fund
 
-      - name: Sign in to Google Cloud (no key: Workload Identity Federation)
+      - name: "Sign in to Google Cloud (Workload Identity Federation, no key)"
         uses: google-github-actions/auth@v2
         with:
           project_id: aaromach-arcade

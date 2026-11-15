@@ -109,6 +109,24 @@ then visit http://localhost:8080.
 steps, then add the same domain under Authentication → Settings → Authorized domains so the
 leaderboard sign-in works there.
 
+### Automatic deploys (GitHub Actions)
+
+`.github/workflows/deploy-functions.yml` deploys the Cloud Functions and Firestore rules whenever
+`functions/`, `firestore.rules` or `firebase.json` change on `main`, and can also be run by hand
+from the repo's **Actions** tab. It signs in with **Workload Identity Federation**: no key or
+secret is stored anywhere, and Google only trusts this repository. One-time setup in the
+aaromach-arcade project:
+
+1. Enable the **IAM Service Account Credentials API**.
+2. Create the service account `arcade-deployer` with: Firebase Admin, Cloud Functions Admin,
+   Cloud Run Admin, Service Account User, Artifact Registry Administrator, Service Usage Consumer.
+3. Create a Workload Identity pool `github` with an OIDC provider `arcade`: issuer
+   `https://token.actions.githubusercontent.com`, mappings `google.subject = assertion.sub` and
+   `attribute.repository = assertion.repository`, condition
+   `assertion.repository == "AAROMACH/Arcade"`.
+4. On the pool, **Grant access** (service account impersonation) to `arcade-deployer` for
+   principals whose `repository` is `AAROMACH/Arcade`.
+
 ## 4. Install it as an app
 
 - **iPhone / iPad:** open the site in Safari → Share → Add to Home Screen.
