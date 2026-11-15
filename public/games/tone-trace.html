@@ -199,7 +199,7 @@ const TOOLS = [
 ];
 const SHIFT = 6;
 let best = 0; try { best = +localStorage.getItem('tonetrace:best') || 0; } catch {}
-let score = 0, n = 0, tk, mins, used, wrong, closed;
+let score = 0, n = 0, tk, mins, used, wrong, closed, fixedN = 0, firstN = 0;
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 
 function newTicket() {
@@ -273,11 +273,11 @@ $('diag').addEventListener('click', e => {
   render();
 });
 function close(ok, why) {
-  closed = true;
+  closed = true; if (ok) { fixedN++; if (!wrong.size) firstN++; }
   const pay = ok ? Math.max(0, 250 - Math.max(0, mins - 15) * 10) + (wrong.size ? 0 : 100) - wrong.size * 40 : -100;
   score += pay;
   const last = n >= SHIFT;
-  try { if (parent !== window) parent.postMessage({ arcade: 'tone-trace', score: score }, '*'); } catch (e) {} 
+  try { if (parent !== window) parent.postMessage({ arcade: 'tone-trace', score: score, stats: { fixed: fixedN, first: firstN } }, '*'); } catch (e) {} 
   if (last && score > best) { best = score; try { localStorage.setItem('tonetrace:best', best); } catch {} }
   $('diag').hidden = true; $('dk').hidden = true; $('result').hidden = false;
   $('result').innerHTML = `<span class="stamp" style="color:${ok ? 'var(--ok)' : 'var(--stamp)'}">${ok ? 'Resolved' : 'Escalated'}</span>
@@ -286,7 +286,7 @@ function close(ok, why) {
     ${tk.story !== tk.fault ? `<div class="note">The customer’s story was a red herring.</div>` : ''}
     ${last ? `<div class="shiftend ${score >= GOAL ? 'ok' : ''}"><b>Shift total: ${score < 0 ? '−' : ''}$${Math.abs(score).toLocaleString()}</b> · ${score >= GOAL ? 'Shift goal met' : `Missed the $${GOAL.toLocaleString()} shift goal`}${score >= best && score > 0 ? ' · New best!' : ` · Best $${best.toLocaleString()}`}</div>` : ''}
     <button type="button" class="primary" id="nextBtn">${last ? 'Start a new shift' : 'Next ticket →'}</button>`;
-  $('nextBtn').onclick = () => { if (last) { score = 0; n = 0; } newTicket(); };
+  $('nextBtn').onclick = () => { if (last) { score = 0; n = 0; fixedN = 0; firstN = 0; } newTicket(); };
   render();
 }
 $('how').onclick = () => { $('howModal').hidden = false; };

@@ -746,7 +746,7 @@ function step(dm) {
 const dayTotal = () => billed + (trust - 60) * 10 + (crew - 60) * 10;
 function endDay() {
   const bonus = (trust - 60) * 10 + (crew - 60) * 10, day = billed + bonus, made = day >= goal, played = lvl;
-  try { if (parent !== window) parent.postMessage({ arcade: 'dispatch-board', score: day }, '*'); } catch (e) {}
+  try { if (parent !== window) parent.postMessage({ arcade: 'dispatch-board', score: day, stats: { day: Math.max(top, made ? played : 0) } }, '*'); } catch (e) {}
   over = true; paused = true; clock = END;
   if (day > best) { best = day; try { localStorage.setItem('dispatch:best', best); } catch {} }
   if (made) { top = Math.max(top, lvl); lvl++; } saveCareer();

@@ -494,7 +494,7 @@ $('next').onclick = () => {
   add('Spare NVR channels', (chLimit - cams.length) * 50);
   const got = lines.reduce((a, l) => a + l[1], 0); total += got; lastBreak = { level, lines, got };
   if (total > best) { best = total; try { localStorage.setItem('coverage:best', best); } catch {} }
-try { if (parent !== window) parent.postMessage({ arcade: 'coverage', score: total }, '*'); } catch (e) {} 
+try { if (parent !== window) parent.postMessage({ arcade: 'coverage', score: total, stats: { level } }, '*'); } catch (e) {} 
   level++; build();
 };
 $('how').onclick = () => { $('howModal').hidden = false; };

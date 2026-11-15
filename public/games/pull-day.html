@@ -722,7 +722,7 @@ function showBreakdown(sc) {
     + `<div class="sum"><span>Sheet score</span><span>$${sc.total.toLocaleString()}</span></div>`;
 }
 function saveBoard() {
-try { if (parent !== window) parent.postMessage({ arcade: 'pull-day', score: jobScore }, '*'); } catch (e) {}   const row = { id: jobId, score: jobScore, sheets: sheetScores.length, at: new Date().toLocaleDateString() };
+try { if (parent !== window) parent.postMessage({ arcade: 'pull-day', score: jobScore, stats: { sheets: sheetScores.length, level } }, '*'); } catch (e) {}   const row = { id: jobId, score: jobScore, sheets: sheetScores.length, at: new Date().toLocaleDateString() };
   board = board.filter(b => b.id !== jobId).concat(jobScore > 0 ? [row] : []).sort((a, b) => b.score - a.score).slice(0, 5);
   try { localStorage.setItem('pullday:board', JSON.stringify(board)); } catch {}
   renderBoard();

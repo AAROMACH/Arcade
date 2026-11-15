@@ -250,7 +250,7 @@ function start(m) {
 }
 function over() {
   state = 'over'; msg = `Shift over. Found ${found} tool${found === 1 ? '' : 's'}. Score $${score.toLocaleString()}.`;
-  try { if (parent !== window) parent.postMessage({ arcade: 'find-the-tool', score }, '*'); } catch (e) {}
+  try { if (parent !== window) parent.postMessage({ arcade: 'find-the-tool', score, stats: { found } }, '*'); } catch (e) {}
   if (mode === 'hunt') { let hb = 0; try { hb = +localStorage.getItem('findtool:huntbest') || 0; if (score > hb) localStorage.setItem('findtool:huntbest', score); } catch {} }
   else if (score > best) { best = score; try { localStorage.setItem('findtool:best', best); } catch {} }
   renderDrawers(); sync();

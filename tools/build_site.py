@@ -27,12 +27,12 @@ R("let db = null, user = null, me = null, rows = new Map(), mine = {}, loaded = 
 R("  const ps = user && ids.length ? await user.profiles(ids) : {};",
   "  const ps = Object.fromEntries(ids.map(id => [id, { name: names.get(id) || 'Someone' }]));")
 # Initials avatar instead of a profile photo.
-R("""<td><div class="who"><img alt="" src="${ps[r.pid]?.avatarUrl || ''}"><span></span></div></td>""",
-  """<td><div class="who"><b class="av" style="background:hsl(${[...r.pid].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 55% 42%)">${(ps[r.pid]?.name || '?').split(/\\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase().replace(/[<>&"]/g, '')}</b><span></span></div></td>""")
+R("""<div class="who"><img alt="" src="${ps[r.pid]?.avatarUrl || ''}">""",
+  """<div class="who"><b class="av" style="background:hsl(${[...r.pid].reduce((a, c) => a + c.charCodeAt(0), 0) % 360} 55% 42%)">${(ps[r.pid]?.name || '?').split(/\\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase().replace(/[<>&"]/g, '')}</b>""")
 R(".rank .who img { width: 22px; height: 22px; border-radius: 50%; flex: none; }",
   ".rank .who img, .rank .who .av { width: 22px; height: 22px; border-radius: 50%; flex: none; }\n.rank .who .av { display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; }")
 R("  if (!db || !me || !loaded || !G(gameId)) return;", "  if (!me || !loaded || !G(gameId)) return;")
-R("  writing = writing.then(() => db.doc('scores/' + me).set(body)).then(() => {", "  writing = writing.then(() => S.save(body, { game: gameId, score: Number.isFinite(score) ? Math.round(score) : 0, time: faster ? Math.round(time) : null })).then(() => {")
+R("  writing = writing.then(() => db.doc('scores/' + me).set(body)).then(() => {", "  writing = writing.then(() => S.save(body, { game: gameId, score: Number.isFinite(score) ? Math.round(score) : 0, time: faster ? Math.round(time) : null, stats: ns })).then(() => {")
 R("""  }).catch(err => { $('toast').textContent = err?.code === 'permission_denied' || err?.code === 'not_granted' ? 'Score not posted: needs Contributor access' : 'Score not posted'; });""",
   """  }).catch(err => {
     $('toast').textContent = err && err.code && err.code !== 'functions/internal' && err.code !== 'functions/unavailable' ? `Score not posted: ${err.message}` : 'Score not posted. Check your connection.';

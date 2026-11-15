@@ -594,7 +594,7 @@ function hit() {
   beep(140, .25, 'sawtooth', .07);
   if (lives <= 0) {
     state = 'over';
-try { if (parent !== window) parent.postMessage({ arcade: 'lift-panic', score: score }, '*'); } catch (e) {}     if (score > best) { best = score; try { localStorage.setItem('liftpanic:best', best); } catch {} }
+try { if (parent !== window) parent.postMessage({ arcade: 'lift-panic', score: score, stats: { ft: Math.floor(dist / 30), cams: mounted } }, '*'); } catch (e) {}     if (score > best) { best = score; try { localStorage.setItem('liftpanic:best', best); } catch {} }
   }
 }
 

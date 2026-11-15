@@ -58,6 +58,8 @@ table.rank { width: 100%; border-collapse: collapse; font-variant-numeric: tabul
 .rank tr.p1 .n { color: #ffd257; } .rank tr.p2 .n { color: #cfd6de; } .rank tr.p3 .n { color: #d99a62; }
 .rank .who { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .rank .who img { width: 22px; height: 22px; border-radius: 50%; flex: none; }
+.rank .who .nm { display: grid; min-width: 0; } .rank .who .sub { font-size: 12px; color: var(--muted); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.by { flex-wrap: wrap; }
 .rank .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rank .s { text-align: right; font-weight: 700; white-space: nowrap; }
 .rank .d { text-align: right; color: var(--muted); font-size: 12px; width: 72px; white-space: nowrap; }
@@ -104,7 +106,7 @@ img, svg, canvas { -webkit-user-drag: none; }
 <div class="wrap">
   <header>
     <h1>AAROMACH ARCADE</h1>
-    <p>Eleven games built from real field work: racks, cable pulls, terminations, cameras, fiber and dispatch. Your best run in each posts to the leaderboard.</p>
+    <p>Twelve games built from real field work: racks, cable pulls, terminations, cameras, fiber and dispatch. Your best run in each posts to the leaderboard.</p>
     <div class="tabs" role="tablist">
       <button type="button" role="tab" id="tabGames" aria-selected="true">Games</button>
       <button type="button" role="tab" id="tabLb" aria-selected="false">Leaderboard</button>
@@ -120,7 +122,7 @@ img, svg, canvas { -webkit-user-drag: none; }
       <div class="pickers" id="pickers" role="tablist" aria-label="Game"></div>
       <div class="standings">
         <div class="shead"><h3 id="sTitle"></h3><span id="sCount"></span></div>
-        <div class="by" id="byBtns" hidden><button type="button" data-by="score">Top score</button><button type="button" data-by="time">Fastest</button></div>
+        <div class="by" id="byBtns" hidden></div>
         <p class="lbnote" id="lbnote">Loading scores…</p>
         <div id="sTable"></div>
         <button type="button" class="playbtn" id="sPlay">Play</button>
@@ -195,7 +197,7 @@ $('tabGames').onclick = () => go('');
 $('tabLb').onclick = () => go('leaderboard');
 $('back').onclick = () => go('');
 $('sPlay').onclick = () => go(lbGame);
-document.querySelectorAll('#byBtns button').forEach(b => b.onclick = () => { lbBy = b.dataset.by; render(); });
+$('byBtns').addEventListener('click', e => { const b = e.target.closest('button[data-by]'); if (b) { lbBy = b.dataset.by; render(); } });
 $('pickers').addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (!b) return; lbGame = b.dataset.pick; try { localStorage.setItem('arcade:lbGame', lbGame); } catch {} render(); });
 function setDrawer(v) { drawerOpen = v; $('drawer').hidden = !v; $('lbtn').setAttribute('aria-expanded', v); try { localStorage.setItem('arcade:drawer', v ? '1' : '0'); } catch {} render(); }
 $('lbtn').onclick = () => setDrawer(!drawerOpen);
@@ -205,10 +207,31 @@ addEventListener('hashchange', route);
 
 // ── Scores: each player's bests live in one shared doc, scores/<their id>. ──
 const fmt = (x, v) => '$' + Math.round(v).toLocaleString();
+// Competitive stats each game sends with its score. The board can rank by any of them; each is the
+// player's own best (so a long Lift Panic run counts for distance even if it wasn't their top score).
+const STATS = {
+  'pull-day': [{ k: 'sheets', n: 'Sheets' }, { k: 'level', n: 'Level' }],
+  'terminate': [{ k: 'cables', n: 'Cables' }],
+  'rough-in': [{ k: 'floor', n: 'Floor' }],
+  'lift-panic': [{ k: 'ft', n: 'Distance', u: 'ft' }, { k: 'cams', n: 'Cameras' }],
+  'coverage': [{ k: 'level', n: 'Level' }],
+  'splice': [{ k: 'fibers', n: 'Fibers' }, { k: 'loss', n: 'Avg loss', u: 'dB', low: true }],
+  'rack-and-stack': [{ k: 'rows', n: 'Rows' }, { k: 'level', n: 'Level' }],
+  'rack-cleanup': [{ k: 'tidy', n: 'Avg tidy', u: '%' }],
+  'tool-drawer': [{ k: 'drawer', n: 'Drawer' }],
+  'find-the-tool': [{ k: 'found', n: 'Tools found' }],
+  'tone-trace': [{ k: 'fixed', n: 'Fixed' }, { k: 'first', n: 'First-time fixes' }],
+  'dispatch-board': [{ k: 'day', n: 'Furthest day' }],
+};
+const statsOf = id => STATS[id] || [];
+const statFmt = (d, v) => d.u === 'ft' ? `${Math.round(v).toLocaleString()} ft` : d.u === '%' ? `${Math.round(v)}%` : d.u === 'dB' ? `${(+v).toFixed(2)} dB` : Math.round(v).toLocaleString();
+const statShort = (d, v) => `${statFmt(d, v)}${d.u ? '' : ' ' + d.n.toLowerCase()}`;
 const ago = t => { if (!t) return ''; const d = (Date.now() - t) / 864e5; return d < 1 ? 'today' : d < 2 ? 'yesterday' : d < 30 ? `${Math.floor(d)}d ago` : new Date(t).toLocaleDateString(); };
 let db = null, user = null, me = null, rows = new Map(), mine = {}, loaded = false;
 const standings = (id, by = 'score') => {
-  const all = [...rows].map(([pid, r]) => ({ pid, s: +r?.[id]?.s, at: +r?.[id]?.at, t: +r?.[id]?.t, tat: +r?.[id]?.tat }));
+  const all = [...rows].map(([pid, r]) => ({ pid, s: +r?.[id]?.s, at: +r?.[id]?.at, t: +r?.[id]?.t, tat: +r?.[id]?.tat, x: r?.[id]?.x || {} }));
+  const sd = statsOf(id).find(d => d.k === by);
+  if (sd) return all.filter(r => Number.isFinite(+r.x[by]) && (sd.low || +r.x[by] > 0)).sort((a, b) => sd.low ? a.x[by] - b.x[by] : b.x[by] - a.x[by]);
   // Fastest: completed runs only, quickest first.
   if (by === 'time') return all.filter(r => Number.isFinite(r.t) && r.t > 0).map(r => ({ ...r, at: r.tat || r.at })).sort((a, b) => a.t - b.t);
   return all.filter(r => Number.isFinite(r.s) && r.s > 0).sort((a, b) => b.s - a.s);
@@ -216,18 +239,23 @@ const standings = (id, by = 'score') => {
 const clockFmt = t => `${Math.floor(t / 60)}:${String(Math.round(t % 60)).padStart(2, '0')}`;
 let lbBy = 'score';
 function table(x, list, ps, by = 'score') {
-  if (!list.length) return `<div class="empty">${loaded ? (by === 'time' ? 'No finished runs yet. Finish one to post a time.' : 'No scores yet. Be the first.') : 'Loading…'}</div>`;
-  return `<table class="rank"><tbody>${list.map((r, i) => `<tr class="p${i + 1} ${r.pid === me ? 'me' : ''}" data-pid="${r.pid}"><td class="n">${i + 1}</td><td><div class="who"><img alt="" src="${ps[r.pid]?.avatarUrl || ''}"><span></span></div></td><td class="s">${by === 'time' ? clockFmt(r.t) : fmt(x, r.s)}</td><td class="d">${ago(r.at)}</td></tr>`).join('')}</tbody></table>`;
+  const sd = statsOf(x.id).find(d => d.k === by);
+  if (!list.length) return `<div class="empty">${loaded ? (by === 'time' ? 'No finished runs yet. Finish one to post a time.' : sd ? `No ${sd.n.toLowerCase()} posted yet.` : 'No scores yet. Be the first.') : 'Loading…'}</div>`;
+  const main = r => by === 'time' ? clockFmt(r.t) : sd ? statFmt(sd, r.x[by]) : fmt(x, r.s);
+  const extra = r => [by !== 'score' && r.s > 0 ? fmt(x, r.s) : '', by !== 'time' && x.timed && r.t > 0 ? clockFmt(r.t) : '', ...statsOf(x.id).filter(d => d.k !== by && Number.isFinite(+r.x[d.k])).map(d => statShort(d, r.x[d.k]))].filter(Boolean).join(' · ');
+  return `<table class="rank"><tbody>${list.map((r, i) => `<tr class="p${i + 1} ${r.pid === me ? 'me' : ''}" data-pid="${r.pid}"><td class="n">${i + 1}</td><td><div class="who"><img alt="" src="${ps[r.pid]?.avatarUrl || ''}"><div class="nm"><span></span>${extra(r) ? `<small class="sub">${extra(r)}</small>` : ''}</div></div></td><td class="s">${main(r)}</td><td class="d">${ago(by === 'time' ? r.tat || r.at : r.at)}</td></tr>`).join('')}</tbody></table>`;
 }
-function fillNames(root, ps) { root.querySelectorAll('tr[data-pid]').forEach(tr => { tr.querySelector('.who span').textContent = (ps[tr.dataset.pid]?.name || 'Someone') + (tr.dataset.pid === me ? ' (you)' : ''); }); }
+function fillNames(root, ps) { root.querySelectorAll('tr[data-pid]').forEach(tr => { tr.querySelector('.who .nm > span').textContent = (ps[tr.dataset.pid]?.name || 'Someone') + (tr.dataset.pid === me ? ' (you)' : ''); }); }
 async function render() {
   const ids = [...rows.keys()];
   const ps = user && ids.length ? await user.profiles(ids) : {};
   GAMES.forEach(x => { const top = standings(x.id)[0]; const el = document.querySelector(`[data-top="${x.id}"]`); if (el) el.textContent = top ? `Leader: ${ps[top.pid]?.name || 'Someone'} · ${fmt(x, top.s)}` : ''; });
   // Standings tab
-  const x = G(lbGame); if (!x.timed) lbBy = 'score';
+  const x = G(lbGame), opts = [['score', 'Top score'], ...(x.timed ? [['time', 'Fastest']] : []), ...statsOf(x.id).map(d => [d.k, d.low ? `${d.n} (lowest)` : d.n])];
+  if (!opts.some(o => o[0] === lbBy)) lbBy = 'score';
   const list = standings(lbGame, lbBy);
-  $('byBtns').hidden = !x.timed; document.querySelectorAll('#byBtns button').forEach(b => b.setAttribute('aria-pressed', b.dataset.by === lbBy));
+  $('byBtns').hidden = opts.length < 2;
+  $('byBtns').innerHTML = opts.map(([k, n]) => `<button type="button" data-by="${k}" aria-pressed="${k === lbBy}">${n}</button>`).join('');
   document.querySelectorAll('[data-pick]').forEach(b => b.setAttribute('aria-selected', b.dataset.pick === lbGame));
   $('sTitle').textContent = x.t; $('sTitle').style.setProperty('--c', x.c); $('sPlay').style.setProperty('--c', x.c);
   $('sPlay').textContent = `Play ${x.t}`;
@@ -243,26 +271,31 @@ async function render() {
   }
 }
 let writing = Promise.resolve();
-function post(gameId, score, time) {
+function post(gameId, score, time, stats) {
   if (!db || !me || !loaded || !G(gameId)) return;
-  const prev = mine[gameId] || {};
+  const prev = mine[gameId] || {}, px = prev.x || {};
   const better = Number.isFinite(score) && score > 0 && score < 1e9 && (+prev.s || 0) < score;
   const faster = G(gameId).timed && Number.isFinite(time) && time > 0 && time < 1e6 && (!prev.t || time < prev.t);
-  if (!better && !faster) return;
+  // Stats: each kept as the player's own best (lower is better for some, like splice loss).
+  const ns = {}, improved = [];
+  statsOf(gameId).forEach(d => { const v = +(stats || {})[d.k]; if (!Number.isFinite(v) || v < 0 || v > 1e7 || (!d.low && v <= 0)) return; ns[d.k] = v;
+    const old = +px[d.k]; if (!Number.isFinite(old) || (d.low ? v < old : v > old)) improved.push(d); });
+  if (!better && !faster && !improved.length) return;
   const next = { ...prev };
   if (better) { next.s = Math.round(score); next.at = Date.now(); }
   if (faster) { next.t = Math.round(time); next.tat = Date.now(); }
+  if (improved.length) { next.x = { ...px }; improved.forEach(d => { next.x[d.k] = ns[d.k]; }); if (!next.at) next.at = Date.now(); }
   mine = { ...mine, [gameId]: next };
   const body = mine;
   writing = writing.then(() => db.doc('scores/' + me).set(body)).then(() => {
     const r = standings(gameId).findIndex(r => r.pid === me);
-    $('toast').textContent = better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : `New fastest: ${clockFmt(time)}!`;
+    $('toast').textContent = better ? `New best! ${r >= 0 ? `#${r + 1} on the board` : 'Posted'}` : faster ? `New fastest: ${clockFmt(time)}!` : `New best ${improved[0].n.toLowerCase()}: ${statFmt(improved[0], ns[improved[0].k])}!`;
   }).catch(err => { $('toast').textContent = err?.code === 'permission_denied' || err?.code === 'not_granted' ? 'Score not posted: needs Contributor access' : 'Score not posted'; });
 }
 addEventListener('message', e => {
   if (e.source !== $('frame').contentWindow) return;
   const d = e.data; if (!d || typeof d.arcade !== 'string' || d.arcade !== current) return;
-  post(d.arcade, Number(d.score), d.time == null ? NaN : Number(d.time));
+  post(d.arcade, Number(d.score), d.time == null ? NaN : Number(d.time), d.stats && typeof d.stats === 'object' ? d.stats : null);
 });
 route(); render();
 (async () => {

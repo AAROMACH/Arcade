@@ -402,7 +402,7 @@ function lock() {
   syncPanel();
 }
 
-function gameOver(why) { try { if (parent !== window) parent.postMessage({ arcade: 'rack-and-stack', score: score }, '*'); } catch (e) {} over = true; toast = null; overReason = why; if (score > best) { best = score; try { localStorage.setItem(`rackstack:best:${diff}`, best); } catch {} } tone(110, .4, 'sawtooth', .06); syncPanel(); }
+function gameOver(why) { try { if (parent !== window) parent.postMessage({ arcade: 'rack-and-stack', score: score, stats: { rows, level } }, '*'); } catch (e) {} over = true; toast = null; overReason = why; if (score > best) { best = score; try { localStorage.setItem(`rackstack:best:${diff}`, best); } catch {} } tone(110, .4, 'sawtooth', .06); syncPanel(); }
 function showToast(text, color, d = 1.6) { toast = { text, color, t: d }; }
 
 function syncPanel() {

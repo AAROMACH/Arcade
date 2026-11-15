@@ -1,6 +1,6 @@
 # Aaromach Arcade
 
-Eleven field-work games (cabling, cameras, fiber, tools, dispatch) as an installable web app on
+Twelve field-work games (cabling, cameras, fiber, tools, dispatch) as an installable web app on
 Firebase Hosting. No build step and no server code: every game is a self-contained HTML page.
 It is its own Firebase project; Command Center only links to it.
 

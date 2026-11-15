@@ -115,7 +115,9 @@ const cv = $('cv'), g = cv.getContext('2d'), W = cv.width, H = cv.height;
 const FIBERS = [['Blue', '#2f6fe0'], ['Orange', '#f07a1a'], ['Green', '#2f9a46'], ['Brown', '#7a4a24'], ['Slate', '#7d8790'], ['White', '#f2f2ee'], ['Red', '#d8322a'], ['Black', '#151515'], ['Yellow', '#f2d22e'], ['Violet', '#8a4fd1'], ['Rose', '#f29bb6'], ['Aqua', '#3ad1d1']];
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 let best = 0; try { best = +localStorage.getItem('splice:best') || 0; } catch {}
-let runT = 0;   // seconds on the clock this run
+let runT = 0;
+// Leaderboard stats: fibers spliced and their average loss in dB (lower is better).
+const spliceStats = () => losses.length ? { fibers: losses.length, loss: Math.round(losses.reduce((a, b) => a + b, 0) / losses.length * 100) / 100 } : { fibers: 0 };   // seconds on the clock this run
 let state = "idle", stage, fiber, tray = 1, score = 0, redos = 0, losses = [], ph = 0, res = {}, arc = 0, holding = false, msg = null, combo = 0;
 // stage: cleave → alignX → alignY → arc → result
 // Every moving target runs on its own motion: three sines at random speeds, plus random
@@ -186,7 +188,7 @@ function finish() {
   if (res.grade === 'FAIL') { redos++; combo = 0; msg = res.arc && res.over ? 'Over-fused: bubble in the joint.' : res.arc ? 'Under-fused: weak joint.' : res.angle > 1 ? 'Bad cleave angle.' : 'Cores misaligned.'; }
   else { combo++; losses.push(res.loss); const pts = Math.round(((res.grade === 'GREAT' ? 200 : 100) + (res.core ? 75 : 0)) * (1 + Math.min(4, combo - 1) * .25) * (1 + Math.floor(fiber / 3) * .5)); score += pts; msg = `+$${pts}${res.core ? ' · perfect cleave' : ''}${combo > 1 ? ` · ${combo} in a row` : ''}`; }
   stage = 'result'; hint(); sync();
-  if (redos >= 3) { state = 'over'; try { if (parent !== window) parent.postMessage({ arcade: 'splice', score: score }, '*'); } catch (e) {} if (score > best) { best = score; try { localStorage.setItem('splice:best', best); } catch {} } $('hint').textContent = 'Three redos. Shift over.'; $('key').textContent = 'NEW SHIFT'; sync(); }
+  if (redos >= 3) { state = 'over'; try { if (parent !== window) parent.postMessage({ arcade: 'splice', score: score, stats: spliceStats() }, '*'); } catch (e) {} if (score > best) { best = score; try { localStorage.setItem('splice:best', best); } catch {} } $('hint').textContent = 'Three redos. Shift over.'; $('key').textContent = 'NEW SHIFT'; sync(); }
 }
 function next() {
   if (res.grade === 'FAIL') { startFiber(); return; }
@@ -194,7 +196,7 @@ function next() {
   if (fiber >= 12) {
     // Tray complete: game over, with a bonus for each redo you didn't use.
     fiber = 11; score += 1000 + (3 - redos) * 250; state = 'won';
-    try { if (parent !== window) parent.postMessage({ arcade: 'splice', score: score, time: Math.round(runT) }, '*'); } catch (e) {}
+    try { if (parent !== window) parent.postMessage({ arcade: 'splice', score: score, time: Math.round(runT), stats: spliceStats() }, '*'); } catch (e) {}
     let bt = 0; try { bt = +localStorage.getItem('splice:bestTime') || 0; if (!bt || runT < bt) localStorage.setItem('splice:bestTime', Math.round(runT)); } catch {}
     if (score > best) { best = score; try { localStorage.setItem('splice:best', best); } catch {} }
     $('hint').textContent = `Tray complete in ${clk(runT)}. All 12 fibers spliced.`; $('key').textContent = 'NEW TRAY'; renderTray(); sync(); return;

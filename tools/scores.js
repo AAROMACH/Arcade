@@ -85,7 +85,7 @@
       if (!runs[post.game]) api.startRun(post.game);
       const runId = await runs[post.game];
       if (!runId) { const e = runErr[post.game]; if (e) throw e; throw new Error('No run'); }
-      return call('submitScore', { runId, game: post.game, score: post.score, time: Number.isFinite(post.time) ? post.time : null });
+      return call('submitScore', { runId, game: post.game, score: post.score, time: Number.isFinite(post.time) ? post.time : null, stats: post.stats || null });
     };
     api.setName = async n => {
       const name = clean(n); if (!name) return;

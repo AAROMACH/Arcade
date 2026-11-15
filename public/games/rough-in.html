@@ -271,7 +271,7 @@ function inspect() {
   score += pts; result = { right, wrongType, extra, missed, near };
   // Missed boxes mean a callback after drywall: that costs a hard hat.
   if (missed) lives--;
-  try { if (parent !== window) parent.postMessage({ arcade: 'rough-in', score: score }, '*'); } catch (e) {} 
+  try { if (parent !== window) parent.postMessage({ arcade: 'rough-in', score: score, stats: { floor: level } }, '*'); } catch (e) {} 
   if (score > best) { best = score; try { localStorage.setItem('roughin:best', best); } catch {} }
   $('tally').innerHTML = `<div>Right: ${right} × $150 · Wrong box: ${wrongType} × $50 · Extra: ${extra} × −$75</div><div>Missed: ${missed} × −$150${near ? ` · Near misses: ${near} × +$75 back` : ''}${perfect ? ' · Perfect floor +$300' : ''}</div>`;
   $('msg').textContent = perfect ? 'Inspector signed off. Clean rough-in.' : missed ? `${missed} missed box${missed > 1 ? 'es' : ''}. Callback after drywall: you lose a hard hat.` : 'Passed, with notes.';

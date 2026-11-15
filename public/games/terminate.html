@@ -187,7 +187,7 @@ function nextCable() {
   render();
 }
 function endShift() {
-const finished = fails < 3; try { if (parent !== window) parent.postMessage({ arcade: 'terminate', score: score, time: finished ? Math.round(shiftT) : null }, '*'); } catch (e) {}   running = false;
+const finished = fails < 3; try { if (parent !== window) parent.postMessage({ arcade: 'terminate', score: score, time: finished ? Math.round(shiftT) : null, stats: { cables: Math.max(0, cable - fails) } }, '*'); } catch (e) {}   running = false;
   const nb = score > best; if (nb) { best = score; try { localStorage.setItem('terminate:best', best); } catch {} }
   $('lcd').innerHTML = `<div class="big">SHIFT OVER</div><div>${fails >= 3 ? 'Three failed tests. Sent home early.' : `All 10 cables terminated in ${clk(shiftT)}.`}</div><div>Score $${score.toLocaleString()}${nb ? ' · New best!' : ` · Best $${best.toLocaleString()}`}</div>`;
   $('crimp').disabled = false; $('crimp').textContent = 'New shift'; $('crimp').onclick = () => { startShift(); };

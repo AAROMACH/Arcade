@@ -511,7 +511,7 @@ function writeChip(k, row) { const t = tones[k]; if (!t) return; book[row] = t.n
 addEventListener('keydown', ev => { if (ev.key === 'Escape' && holding && holding.from && !plugged(holding.from)) { const h = holding; if (h.end === 'a') h.c.a = { ...h.from }; else h.c.b = { ...h.from }; holding = null; settle(); render(); } });
 
 // ── Finish ──
-let finishArmed = 0;
+let finishArmed = 0, tidyLog = [];
 $('finish').onclick = () => {
   if (holding) return toast('Plug in the cable you\'re holding first.', 'bad');
   const t = tidy();
@@ -520,6 +520,7 @@ $('finish').onclick = () => {
 };
 function finishRack() {
   running = false; finished = true;
+  tidyLog.push(tidy());
   const want = drops.filter(Boolean).length + cfg.devs.length, base = 30 * drops.filter(Boolean).length + 60 * cfg.devs.length, t = tidy();
   let right = 0, wrong = 0; book.forEach((v, i) => { if (!v) return; const truth = drops[i] ? drops[i].name : 'Spare (no drop)'; if (v === truth) right++; else wrong++; });
   const onBackup = cfg.devs.filter(dv => devState[dv].backup).length, par = 22 * want, over = Math.max(0, clock - par);
@@ -528,14 +529,14 @@ function finishRack() {
     [`Gear left on backup (${onBackup})`, -50 * onBackup, 'r'], [`Over par (${clk(par)})`, -Math.round(over), 'r']];
   const pay = lines.reduce((a, l) => a + l[1], 0); shift += pay;
   const last = lvlIdx >= LEVELS.length - 1;
-  if (last) { try { if (parent !== window) parent.postMessage({ arcade: 'rack-cleanup', score: Math.max(0, shift) }, '*'); } catch (e) {} if (shift > best) { best = shift; try { localStorage.setItem('rackcleanup:best', best); } catch {} } }
+  if (last) { try { if (parent !== window) parent.postMessage({ arcade: 'rack-cleanup', score: Math.max(0, shift), stats: { tidy: Math.round(tidyLog.reduce((a, b) => a + b, 0) / tidyLog.length) } }, '*'); } catch (e) {} if (shift > best) { best = shift; try { localStorage.setItem('rackcleanup:best', best); } catch {} } }
   $('endCard').innerHTML = `<h2>${t === 100 ? 'Rack clean' : 'Rack done'} · ${money(pay)}</h2>
     <div class="ba"><figure><figcaption>Before</figcaption>${before.svg}</figure><figure><figcaption>After</figcaption>${drawSVG(true)}</figure></div>
     <table class="receipt">${lines.filter(l => l[1]).map(l => `<tr class="${l[2]}"><td>${l[0]}</td><td>${money(l[1])}</td></tr>`).join('')}<tr class="tot"><td>This rack</td><td>${money(pay)}</td></tr><tr class="tot"><td>Shift so far</td><td>${money(shift)}</td></tr></table>
     ${last ? `<p><b>Shift over: ${money(shift)}</b>${shift >= best && shift > 0 ? ' · New best!' : ` · Best ${money(best)}`}</p>` : ''}
     <button type="button" class="primary" id="nextRack">${last ? 'Start a new shift' : `Next rack (${LEVELS[lvlIdx + 1].n} ports) →`}</button>`;
   $('endModal').hidden = false;
-  $('nextRack').onclick = () => { $('endModal').hidden = true; if (last) { lvlIdx = 0; shift = 0; } else lvlIdx++; newRack(); };
+  $('nextRack').onclick = () => { $('endModal').hidden = true; if (last) { lvlIdx = 0; shift = 0; tidyLog = []; } else lvlIdx++; newRack(); };
 }
 
 $('how').onclick = () => { $('howModal').hidden = false; };

@@ -285,7 +285,7 @@ function check() {
   if (state === 'play' && pieces.every(p => p.gx !== null)) {
     const bonus = Math.round(timeLeft * 10), pts = 500 * level + bonus;
     score += pts;
-    try { if (parent !== window) parent.postMessage({ arcade: 'tool-drawer', score }, '*'); } catch (e) {}
+    try { if (parent !== window) parent.postMessage({ arcade: 'tool-drawer', score, stats: { drawer: level } }, '*'); } catch (e) {}
     if (score > best) { best = score; try { localStorage.setItem('tooldrawer:best', best); } catch {} }
     msg = `Drawer closed! +$${pts} ($${bonus} time bonus).`;
     setCP(level + 1, score);
@@ -295,7 +295,7 @@ function check() {
 }
 function gameOver() {
   state = 'over'; msg = `Out of time on drawer ${level}. Score $${score.toLocaleString()}. Tap Continue to retry this drawer with the score you had going in.`;
-  try { if (parent !== window) parent.postMessage({ arcade: 'tool-drawer', score }, '*'); } catch (e) {}
+  try { if (parent !== window) parent.postMessage({ arcade: 'tool-drawer', score, stats: { drawer: level } }, '*'); } catch (e) {}
   if (score > best) { best = score; try { localStorage.setItem('tooldrawer:best', best); } catch {} }
   sync();
 }

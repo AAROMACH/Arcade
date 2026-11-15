@@ -38,6 +38,22 @@ const GAMES = {
   'rack-cleanup':   { cap: 5000, perMin: 3000 },
   'dispatch-board': { cap: 20000, perMin: 15000 },
 };
+// Leaderboard stats each game may send with a score: the most a run could believably reach, and
+// whether lower is better. Each player's best of each is kept. Unknown keys are ignored.
+const STATS = {
+  'pull-day': { sheets: { max: 500 }, level: { max: 500 } },
+  'terminate': { cables: { max: 10 } },
+  'rough-in': { floor: { max: 500 } },
+  'lift-panic': { ft: { max: 200000 }, cams: { max: 5000 } },
+  'coverage': { level: { max: 500 } },
+  'splice': { fibers: { max: 500 }, loss: { max: 10, low: true } },
+  'rack-and-stack': { rows: { max: 20000 }, level: { max: 500 } },
+  'rack-cleanup': { tidy: { max: 100 } },
+  'tool-drawer': { drawer: { max: 500 } },
+  'find-the-tool': { found: { max: 2000 } },
+  'tone-trace': { fixed: { max: 6 }, first: { max: 6 } },
+  'dispatch-board': { day: { max: 10000 } },
+};
 const MIN_GAP_MS = 10 * 1000;            // one score post per player every 10 seconds
 const RUN_MAX_AGE_MS = 12 * 3600 * 1000; // a run (an open game) expires after 12 hours
 
@@ -86,11 +102,20 @@ exports.submitScore = onCall(opts, async req => {
     const better = Math.round(score) > (+prev.s || 0), faster = time !== null && (!prev.t || Math.round(time) < prev.t);
     if (better) { next.s = Math.round(score); next.at = now; }
     if (faster) { next.t = Math.round(time); next.tat = now; }
+    // Stats: only this game's known keys, within range; keep the best of each.
+    const sent = d.stats && typeof d.stats === 'object' ? d.stats : {}, px = prev.x || {}, nx = { ...px };
+    let statBetter = false;
+    for (const [k, rule2] of Object.entries(STATS[game] || {})) {
+      const v = Number(sent[k]); if (!Number.isFinite(v) || v < 0 || v > rule2.max || (!rule2.low && v <= 0)) continue;
+      const val = rule2.low ? Math.round(v * 100) / 100 : Math.round(v), old = Number(px[k]);
+      if (!Number.isFinite(old) || (rule2.low ? val < old : val > old)) { nx[k] = val; statBetter = true; }
+    }
+    if (statBetter) { next.x = nx; if (!next.at) next.at = now; }
     tx.set(limRef, { lastScoreAt: Timestamp.fromMillis(now) });
-    if (better || faster) {
+    if (better || faster || statBetter) {
       tx.set(scoreRef, { games: { [game]: next }, updated: FieldValue.serverTimestamp(), ...(cur.exists && cur.get('name') ? {} : { name: 'Tech-' + uid.slice(-4).toUpperCase() }) }, { merge: true });
     }
-    return { best: next.s || 0, fastest: next.t || null, improved: better || faster };
+    return { best: next.s || 0, fastest: next.t || null, stats: next.x || {}, improved: better || faster || statBetter };
   });
 });
 
