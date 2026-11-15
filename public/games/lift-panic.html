@@ -36,11 +36,11 @@ body {
   box-sizing: border-box; overflow: hidden;
 }
 .cab {
-  width: 100%; max-width: 960px; padding: 8px; border-radius: 10px; box-sizing: border-box;
+  width: 100%; max-width: var(--gw, 560px); padding: 8px; border-radius: 10px; box-sizing: border-box;
   background: repeating-linear-gradient(-45deg, var(--safety) 0 14px, #111 14px 28px);
 }
 canvas { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; max-width: 100%; border-radius: 4px; background: #0d0f12; touch-action: none; cursor: pointer; }
-.bar { width: 100%; max-width: 960px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.bar { width: 100%; max-width: var(--gw, 560px); display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between; font-size: 13px; color: var(--muted); }
 .bar b { color: var(--fg); font-weight: 700; }
 .keys { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 kbd { font-family: var(--body); font-weight: 700; font-size: 11px; color: var(--bg); background: var(--safety); border-radius: 3px; padding: 1px 5px; }
@@ -64,13 +64,14 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
   .bar button { padding: 7px 12px; }
   .liftpad { display: flex; align-items: center; }
   .bar { order: 3; } .tip { order: 4; }
+  .bar, .liftpad { max-width: 560px; }
   /* Phones: big thumb-sized RAISE / LOWER that use the space under the game. */
   body .liftpad .grp, body .liftpad.side .grp, body .liftpad.side.left .grp, body .liftpad.side.right .grp { width: 100%; max-width: 560px; gap: 10px; }
   body .liftpad .grp button { height: clamp(84px, 15vh, 132px); font-size: 22px; border-radius: 16px; }
   body .liftpad .grp button span { font-size: 34px; }
   .bar button { padding: 11px 16px; font-size: 14px; }
 }
-.liftpad { display: none; width: 100%; max-width: 960px; flex: 0 0 auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.liftpad { display: none; width: 100%; max-width: var(--gw, 560px); flex: 0 0 auto; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .liftpad .grp { display: grid; gap: 8px; grid-template-columns: 1fr; width: min(48%, 200px); }
 .liftpad.side .grp { grid-template-columns: 1fr 1fr; width: 100%; }
 .liftpad.side.left .grp, .liftpad.side.right .grp { width: min(100%, 300px); }
@@ -95,17 +96,16 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
 .obsInfo em { font-style: normal; font-weight: 700; color: var(--muted); }
 @media (max-width: 420px) { .obs { grid-template-columns: repeat(3, 1fr); } }
 .card .note { font-size: 12px; color: var(--muted); }
-.tip { display: none; width: 100%; max-width: 960px; font-size: 12px; color: var(--muted); }
+.tip { display: none; width: 100%; max-width: var(--gw, 560px); font-size: 12px; color: var(--muted); }
 @media (pointer: coarse), (max-width: 640px) { .liftpad { display: flex; align-items: center; } }
 @media (max-aspect-ratio: 1/1) {
   body { height: 100%; overflow: hidden; }
-  .cab { flex: 1 1 auto; min-height: 0; display: flex; align-items: center; justify-content: center; }
-  canvas { width: auto; height: 100%; max-width: 100%; max-height: 100%; }
-  .liftpad, .bar { flex: 0 0 auto; }
+  .cab, .liftpad, .bar { flex: 0 0 auto; }
 }
+canvas { aspect-ratio: 560 / 700; }
 </style>
 
-<div class="cab"><canvas id="game" width="960" height="540" aria-label="Lift Panic game"></canvas></div>
+<div class="cab"><canvas id="game" width="560" height="700" aria-label="Lift Panic game"></canvas></div>
 <div class="bar">
   <div class="keys">
     <span><kbd>↑</kbd>/<kbd>W</kbd> raise lift</span>
@@ -174,29 +174,39 @@ button:focus-visible { outline: 3px solid var(--fg); outline-offset: 2px; }
 (() => {
 const cv = document.getElementById('game');
 let cx = cv.getContext('2d');
-// Portrait phones get a narrower warehouse (bigger on screen) and a slightly slower run.
-const PORTRAIT = matchMedia('(max-aspect-ratio: 1/1)').matches;
-// Portrait: a taller warehouse (more of the phone used); vertical distances and lift speed scale with it.
-// Portrait: the warehouse is as tall as the phone allows (above the Raise/Lower buttons);
-// vertical distances and lift speed scale with it so it plays the same.
-const W = PORTRAIT ? 560 : 960, SPD = PORTRAIT ? .66 : 1;
-let H = 540, VS = 1, FLOOR = 470, MIN_DECK = 400, LIFT_RATE = 300;
+// One warehouse for every device (phone, tablet, PC), so the leaderboard is fair: the same size,
+// speed and spacing everywhere. It used to change with the screen's shape, which made phones (or a
+// PC window resized tall) a different game. Only how big it's drawn changes.
+const PORTRAIT = true;                       // the tall layout is the only layout now (kept for the text below)
+const W = 560, SPD = .66;
+let H = 700, VS = 1, FLOOR = 470, MIN_DECK = 400, LIFT_RATE = 300;
 const CEIL = 70;
+// Size on screen: as big as fits the space left after the bar and (on phones) the Raise/Lower pad,
+// keeping the warehouse's shape. Drawn at the screen's real resolution so it stays sharp when large.
+function fitDisplay() {
+  const bar = document.querySelector('.bar'), pad = document.querySelector('.liftpad');
+  const used = (bar ? bar.offsetHeight + 12 : 0) + (pad && getComputedStyle(pad).display !== 'none' ? pad.offsetHeight + 12 : 0) + 34;
+  const gw = Math.max(260, Math.min(innerWidth - 32, (innerHeight - used) * W / H + 16));
+  document.documentElement.style.setProperty('--gw', Math.floor(gw) + 'px');
+  return gw - 16;
+}
 function layoutWorld() {
-  if (PORTRAIT) {
-    const box = document.querySelector('.cab').getBoundingClientRect();
-    const w = box.width - 16, h = box.height - 16;
-    if (w > 50 && h > 50) H = Math.round(Math.max(540, Math.min(1300, W * h / w)));
-  }
   VS = H / 540; FLOOR = H - 70; MIN_DECK = FLOOR - 70; LIFT_RATE = 300 * VS;
-  cv.width = W; cv.height = H; cv.style.aspectRatio = `${W} / ${H}`;
+  const shown = fitDisplay(), k = Math.min(3, Math.max(1, shown * (devicePixelRatio || 1) / W));
+  cv.width = Math.round(W * k); cv.height = Math.round(H * k); cv.style.aspectRatio = `${W} / ${H}`;
+  cx.setTransform(cv.width / W, 0, 0, cv.height / H, 0, 0);
 }
 layoutWorld();
-// Re-fit when the screen changes size (browser bars, rotating, button layout) — between shifts only;
-// mid-shift the canvas just scales to fit, so nothing ever overlaps.
+// Re-fit when the screen changes size: the on-screen size any time, the sharpness between shifts.
 let fitT = 0;
-addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => { if (state !== 'play') layoutWorld(); }, 150); });
-const PX = PORTRAIT ? 130 : 230;                              // player x (centre of platform)
+addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => { if (state !== 'play') layoutWorld(); else fitDisplay(); }, 150); });
+// Fonts and the button bar settle after the first layout: re-fit once they do (and whenever the bar
+// or the Raise/Lower pad change size), so the game always uses the room it has.
+const refit = () => { clearTimeout(fitT); fitT = setTimeout(() => { if (state !== 'play') layoutWorld(); else fitDisplay(); }, 60); };
+addEventListener('load', refit);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(refit);
+if (window.ResizeObserver) { const ro = new ResizeObserver(refit); ['.bar', '.liftpad'].forEach(q => { const el = document.querySelector(q); if (el) ro.observe(el); }); }
+const PX = 130;                              // player x (centre of platform)
 const PW = 84, TECH_H = 46;                  // platform width, tech height above deck
 const MAX_DECK = CEIL + TECH_H + 6; // highest deck; the lowest (MIN_DECK) follows the floor
 const C = { safety: '#ffc21a', alarm: '#ff4b3e', fg: '#e9ecef', muted: '#9aa3ad', steel: '#3a414b', dark: '#0d0f12' };
@@ -479,7 +489,12 @@ const addHazard = h => {
   if (!things.some(o => o.kind === 'bracket' && !o.done && blocks(h, o)) && leavesAGap(h)) {
     things.push(h);
     // A new obstacle never sits on a power-up: drop that power-up and try again soon.
-    const bx = boxesOf(h); pickups = pickups.filter(p => { const hitIt = bx.some(b => b.x < p.x + 30 && b.x + b.w > p.x - 30 && b.y < p.y + 24 && b.y + b.h > p.y - 24); if (hitIt) nextPuFt = dist / 30 + 150; return !hitIt; });
+    // Moving obstacles are checked over their whole range of motion, not just where they start.
+    const bx = h.kind === 'pigeon' ? [{ x: h.x - 15, y: h.baseY - 52, w: 30, h: 104 }]
+      : h.kind === 'hoist' ? [{ x: h.x - 26, y: CEIL, w: 52, h: h.hi + 34 - CEIL }]
+      : h.osc ? [{ x: h.x - 72, y: FLOOR - h.hi - 34, w: 80, h: h.hi - h.lo + 34 }]
+      : boxesOf(h);
+    pickups = pickups.filter(p => { const hitIt = bx.some(b => b.x < p.x + 30 && b.x + b.w > p.x - 30 && b.y < p.y + 24 && b.y + b.h > p.y - 24); if (hitIt) nextPuFt = dist / 30 + 150; return !hitIt; });
   }
 };
 
