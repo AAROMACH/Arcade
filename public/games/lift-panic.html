@@ -7,15 +7,29 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 button, a, canvas, svg, label, [role="button"], [data-id], [data-t], [data-c] { touch-action: manipulation; }
 img, svg, canvas { -webkit-user-drag: none; }
-</style><style id="mobicons">
-/* Phones: How to play / Settings shrink to round icons and sit together at the end of their row;
-   the game controls in that row share the rest of the width evenly. */
+</style><style id="gamemenu">
+/* ☰ menu: How to play and Settings live here, so the game's own buttons stay together. */
+.inmenu { display: none !important; }
+#menuBtn .mi { font-size: 1.1em; line-height: 1; }
+#menuBtn.icon .ml { display: none; }
+#menuPop { position: fixed; z-index: 60; min-width: 190px; display: grid; gap: 2px; padding: 6px; border-radius: 10px; background: #1b1f25; border: 1px solid #39414b; box-shadow: 0 12px 30px rgba(0,0,0,.45); font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+#menuPop[hidden] { display: none; }
+#menuPop button { all: unset; box-sizing: border-box; display: flex; gap: 10px; align-items: center; padding: 11px 12px; border-radius: 7px; color: #e9ecef; font-size: 15px; font-weight: 600; cursor: pointer; }
+#menuPop button:hover, #menuPop button:focus-visible { background: #2a313a; }
+#menuPop button b { width: 22px; text-align: center; font-size: 16px; }
+/* Start card: the goal in a sentence, Start, and a link to the full How to play. */
+.introCard { display: grid; gap: 12px; max-width: 420px !important; text-align: left; }
+.introCard .ig { font-size: 17px; line-height: 1.45; margin: 0; }
+.introCard .it2 { font-size: 14px; opacity: .75; margin: 0; }
+.introCard .ib { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
+.introCard .ib > button:first-child { flex: 1 1 auto; }
+.introCard .ihow { background: none !important; border: 0 !important; box-shadow: none !important; color: inherit !important; text-decoration: underline; font: inherit; font-size: 14px; padding: 8px 4px !important; cursor: pointer; opacity: .85; flex: none !important; width: auto !important; }
+/* Phones: the menu is a round icon at the end of its row; the game controls share the rest. */
 @media (max-width: 560px) {
-  #how, #howBtn, #setBtn { flex: none !important; order: 99; width: 40px; height: 40px; min-width: 0; padding: 0 !important; border-radius: 50% !important; font-size: 0 !important; line-height: 1; display: inline-grid; place-items: center; }
-  #how::before, #howBtn::before { content: "?"; font-size: 20px; font-weight: 800; }
-  #setBtn::before { content: "\2699"; font-size: 20px; }
-  #how, #howBtn { margin-left: auto; }
-  :has(> #how) > button:not(#how, #setBtn), :has(> #howBtn) > button:not(#howBtn, #setBtn) { flex: 1 1 auto; }
+  #menuBtn { flex: none !important; order: 99; width: 40px; height: 40px; min-width: 0; padding: 0 !important; border-radius: 50% !important; display: inline-grid; place-items: center; margin-left: auto; }
+  #menuBtn .ml { display: none; }
+  #menuBtn .mi { font-size: 19px; }
+  :has(> #menuBtn) > button:not(#menuBtn, .inmenu) { flex: 1 1 auto; }
 }
 </style>
 </head><body>
@@ -175,7 +189,7 @@ body.sidepads .sidebtn { display: flex; }
       <li><b>Mount cameras:</b> line the tech's hands up with each yellow <b>MOUNT</b> ring as it passes. Ceiling mounts are worth 100, column mounts 150.</li>
       <li><b>Streaks:</b> mounts in a row multiply the points, up to ×5. Missing one resets the streak but doesn't cost a life.</li>
       <li><b>Dodge</b> everything under <b>Obstacles</b> below. Only the tech counts as a hit (hard hat to boots), not the lift. Each hit costs a hard hat; three and the shift's over.</li>
-      <li><b>Power-ups</b> are rare (about one every 1,000 ft, none before 400 ft): a spare hard hat, a spotter that shows hit areas, or a hydraulic boost. Reach for one with your hands, but it usually costs you that camera.</li>
+      <li><b>Power-ups</b> are rare (about one every 1,000 ft, none before 400 ft): a spare hard hat, a spotter who calls out each hazard before it comes on screen (a picture of it, at its height, about 1.5 s early, for 10 seconds), or a hydraulic boost. Reach for one with your hands, but it usually costs you that camera.</li>
       <li>The lift is slow on purpose, so start moving early. The warehouse speeds up the longer you last.</li>
       <li>Every camera can be reached — nothing ever blocks a mount point.</li>
     </ul>
@@ -311,8 +325,8 @@ const OBS = [
     pass: 'Reach for it with the tech\u2019s hands. Gives back a hard hat (or $250 if you have all three). Usually costs you that camera.',
     lane: [], o: () => ({ kind: 'pu', p: 'hat' }) },
   { id: 'pu-spot', name: 'Spotter', when: 'Power-up, from 400 ft', tag: 'POWER-UP', power: true,
-    move: 'A coworker on the floor calls out the hazards for 6 seconds.',
-    pass: 'While it lasts, every obstacle\u2019s hit area is outlined in orange, like this guide.',
+    move: 'A coworker on the floor calls out what\u2019s coming for 10 seconds.',
+    pass: 'Each hazard shows up as a picture at the right edge, at its height, about 1.5 seconds before it comes on screen. The orange bar marks the heights it covers.',
     lane: [], o: () => ({ kind: 'pu', p: 'spot' }) },
   { id: 'pu-boost', name: 'Hydraulic boost', when: 'Power-up, from 400 ft', tag: 'POWER-UP', power: true,
     move: 'The lift raises and lowers much faster for 8 seconds.',
@@ -463,7 +477,7 @@ const NEWNAME = { hoist: 'NEW: OVERHEAD HOIST', mezz: 'NEW: MEZZANINE — GO OVE
 function start() {
   layoutWorld();
   deck = MIN_DECK; deckV = 0; campT = 0; speed = 230 * SPD; dist = 0; score = 0; lives = 3; streak = 0; mounted = 0;
-  things = []; spawnAt = 300; hitFlash = 0; invuln = 0; shake = 0; floaters = []; t = 0; nextBracketAt = 200;
+  things = []; spawnAt = 0; hitFlash = 0; invuln = 0; shake = 0; floaters = []; t = 0; nextBracketAt = -100;
   announced = new Set(); dark = 0; nextDarkFt = 1200; pickups = []; power = { spot: 0, boost: 0 }; nextPuFt = 400 + Math.random() * 300;
   state = 'play'; paused = false; beep(660, .1); beep(880, .12);
 }
@@ -532,10 +546,18 @@ const addHazard = h => {
 };
 
 // Obstacles and brackets scroll in from the right. Each has x (world→screen) and its own shape.
+// They're placed AHEAD px past the edge (ramping up over the first stretch so the start isn't empty);
+// the spacing between them is unchanged, they just exist off-screen longer so the spotter can see them.
+const AHEAD = 900;
+// Spotter call-outs show up this long before a hazard enters the frame. At top speed a hazard (a fast
+// forklift is the worst case) crosses the frame to the tech in about 0.8 s, and a full lift move takes about
+// 1.2 s; 1.5 s of warning plus that gives ~2.3 s, enough to react and move. Earlier than that and the
+// call-outs pile up and stop meaning "move now".
+const SPOT_LEAD = 1.5, SPOT_TIME = 10;
 function spawn() {
   const level = Math.min(1, dist / 9000);       // 0 → 1 over the first stretch
   const r = Math.random();
-  const x = W + 60;
+  const x = W + 60 + Math.min(AHEAD, 300 + dist);
   // Mount points come at uneven gaps and heights: ceiling, high on a column, or low on a column.
   if (dist > nextBracketAt) {
     const spot = () => {
@@ -553,7 +575,7 @@ function spawn() {
   // Sitting on the floor too long: the next hazard is a forklift with its pallet at your height.
   if (campT > 2.5) {
     const before = things.length;
-    addHazard({ kind: 'fork', x: x + 120, w: 120, band: (68 + Math.random() * 30) * VS, vx: 70 + Math.random() * 60 * (1 + level), camp: true });
+    addHazard({ kind: 'fork', x: W + 180, w: 120, band: (68 + Math.random() * 30) * VS, vx: 70 + Math.random() * 60 * (1 + level), camp: true });   // the anti-camping forklift comes straight in
     if (things.length > before) { campT = 0; spawnAt = dist + 260 + Math.random() * (320 - level * 150); return; }
   }
   const ft = dist / 30, extra = Object.keys(UNLOCK).filter(k => ft >= UNLOCK[k]);
@@ -636,7 +658,7 @@ function placePickup(x, ringY) {
 }
 function grab(p) {
   if (p.kind === 'hat') { if (lives < 3) { lives++; floaters.push({ x: PX, y: p.y, txt: '+1 HARD HAT', life: 1.4 }); } else { score += 250; floaters.push({ x: PX, y: p.y, txt: 'SPARE HAT +$250', life: 1.4 }); } }
-  if (p.kind === 'spot') { power.spot = 6; floaters.push({ x: PX, y: p.y, txt: 'SPOTTER: HIT AREAS SHOWN', life: 1.4 }); }
+  if (p.kind === 'spot') { power.spot = SPOT_TIME; floaters.push({ x: PX, y: p.y, txt: 'SPOTTER: CALLING OUT HAZARDS', life: 1.4 }); }
   if (p.kind === 'boost') { power.boost = 8; floaters.push({ x: PX, y: p.y, txt: 'HYDRAULIC BOOST', life: 1.4 }); }
   beep(660, .06, 'triangle'); beep(990, .08, 'triangle');
 }
@@ -934,6 +956,40 @@ function drawThing(o) {
   }
 }
 
+// Spotter: a picture of each hazard about to come in, at the right edge at its height, with a bar
+// along the edge marking the heights it covers and a countdown until it's on screen.
+function drawSpotter() {
+  const calls = [];
+  for (const o of things) {
+    if (o.kind === 'bracket') continue;
+    const bs = boxesOf(o) || []; if (!bs.length) continue;
+    const x0 = Math.min(...bs.map(b => b.x)); if (x0 <= W) continue;
+    const tte = (x0 - W) / Math.max(1, speed + (o.vx || 0)); if (tte > SPOT_LEAD) continue;
+    calls.push({ o, tte, x0, x1: Math.max(...bs.map(b => b.x + b.w)), y0: Math.min(...bs.map(b => b.y)), y1: Math.max(...bs.map(b => b.y + b.h)) });
+  }
+  calls.sort((a, b) => a.tte - b.tte);
+  const bw = 88, bh = 72, used = [];
+  for (const c of calls) {
+    const a = Math.min(1, (SPOT_LEAD - c.tte) * 4);   // fade in
+    // Danger band along the edge: exactly the heights it can hit.
+    cx.globalAlpha = a; cx.fillStyle = 'rgba(255,138,31,.85)'; cx.fillRect(W - 7, Math.max(CEIL, c.y0), 7, Math.min(FLOOR, c.y1) - Math.max(CEIL, c.y0));
+    let cy = Math.max(CEIL + bh / 2 + 4, Math.min(FLOOR - bh / 2 - 4, (c.y0 + c.y1) / 2));
+    for (const u of used) if (Math.abs(u - cy) < bh + 6) cy = u + (cy >= u ? 1 : -1) * (bh + 6);   // don't stack on another call-out
+    used.push(cy);
+    const bx = W - bw - 14, by = cy - bh / 2;
+    rr(bx, by, bw, bh, 8); cx.fillStyle = 'rgba(16,19,24,.9)'; cx.fill(); cx.strokeStyle = '#ff8a1f'; cx.lineWidth = 2; cx.stroke();
+    cx.save(); rr(bx + 3, by + 3, bw - 6, bh - 14, 6); cx.clip();
+    const sw = c.x1 - c.x0 + 30, sh = c.y1 - c.y0 + 30, k = Math.min((bw - 10) / sw, (bh - 18) / sh, .7);
+    cx.translate(bx + bw / 2, by + (bh - 10) / 2); cx.scale(k, k); cx.translate(-(c.x0 + c.x1) / 2, -(c.y0 + c.y1) / 2);
+    drawThing(c.o); cx.restore();
+    // Countdown: the bar empties as it reaches the edge.
+    cx.fillStyle = '#3a2a18'; cx.fillRect(bx + 6, by + bh - 8, bw - 12, 4);
+    cx.fillStyle = '#ff8a1f'; cx.fillRect(bx + 6, by + bh - 8, (bw - 12) * Math.max(0, c.tte / SPOT_LEAD), 4);
+    // Arrow pointing in.
+    cx.beginPath(); cx.moveTo(bx - 4, cy); cx.lineTo(bx + 4, cy - 7); cx.lineTo(bx + 4, cy + 7); cx.closePath(); cx.fillStyle = '#ff8a1f'; cx.fill();
+    cx.globalAlpha = 1;
+  }
+}
 function drawPickup(p) {
   const pulse = reduce ? 1 : 1 + Math.sin(t * 6) * .08, r = 17 * pulse;
   const g = cx.createRadialGradient(p.x, p.y, 4, p.x, p.y, 34); g.addColorStop(0, 'rgba(120,230,255,.45)'); g.addColorStop(1, 'rgba(120,230,255,0)');
@@ -973,7 +1029,6 @@ function render() {
   drawWarehouse();
   if (state !== 'title') {
     things.forEach(drawThing);
-    if (power.spot > 0) things.forEach(o => (boxesOf(o) || []).forEach(b => { cx.fillStyle = 'rgba(255,138,31,.14)'; cx.fillRect(b.x, b.y, b.w, b.h); cx.strokeStyle = '#ff8a1f'; cx.lineWidth = 2.5; cx.setLineDash([7, 5]); cx.strokeRect(b.x, b.y, b.w, b.h); cx.setLineDash([]); }));
     pickups.forEach(drawPickup); drawLift();
     if (dark > 0) {
       // Darkness with a pool of work light around the tech; fades in and out at the ends.
@@ -981,6 +1036,7 @@ function render() {
       const gr = cx.createRadialGradient(lx, ly, 50, lx + 120, ly, 330); gr.addColorStop(0, 'rgba(6,8,11,0)'); gr.addColorStop(1, `rgba(6,8,11,${.9 * k})`);
       cx.fillStyle = gr; cx.fillRect(0, 0, W, H);
     }
+    if (power.spot > 0) drawSpotter();
     hud();
   }
   cx.restore();
@@ -1010,5 +1066,62 @@ requestAnimationFrame(loop);
 document.addEventListener('contextmenu', e => { if (!e.target.closest('input, textarea, select, [contenteditable]')) e.preventDefault(); });
 // iOS: a stray selection from a double tap gets cleared straight away.
 document.addEventListener('selectionchange', () => { const a = document.activeElement; if (a && a.matches && a.matches('input, textarea, [contenteditable]')) return; const s = getSelection(); if (s && !s.isCollapsed) s.removeAllRanges(); });
+</script>
+<script id="gamemenu-js">
+(() => {
+  const INTRO = null;
+  const $ = id => document.getElementById(id);
+  const how = $('how') || $('howBtn'), set = $('setBtn'), modal = $('howModal');
+  // ── ☰ menu ──
+  if (how) {
+    const items = [['?', 'How to play', how]]; if (set) items.push(['⚙', 'Settings', set]);
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.id = 'menuBtn'; btn.className = how.className; btn.title = 'Menu';
+    if (how.getAttribute('style')) btn.setAttribute('style', how.getAttribute('style'));
+    btn.setAttribute('aria-label', 'Menu'); btn.setAttribute('aria-haspopup', 'menu'); btn.setAttribute('aria-expanded', 'false');
+    btn.innerHTML = '<span class="mi">☰</span><span class="ml">&nbsp;Menu</span>';
+    how.before(btn); how.classList.add('inmenu'); if (set) set.classList.add('inmenu');
+    const pop = document.createElement('div'); pop.id = 'menuPop'; pop.setAttribute('role', 'menu'); pop.hidden = true;
+    pop.innerHTML = items.map(([ic, t], i) => `<button type="button" role="menuitem" data-i="${i}"><b>${ic}</b>${t}</button>`).join('');
+    document.body.append(pop);
+    const close = () => { pop.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      if (!pop.hidden) return close();
+      pop.hidden = false; btn.setAttribute('aria-expanded', 'true');
+      const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
+      let top = r.bottom + 6; if (top + ph > innerHeight - 8) top = r.top - ph - 6;
+      pop.style.left = Math.max(8, Math.min(innerWidth - pw - 8, r.right - pw)) + 'px'; pop.style.top = Math.max(8, top) + 'px';
+      pop.querySelector('button').focus();
+    });
+    pop.addEventListener('click', e => { const b = e.target.closest('button[data-i]'); if (!b) return; e.stopPropagation(); close(); items[+b.dataset.i][2].click(); });
+    document.addEventListener('pointerdown', e => { if (!pop.hidden && !pop.contains(e.target) && e.target !== btn && !btn.contains(e.target)) close(); });
+    addEventListener('keydown', e => { if (e.key === 'Escape' && !pop.hidden) { close(); btn.focus(); } }, true);
+    addEventListener('resize', close);
+  }
+  // ── Start card instead of the full How to play ──
+  // The game still thinks How to play is open (so its clock doesn't run); the card just covers it.
+  const go = $('howClose') || $('go');
+  if (INTRO === 'skip' && modal && go && !modal.hidden) go.click();
+  else if (INTRO && modal && go && !modal.hidden) {
+    const card = document.createElement('div'); card.className = 'modal'; card.id = 'introModal';
+    card.innerHTML = `<div class="card introCard" role="dialog" aria-modal="true" aria-labelledby="introT"><h2 id="introT"></h2><p class="ig"></p><p class="it2"></p><div class="ib"></div></div>`;
+    card.querySelector('h2').textContent = INTRO[0]; card.querySelector('.ig').textContent = INTRO[1]; card.querySelector('.it2').textContent = INTRO[2];
+    const start = go.cloneNode(true); start.removeAttribute('id'); start.removeAttribute('style');
+    const more = document.createElement('button'); more.type = 'button'; more.className = 'ihow'; more.textContent = 'How to play';
+    card.querySelector('.ib').append(start, more);
+    modal.style.visibility = 'hidden'; modal.after(card);
+    let open = true;
+    const shut = () => { open = false; card.remove(); modal.style.visibility = ''; };
+    start.onclick = () => { shut(); go.click(); };
+    more.onclick = () => { shut(); };   // leaves the full How to play showing, with its own Start button
+    addEventListener('keydown', e => {
+      if (!open) return;
+      if (e.key === 'Enter' || e.key === ' ') { if (document.activeElement !== more) { e.preventDefault(); start.click(); } }
+      else if (e.key !== 'Tab') e.stopImmediatePropagation();
+    }, true);
+    setTimeout(() => start.focus(), 0);
+  }
+})();
 </script>
 </body></html>
