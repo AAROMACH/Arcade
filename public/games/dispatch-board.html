@@ -402,7 +402,7 @@ const LOAN = { amount: 2000, owed: 2600, daily: 400, late: 150 };
 const CAND_NAMES = ['Andre', 'Tasha', 'Kevin', 'Mei', 'Jorge', 'Sam', 'Nia', 'Owen', 'Rita', 'Ty', 'Bree', 'Hank', 'Lena', 'Omar', 'Cole', 'Jess'];
 const CAND_COLS = ['#ff8fb1', '#3fd0c9', '#7ddc6f', '#f07a1a', '#e2c79a', '#9aa7ff', '#ff6b5e', '#b5e655'];
 const freshCareer = (l = 1, t = 0) => ({ v: 2, lvl: l, top: t, cash: 1500, roster: TECH0.map(x => ({ ...x, wage: WAGE0[x.name], morale: 70, on: true, days: 0 })),
-  inv: Object.fromEntries(Object.keys(SK).map(k => [k, 3])), hist: [], cands: null, news: [], savedAt: 0 });
+  inv: Object.fromEntries(Object.keys(SK).map(k => [k, 0])), hist: [], cands: null, news: [], savedAt: 0, setup: true });
 let car;
 try { const sv = JSON.parse(localStorage.getItem('dispatch:career') || '{}'); car = sv.v === 2 ? sv : freshCareer(sv.lvl || 1, sv.top || 0); } catch { car = freshCareer(); }
 lvl = car.lvl; top = car.top;
@@ -919,21 +919,27 @@ function openCamp() {
 function renderCamp() {
   const c = car, onN = c.roster.filter(r => r.on).length, pay = c.roster.reduce((a, r) => a + r.wage, 0);
   const mcol = m => m <= WARN_AT ? 'var(--late)' : m < 55 ? 'var(--due)' : 'var(--go)';
+  const setup = !!c.setup, stockCost = Object.keys(SK).reduce((a, k) => a + KIT[k] * Math.max(0, 3 - (c.inv[k] || 0)), 0);
+  $('campT').textContent = setup ? 'Get set up' : 'The shop';
   $('campBody').innerHTML = `
+    ${setup ? `<div style="border-left:4px solid var(--sel);padding:8px 10px;border-radius:8px;background:#181d24;font-size:14px;line-height:1.5">
+      <b>Before day 1: this is where you'll be every night.</b><br>1. <b>Crew:</b> your four techs are on shift. Every tech on the roster gets paid each night.<br>
+      2. <b>Materials:</b> every job uses one kit for its skill. No kit and the tech makes a supply-house run (+${RUN_MIN} min, twice the price). Stock up below.<br>3. Start day 1.</div>
+      <button type="button" class="sbtn on" data-stock="1" ${stockCost === 0 || c.cash < stockCost ? 'disabled' : ''}>Stock 3 of each · $${stockCost}</button>` : ''}
     ${guestNote()}
     <div class="camp-cash"><b class="${c.cash < 0 ? 'neg' : ''}">${c.cash < 0 ? '−' : ''}$${Math.abs(c.cash).toLocaleString()}</b><span>in the bank · payroll $${pay.toLocaleString()}/night for ${c.roster.length} tech${c.roster.length === 1 ? '' : 's'}</span></div>
-    <div class="crow"><span class="nm">Sal's Quick Cash <small style="color:var(--muted);font-weight:500">no questions asked</small></span>
+    ${setup ? '' : `<div class="crow"><span class="nm">Sal's Quick Cash <small style="color:var(--muted);font-weight:500">no questions asked</small></span>
       <span class="acts">${c.loan ? `<button type="button" class="sbtn" data-payoff="1" ${c.cash < c.loan.owed ? 'disabled' : ''}>Pay off $${c.loan.owed.toLocaleString()}</button>` : `<button type="button" class="sbtn warn" data-loan="1">Borrow $${LOAN.amount.toLocaleString()}</button>`}</span>
-      <span class="meta">${c.loan ? `You owe $${c.loan.owed.toLocaleString()}. $${LOAN.daily} comes out every night. If it leaves you below zero: a $${LOAN.late} late fee and his guys visit (crew morale −3).` : `Borrow $${LOAN.amount.toLocaleString()}, pay back $${LOAN.owed.toLocaleString()}: $${LOAN.daily} a night, automatically. Late costs $${LOAN.late} and the crew notices.`}</span></div>
+      <span class="meta">${c.loan ? `You owe $${c.loan.owed.toLocaleString()}. $${LOAN.daily} comes out every night. If it leaves you below zero: a $${LOAN.late} late fee and his guys visit (crew morale −3).` : `Borrow $${LOAN.amount.toLocaleString()}, pay back $${LOAN.owed.toLocaleString()}: $${LOAN.daily} a night, automatically. Late costs $${LOAN.late} and the crew notices.`}</span></div>`}
     <h3>Crew · ${onN} of ${MAX_SHIFT} on tomorrow's shift</h3>
     ${c.roster.map((r, i) => `<div class="crow ${r.on ? '' : 'off'}"><span class="nm" style="color:${r.color}">● ${r.name}</span>
       <span class="acts"><button type="button" class="sbtn ${r.on ? 'on' : ''}" data-shift="${i}" ${!r.on && onN >= MAX_SHIFT ? 'disabled' : ''}>${r.on ? 'On shift' : 'Benched'}</button>
       <button type="button" class="sbtn warn" data-fire="${i}" ${c.roster.length <= 1 ? 'disabled' : ''}>${r.confirm ? `Pay $${r.wage} and let go?` : 'Let go'}</button></span>
       <span class="meta">${r.skills.map(chipOf).join(' ')} · $${r.wage}/day · morale <b style="color:${mcol(r.morale)}">${r.morale}</b> <span class="mbar2"><i style="width:${r.morale}%;background:${mcol(r.morale)}"></i></span>${r.dm ? ` (${r.dm > 0 ? '+' : ''}${r.dm})` : ''}${r.morale <= WARN_AT ? ' · close to quitting' : ''}</span></div>`).join('')}
-    <h3>Hire · roster ${c.roster.length} of ${MAX_ROSTER}</h3>
+    ${setup ? '' : `<h3>Hire · roster ${c.roster.length} of ${MAX_ROSTER}</h3>
     ${(c.cands || []).length ? c.cands.map((r, i) => `<div class="crow"><span class="nm" style="color:${r.color}">● ${r.name} <small style="color:var(--muted);font-weight:500">${r.bio.role}, ${r.bio.years} yrs</small></span>
       <span class="acts"><button type="button" class="sbtn" data-hire="${i}" ${c.roster.length >= MAX_ROSTER || c.cash < r.fee ? 'disabled' : ''}>Hire · $${r.fee}</button></span>
-      <span class="meta">${r.skills.map(chipOf).join(' ')} · $${r.wage}/day · morale ${r.morale}${c.cash < r.fee ? ' · not enough cash' : ''}</span></div>`).join('') : '<p class="who">No one else applied today.</p>'}
+      <span class="meta">${r.skills.map(chipOf).join(' ')} · $${r.wage}/day · morale ${r.morale}${c.cash < r.fee ? ' · not enough cash' : ''}</span></div>`).join('') : '<p class="who">No one else applied today.</p>'}`}
     <h3>Materials · one kit per job</h3>
     <div class="mat">${Object.keys(SK).map(k => `<div><span>${chipOf(k)} <span class="q ${(c.inv[k] || 0) === 0 ? 'low' : ''}">${c.inv[k] || 0}</span> on the shelf</span>
       <span style="color:var(--muted);font-size:12px">$${KIT[k]} each · supply house $${KIT[k] * RETAIL}</span>
@@ -948,11 +954,12 @@ $('campBody').addEventListener('click', e => {
   else if (b.dataset.hire) { const r = c.cands[+b.dataset.hire]; if (c.roster.length >= MAX_ROSTER || c.cash < r.fee) return; c.cash -= r.fee; c.cands.splice(+b.dataset.hire, 1); const { fee, ...tech } = r; tech.on = c.roster.filter(x => x.on).length < MAX_SHIFT; c.roster.push(tech); c.news.push(`${r.name} starts today. Show them where the cable lube is.`); }
   else if (b.dataset.loan) { if (c.loan) return; c.loan = { owed: LOAN.owed }; c.cash += LOAN.amount; c.news.push('Sal\'s money is in the account. Don\'t be late.'); }
   else if (b.dataset.payoff) { if (!c.loan || c.cash < c.loan.owed) return; c.cash -= c.loan.owed; c.loan = null; c.news.push('Paid Sal off. Nobody has to see his guys again.'); }
+  else if (b.dataset.stock) { for (const k of Object.keys(SK)) while ((c.inv[k] || 0) < 3 && c.cash >= KIT[k]) { c.cash -= KIT[k]; c.inv[k] = (c.inv[k] || 0) + 1; } }
   else if (b.dataset.buy) { const k = b.dataset.buy, n = +b.dataset.n; if (c.cash < KIT[k] * n) return; c.cash -= KIT[k] * n; c.inv[k] = (c.inv[k] || 0) + n; }
   c.roster.forEach(x => { if (!b.dataset.fire) delete x.confirm; });
   saveCareer(); renderCamp();
 });
-$('campGo').onclick = () => { if (!car.roster.some(r => r.on)) return; car.roster.forEach(x => delete x.confirm); $('campModal').hidden = true; saveCareer(); newDay(); };
+$('campGo').onclick = () => { if (!car.roster.some(r => r.on)) return; car.setup = false; car.roster.forEach(x => delete x.confirm); $('campModal').hidden = true; saveCareer(); newDay(); };
 // Gauge helpers: bar width/colour and a +/− flash when a value changes.
 function gaugeBar(id, v) { const el = $(id); el.style.width = v + '%'; el.style.background = v < 30 ? 'var(--late)' : v < 45 ? 'var(--due)' : ''; }
 const lastVal = {};
@@ -1006,7 +1013,7 @@ $('techs').addEventListener('pointerdown', e => { const ib = e.target.closest('[
 $('speed').onclick = () => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; $('speed').textContent = `Speed ×${speed}`; };
 $('pause').onclick = () => { if (over) { openCamp(); return; } if (callOpen) return; paused = !paused; $('pause').textContent = paused ? 'Resume' : 'Pause'; };
 $('how').onclick = () => { paused = true; $('pause').textContent = over ? 'New day' : 'Resume'; $('howModal').hidden = false; };
-$('howClose').onclick = () => { $('howModal').hidden = true; if (!over && !callOpen) { paused = false; $('pause').textContent = 'Pause'; } };
+$('howClose').onclick = () => { $('howModal').hidden = true; if (!over && !callOpen && $('campModal').hidden) { paused = false; $('pause').textContent = 'Pause'; } };
 
 const tl = $('tl'), tg = tl.getContext('2d');
 const TL = { left: 120, span: 300, rowH: 46, top: 26 };
@@ -1309,7 +1316,8 @@ function loop(now) {
   rAcc += dt; if (rAcc > .25) { rAcc = 0; render(); }
   draw(); drawTimeline(); requestAnimationFrame(loop);
 }
-reset(); morning(); requestAnimationFrame(loop);
+// A new company starts at the shop: pick the shift and stock the shelves before day 1, so it's no surprise later.
+reset(); if (car.setup) openCamp(); else morning(); requestAnimationFrame(loop);
 })();
 </script>
 
